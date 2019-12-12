@@ -75,11 +75,16 @@ groupresp.c_operation_table=[groupresp.c_maintain',groupresp.c_rep_sub',groupres
 face_color=[[0.741176470588235,0,0.0235294117647059];[0.992156862745098,0.317647058823529,0];[1,0.607843137254902,0.141176470588235];[0,0.584313725490196,0.537254901960784];[0,0.525490196078431,0.768627450980392];[0.5,0.5,0.5]];
 
 
-x=1:6;
 data=mean(groupresp.operation_table);
 stderror=std(groupresp.operation_table)/sqrt(length(groupresp.operation_table));
-figure;bar(x,data);
-hold on;errorbar(x,data,stderror,'Color',[0 0 0 ],'LineStyle','none');
+figure;
+hold on;
+for x=1:5
+h=bar(x,data(x));
+set(h,'Facecolor',face_color(x,:));
+end
+x=1:5;
+hold on;errorbar(x,data(1:5),stderror(1:5),'Color',[0 0 0 ],'LineStyle','none');
 title('RT by Operation');
 
 c_data=mean(groupresp.c_operation_table);
