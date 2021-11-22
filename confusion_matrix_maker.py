@@ -19,12 +19,13 @@ import pickle
 
 subs=['02','03','04']
 
-mask_flag = 'PHG' #'vtc'/'wholebrain'/'GM'/'GM_group'/'PHG'/'FG'
+mask_flag = 'vtc' #'vtc'/'wholebrain'/'GM'/'GM_group'/'PHG'/'FG'
 brain_flag = 'T1w'
-TR_shift=6
+TR_shift=5
 ses = 'localizer' #study/localizer/btwnsub
 clear_data=1
 rest='on'
+subcat='on'
 
 if ses=='study':
     ses_label='operation'
@@ -78,6 +79,38 @@ def group_cmatrix(subs):
                     sub_confusion_2=confusion_matrix(sub_dict_true[1],sub_dict_pred[1],normalize='true')            
                     sub_confusion_3=confusion_matrix(sub_dict_true[2],sub_dict_pred[2],normalize='true')
                     sub_confusion_mean=np.mean( np.array([ sub_confusion_1, sub_confusion_2, sub_confusion_3]), axis=0 )
+            elif ((ses=='localizer')&(subcat=='on')):
+                if rest=='off':
+                    if clear_data==0:
+                        sub_dict=pickle.load(open("%s-preremoval_subcategory_rest_%s_%s_%s_%sTR lag_data.pkl" % (sub,rest,brain_flag,mask_flag,TR_shift),'rb'))                      
+                        sub_dict_pred=sub_dict['L2 Predictions (only On)']
+                        sub_dict_true=sub_dict['L2 True (only On)']
+                        sub_confusion_1=confusion_matrix(sub_dict_true[0],sub_dict_pred[0],normalize='true')
+                        sub_confusion_2=confusion_matrix(sub_dict_true[1],sub_dict_pred[1],normalize='true')
+                        sub_confusion_mean=np.mean( np.array([ sub_confusion_1, sub_confusion_2]), axis=0 )
+                    else:
+                        sub_dict=pickle.load(open("%s-preremoval_subcategory_rest_%s_%s_%s_%sTR lag_data_cleaned.pkl" % (sub,rest,brain_flag,mask_flag,TR_shift),'rb'))                      
+                        sub_dict_pred=sub_dict['L2 Predictions (only On)']
+                        sub_dict_true=sub_dict['L2 True (only On)']
+                        sub_confusion_1=confusion_matrix(sub_dict_true[0],sub_dict_pred[0],normalize='true')
+                        sub_confusion_2=confusion_matrix(sub_dict_true[1],sub_dict_pred[1],normalize='true')
+                        sub_confusion_mean=np.mean( np.array([ sub_confusion_1, sub_confusion_2]), axis=0 )     
+                elif rest=='on':
+                    if clear_data==0:
+                        sub_dict=pickle.load(open("%s-preremoval_subcategory_rest_%s_%s_%s_%sTR lag_data.pkl" % (sub,rest,brain_flag,mask_flag,TR_shift),'rb'))                      
+                        sub_dict_pred=sub_dict['L2 Predictions (With Rest)']
+                        sub_dict_true=sub_dict['L2 True (With Rest)']
+                        sub_confusion_1=confusion_matrix(sub_dict_true[0],sub_dict_pred[0],normalize='true')
+                        sub_confusion_2=confusion_matrix(sub_dict_true[1],sub_dict_pred[1],normalize='true')
+                        sub_confusion_mean=np.mean( np.array([ sub_confusion_1, sub_confusion_2]), axis=0 )
+                    else:
+                        sub_dict=pickle.load(open("%s-preremoval_subcategory_rest_%s_%s_%s_%sTR lag_data_cleaned.pkl" % (sub,rest,brain_flag,mask_flag,TR_shift),'rb'))                      
+                        sub_dict_pred=sub_dict['L2 Predictions (With Rest)']
+                        sub_dict_true=sub_dict['L2 True (With Rest)']
+                        sub_confusion_1=confusion_matrix(sub_dict_true[0],sub_dict_pred[0],normalize='true')
+                        sub_confusion_2=confusion_matrix(sub_dict_true[1],sub_dict_pred[1],normalize='true')
+                        sub_confusion_mean=np.mean( np.array([ sub_confusion_1, sub_confusion_2]), axis=0 )
+
        
             elif ses=='localizer':
                 if rest=='off':
@@ -109,7 +142,8 @@ def group_cmatrix(subs):
                         sub_dict_true=sub_dict['L2 True (With Rest)']
                         sub_confusion_1=confusion_matrix(sub_dict_true[0],sub_dict_pred[0],normalize='true')
                         sub_confusion_2=confusion_matrix(sub_dict_true[1],sub_dict_pred[1],normalize='true')
-                        sub_confusion_mean=np.mean( np.array([ sub_confusion_1, sub_confusion_2]), axis=0 )                     
+                        sub_confusion_mean=np.mean( np.array([ sub_confusion_1, sub_confusion_2]), axis=0 )             
+                                 
 
 
             group_mean_confusion.append(sub_confusion_mean)
@@ -119,8 +153,13 @@ if rest=='off':
     labels=['scenes','faces']
     oper_labels=['maintain', 'replace', 'suppress']
 elif rest=='on':
-    labels=['rest','scenes','faces']
-    oper_labels=['rest','maintain', 'replace', 'suppress']    
+    if subcat=='on':
+        labels=['rest','manmade','natural','female','male']
+        oper_labels=['rest','maintain', 'replace', 'suppress']    
+
+    else:
+        labels=['rest','scenes','faces']
+        oper_labels=['rest','maintain', 'replace', 'suppress']    
 
 fig=plt.figure()
 group_mean_confusion=group_cmatrix(subs)
@@ -136,7 +175,13 @@ ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
 plt.tight_layout()
 os.chdir('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/figs')
 if clear_data==0:
-    fig.savefig('%s_xvalidation_rest_%s_%sclassifier_%s_TR%s_%s.png' % (ses,rest,ses_label,brain_flag,TR_shift,mask_flag), dpi=fig.dpi)
+    if subcat=='on':
+        fig.savefig('%s_xvalidation_subcategory_rest_%s_%sclassifier_%s_TR%s_%s.png' % (ses,rest,ses_label,brain_flag,TR_shift,mask_flag), dpi=fig.dpi)
+    else:
+        fig.savefig('%s_xvalidation_rest_%s_%sclassifier_%s_TR%s_%s.png' % (ses,rest,ses_label,brain_flag,TR_shift,mask_flag), dpi=fig.dpi)
 else:
-    fig.savefig('%s_xvalidation_rest_%s_%sclassifier_%s_TR%s_%s_cleaned.png' % (ses,rest,ses_label,brain_flag,TR_shift,mask_flag), dpi=fig.dpi)
+    if subcat=='on':
+        fig.savefig('%s_xvalidation_subcategory_rest_%s_%sclassifier_%s_TR%s_%s_cleaned.png' % (ses,rest,ses_label,brain_flag,TR_shift,mask_flag), dpi=fig.dpi)
+    else:    
+        fig.savefig('%s_xvalidation_rest_%s_%sclassifier_%s_TR%s_%s_cleaned.png' % (ses,rest,ses_label,brain_flag,TR_shift,mask_flag), dpi=fig.dpi)
 plt.show()

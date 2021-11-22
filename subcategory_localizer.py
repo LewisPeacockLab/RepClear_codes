@@ -357,6 +357,7 @@ for TR_shift in TR_shifts:
 
             reg_matrix = pd.read_csv(param_file[0])
             reg_category=reg_matrix["category"].values
+            reg_subcategory=reg_matrix["subcategory"].values
             reg_stim_on=reg_matrix["stim_present"].values
             reg_run=reg_matrix["run"].values
 
@@ -375,7 +376,11 @@ for TR_shift in TR_shifts:
             stim_list=reg_category
             #this list is now 1d list, need to add a dimentsionality to it
             stim_list=stim_list[:,None]
-            stim_on=stim_on[:,None]         
+            stim_on=stim_on[:,None]  
+
+            stim_subcat_list=np.empty(len(localizer_bold))
+            stim_subcat_list=reg_subcategory
+            stim_subcat_list=stim_subcat_list[:,None]
 
                 # Create a function to shift the size, and will do the rest tag
             def shift_timing(label_TR, TR_shift_size, tag):
@@ -394,34 +399,36 @@ for TR_shift in TR_shifts:
             tag = 0 #rest label is 0
             stim_list_shift = shift_timing(stim_list, shift_size, tag) #rest is label 0
             stim_on_shift= shift_timing(stim_on, shift_size, tag)
-            import random
+            stim_subcat_shift=shift_timing(stim_subcat_list, shift_size, tag)
             
             #Here I need to balance the trials of the categories / rest. I will be removing rest, but Scenes have twice the data of faces, so need to decide how to handle
             rest_times=np.where(stim_list_shift==0)
             rest_times_on=np.where(stim_on_shift==0)
             #these should be the same, but doing it just in case
 
-            rest_btwn_stims=np.where((stim_on_shift==2) & ((stim_list_shift==1) | (stim_list_shift==2)))
-            rest_btwn_stims_filt=rest_btwn_stims[0][2::6] # start at the 3rd index and then take each 6th item from this list of indicies
-            #this above line results in 180 samples, we need to bring it down to 120 to match the samples of faces (minimum samples)
-            #this works well with the current situation since we are not using the last 2 runs in the x-validation because of uneven samples
+
 
             # this condition is going to be rebuild to include the resting times, so that the two versions being tested are stimuli on alone and then stimuli on + balanced amount of rest
+
+            temp_shift=np.full(len(stim_list_shift),0)
+            temp_shift[np.where((stim_on_shift==1) & (stim_list_shift==1) & (stim_subcat_shift==1))]=1 #label manmade scenes as 1
+            temp_shift[np.where((stim_on_shift==1) & (stim_list_shift==1) & (stim_subcat_shift==2))]=2 #label natural scenes as 2
+            temp_shift[np.where((stim_on_shift==1) & (stim_list_shift==2) & (stim_subcat_shift==1))]=3 #label female faces as 3
+            temp_shift[np.where((stim_on_shift==1) & (stim_list_shift==2) & (stim_subcat_shift==2))]=4 #label male faces as 4
+
             stims_on=np.where((stim_on_shift==1) & ((stim_list_shift==1) | (stim_list_shift==2))) #get times where stims are on
-            temp_shift=stim_list_shift
+
+            rest_btwn_stims=np.where((stim_on_shift==2) & ((stim_list_shift==1) | (stim_list_shift==2)))
+            rest_btwn_stims_filt=rest_btwn_stims[0][2::12] # start at the 3rd index and then take each 12th item from this list of indicies
+            #this above line results in 90 samples, we need to bring it down to 60 to match the samples of faces (minimum samples)
+            #this works well with the current situation since we are not using the last 2 runs in the x-validation because of uneven samples
             temp_shift[rest_btwn_stims_filt]=0 #using the targeted rest times, I am setting them to 0 (rest's label) since for now they are still labeled as the category of that trial
+
             stims_and_rest=np.concatenate((rest_btwn_stims_filt,stims_on[0])) #these are all the events we need, faces(120), scenes(240) and rest(180)
             stims_and_rest.sort() #put this in order so we can sample properly
             stim_on_rest=temp_shift[stims_and_rest]
             localizer_bold_stims_and_rest=localizer_bold[stims_and_rest]
             run_list_stims_and_rest=run_list[stims_and_rest]
-
-            #sorted only for stimuli being on
-            stim_on_filt=stim_list_shift[np.where((stim_on_shift==1) & ((stim_list_shift==1) | (stim_list_shift==2)))]
-            stim_on_filt=stim_on_filt.flatten()
-            #stim_on_filt=stim_on_filt[:,None] #this seems unneeded at the moment
-            localizer_bold_on_filt=localizer_bold[np.where((stim_on_shift==1) & ((stim_list_shift==1) | (stim_list_shift==2)))]
-            run_list_on_filt=run_list[np.where((stim_on_shift==1) & ((stim_list_shift==1) | (stim_list_shift==2)))]
 
             #for now I have the Classifier taking the first 4 runs and doing a 50/50 split. I could add another wrinkle here where the runs 3 & 4 get swapped out for 5 & 6 and add another iteration
             #but it doesnt seem to change anything, and then when I use this I am training on all the data anyhow
@@ -438,37 +445,12 @@ for TR_shift in TR_shifts:
                 for train_index, test_index in ps.split(data,labels,groups):
                     X_train, X_test = data[train_index], data[test_index]
                     y_train, y_test = labels[train_index], labels[test_index]
-                    print('Training labels: %s ' % y_train)
-                    print('rest: %s vs. scenes: %s vs. faces: %s' % ((sum(y_train==0)),(sum(y_train==1)),(sum(y_train==2))))
-                    print('Testing labels: %s ' % y_test)
-                    print('rest: %s vs. scenes: %s vs. faces: %s' % ((sum(y_test==0)),(sum(y_test==1)),(sum(y_test==2))))
-
 
                     #selectedvoxels=SelectKBest(f_classif,k=7500).fit(X_train,y_train)
                     selectedvoxels=SelectFpr(f_classif,alpha=0.01).fit(X_train,y_train) #I compared this method to taking ALL k items in the F-test and filtering by p-value, so I assume this is a better feature selection method
 
                     X_train=selectedvoxels.transform(X_train)
                     X_test=selectedvoxels.transform(X_test)
-
-                    #for now I have removed the inner classifier training to see if this is causing any effect on the data
-
-                    #train_run_ids=run_labels[train_index]
-                    #using LOGO again, so need to create a new grouping:
-                    # group1=np.full(int(train_index.size/4),1)
-                    # group2=np.full(int(train_index.size/4),2)
-                    # groups_train=np.hstack((group1,group2,group1,group2)) 
-
-                    # print('Training Run IDs: %s' % groups_train)
-                    # sp_train=LeaveOneGroupOut()
-                    # parameters ={'C':[0.01,0.1,1,10,100,1000]}
-                    # inner_clf = GridSearchCV(
-                    #     LogisticRegression(penalty='l2', solver='liblinear'),
-                    #     parameters,
-                    #     cv=sp_train,
-                    #     return_train_score=True)
-                    # inner_clf.fit(X_train,y_train,groups_train)
-                    # C_best_i = inner_clf.best_params_['C']
-                    # C_best.append(C_best_i)
 
                 # fit model
                     if rest=='on':
@@ -640,11 +622,11 @@ for TR_shift in TR_shifts:
             import pickle
             os.chdir(os.path.join(container_path,sub))
             if clear_data==0:
-                f = open("%s-preremoval_rest_%s_%s_%s_%sTR lag_data.pkl" % (sub,rest,brain_flag,mask_flag,TR_shift),"wb")
+                f = open("%s-preremoval_subcategory_rest_%s_%s_%s_%sTR lag_data.pkl" % (sub,rest,brain_flag,mask_flag,TR_shift),"wb")
                 pickle.dump(output_table,f)
                 f.close()
             else:
-                f = open("%s-preremoval_rest_%s_%s_%s_%sTR lag_data_cleaned.pkl" % (sub,rest,brain_flag,mask_flag,TR_shift),"wb")
+                f = open("%s-preremoval_subcategory_rest_%s_%s_%s_%sTR lag_data_cleaned.pkl" % (sub,rest,brain_flag,mask_flag,TR_shift),"wb")
                 pickle.dump(output_table,f)
                 f.close()
 
