@@ -25,6 +25,7 @@ from nilearn.image import clean_img
 from nilearn.signal import clean
 from scipy import stats
 from sklearn import preprocessing
+from sklearn.metrics import roc_auc_score
 
 subs=['02','03','04']
 
@@ -35,6 +36,16 @@ brain_flag='T1w'
 mask_flag='vtc'
 
 clear_data=1 #0 off / 1 on
+force_clean=1
+
+def confound_cleaner(confounds):
+    COI = ['a_comp_cor_00','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
+    for _c in confounds.columns:
+        if 'cosine' in _c:
+            COI.append(_c)
+    confounds = confounds[COI]
+    confounds.loc[0,'framewise_displacement'] = confounds.loc[1:,'framewise_displacement'].mean()
+    return confounds  
 
 for num in range(len(subs)):
     sub_num=subs[num]
@@ -287,7 +298,7 @@ for num in range(len(subs)):
             #save this data if we didn't have it saved before
             os.chdir(bold_path)
             np.save('sub-0%s_%s_preremoval_%s_masked_cleaned' % (sub_num,brain_flag,mask_flag), localizer_bold)
-            print('%s %s masked and cleaned data...saved' % (mask_flag,brain_flag))
+            print('%s %s masked and cleaned localizer data...saved' % (mask_flag,brain_flag))
            
     #fill in the run array with run number
     run1=np.full(run1_length,1)
@@ -466,7 +477,7 @@ for num in range(len(subs)):
             run2_length=int((len(study_run2)))
             run3_length=int((len(study_run3)))
     else: 
-        if os.path.exists(os.path.join(bold_path,'sub-0%s_%s_study_%s_masked_cleaned.npy' % (sub_num,brain_flag,mask_flag))):
+        if (os.path.exists(os.path.join(bold_path,'sub-0%s_%s_study_%s_masked_cleaned.npy' % (sub_num,brain_flag,mask_flag))) & (force_clean==0)):
             
             study_bold=np.load(os.path.join(bold_path,'sub-0%s_%s_study_%s_masked_cleaned.npy' % (sub_num,brain_flag,mask_flag)))
             print('%s %s study Loaded...' % (brain_flag,mask_flag))
@@ -521,16 +532,16 @@ for num in range(len(subs)):
                 study_run2=apply_mask(mask=(gm_mask.get_data()),target=(study_run2.get_data()))
                 study_run3=apply_mask(mask=(gm_mask.get_data()),target=(study_run3.get_data()))                        
 
-            preproc_1 = clean(study_run1,confounds=(confound_run1),t_r=1,detrend=False,standardize='zscore',confounds=confound_run1)
-            preproc_2 = clean(study_run2,confounds=(confound_run2),t_r=1,detrend=False,standardize='zscore',confounds=confound_run2)
-            preproc_3 = clean(study_run3,confounds=(confound_run3),t_r=1,detrend=False,standardize='zscore',confounds=confound_run3)
+            preproc_1 = clean(study_run1,confounds=(confound_run1),t_r=1,detrend=False,standardize='zscore')
+            preproc_2 = clean(study_run2,confounds=(confound_run2),t_r=1,detrend=False,standardize='zscore')
+            preproc_3 = clean(study_run3,confounds=(confound_run3),t_r=1,detrend=False,standardize='zscore')
 
 
             study_bold=np.concatenate((preproc_1,preproc_2,preproc_3))
             #save this data if we didn't have it saved before
             os.chdir(bold_path)
             np.save('sub-0%s_%s_study_%s_masked_cleaned' % (sub_num,brain_flag,mask_flag), study_bold)
-            print('%s %s masked & cleaned data...saved' % (mask_flag,brain_flag))
+            print('%s %s masked and cleaned Study data...saved' % (mask_flag,brain_flag))
 
     params_dir='/scratch1/06873/zbretton/repclear_dataset/BIDS/params'
     #find the mat file, want to change this to fit "sub"
@@ -565,10 +576,10 @@ for num in range(len(subs)):
 
     study_stim_list=study_stim_list[:,None]          
 
-    #trim the training to the first 4 localizer runs, to match samples
-    run1_4=np.where((run_list_on_filt<=2)|(run_list_on_filt>=5))
-    localizer_bold_14=localizer_bold_on_filt[run1_4]
-    stim_on_14=stim_on_filt[run1_4]  
+    #trim the training to the first 4 localizer runs, to match samples and with rest
+    run1_4=np.where((run_list_stims_and_rest<=2)|(run_list_stims_and_rest>=5))
+    localizer_bold_14=localizer_bold_stims_and_rest[run1_4]
+    stim_on_14=stim_on_rest[run1_4]  
 
     #do a L2 estimator
     def CLF(train_data, train_labels, test_data, test_labels, k_best):
@@ -598,23 +609,25 @@ for num in range(len(subs)):
 
         evidence=(1. / (1. + np.exp(-clf.decision_function(X_test))))
         evidences.append(evidence)
-        predict_prob=L2_out.predict_proba(X_test)
+        predict_prob=clf.predict_proba(X_test)
         predict_probs.append(predict_prob)
-        sig_score=roc_auc_score(true,L2_out.predict_proba(X_test), multi_class='ovr')
-        sig_scores.append(sig_score)        
+     
         
         # score the model, but we care more about values
         score=clf.score(X_test, y_test)
         predict = clf.predict(X_test)
         predicts.append(predict)
         true = y_test
+
+        #sig_score=roc_auc_score(true,clf.predict_proba(X_test), multi_class='ovr')
+        #sig_scores.append(sig_score)           
         scores.append(score)
         trues.append(true)
-        return clf, scores, predicts, trues, decisions, evidence, sig_scores, predict_probs
+        return clf, scores, predicts, trues, decisions, evidence, predict_probs
 
 #    L2_models_nr, L2_scores_nr, L2_predicts_nr, L2_trues_nr, L2_decisions_nr, L2_evidence_nr = CLF(localizer_bold_on_filt, stim_on_filt, study_bold, study_stim_list, 1500)
 #    L2_subject_score_nr_mean = np.mean(L2_scores_nr)                                        
-    L2_models, L2_scores, L2_predicts, L2_trues, L2_decisions, L2_evidence, L2_sig_score, L2_predict_probs = CLF(localizer_bold_14, stim_on_14, study_bold, study_stim_list, 3000)
+    L2_models, L2_scores, L2_predicts, L2_trues, L2_decisions, L2_evidence, L2_predict_probs = CLF(localizer_bold_14, stim_on_14, study_bold, study_stim_list, 3000)
     L2_subject_score_mean = np.mean(L2_scores) 
 
 
@@ -633,7 +646,6 @@ for num in range(len(subs)):
 
         "CLF Operation Trues" : L2_trues,
         "CLF Predict Probs" : L2_predict_probs,
-        "CLF ROC/AUC" : L2_sig_score,
         "CLF Score" : L2_scores,
         "CLF Predictions" : L2_predicts,
         "CLF True" : L2_trues,
