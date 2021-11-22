@@ -7,6 +7,7 @@ from nilearn.glm.second_level import SecondLevelModel
 import os
 import fnmatch
 import numpy as np
+import pandas as pd
 
 subs=['02','03','04']
 brain_flag='T1w'
@@ -30,6 +31,16 @@ def confound_cleaner(confounds):
     confounds.loc[0,'framewise_displacement'] = confounds.loc[1:,'framewise_displacement'].mean()
     return confounds    
 
+    #find the proper nii.gz files
+def find(pattern, path): #find the pattern we're looking for
+    result = []
+    for root, dirs, files in os.walk(path):
+        for name in files:
+            if fnmatch.fnmatch(name, pattern):
+                result.append(os.path.join(root, name))
+        return result
+
+
 
 for num in range(len(subs)):
 
@@ -44,15 +55,6 @@ for num in range(len(subs)):
     os.chdir(bold_path)
   
     #set up the path to the files and then moved into that directory
-    
-    #find the proper nii.gz files
-    def find(pattern, path): #find the pattern we're looking for
-        result = []
-        for root, dirs, files in os.walk(path):
-            for name in files:
-                if fnmatch.fnmatch(name, pattern):
-                    result.append(os.path.join(root, name))
-            return result
 
     localizer_files=find('*preremoval*bold*.nii.gz',bold_path)
     wholebrain_mask_path=find('*preremoval*mask*.nii.gz',bold_path)
@@ -114,12 +116,12 @@ for num in range(len(subs)):
     localizer_confounds=pd.concat([confound_run1,confound_run2,confound_run3,confound_run4,confound_run5,confound_run6], ignore_index=False)  
 
     #get run list so I can clean the data across each of the runs
-    run1_length=int((img.get_data().shape[3])/6)
-    run2_length=int((img.get_data().shape[3])/6)
-    run3_length=int((img.get_data().shape[3])/6)
-    run4_length=int((img.get_data().shape[3])/6)
-    run5_length=int((img.get_data().shape[3])/6)
-    run6_length=int((img.get_data().shape[3])/6)
+    run1_length=int((img.get_fdata().shape[3])/6)
+    run2_length=int((img.get_fdata().shape[3])/6)
+    run3_length=int((img.get_fdata().shape[3])/6)
+    run4_length=int((img.get_fdata().shape[3])/6)
+    run5_length=int((img.get_fdata().shape[3])/6)
+    run6_length=int((img.get_fdata().shape[3])/6)
 
     run1=np.full(run1_length,1)
     run2=np.full(run2_length,2)
@@ -132,10 +134,10 @@ for num in range(len(subs)):
     #clean data ahead of the GLM
     img_clean=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore',confounds=localizer_confounds)
     '''load in the denoised bold data and events file'''
-    events = pd.read_csv(os.path.join(container_path,'task-preremoval_events.tsv'),sep='\t')        
+    events = pd.read_csv('/scratch1/06873/zbretton/repclear_dataset/BIDS/task-preremoval_events.tsv',sep='\t')        
 
     '''initialize and fit the GLM'''
-    model = FirstLevelModel(t_r=1,slice_time_ref=.5,hrf_model='glover',
+    model = FirstLevelModel(t_r=1,hrf_model='glover',
                             drift_model=None,high_pass=None,mask_img=vtc_mask,signal_scaling=False,
                             smoothing_fwhm=6,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch1/06873/zbretton/nilearn_cache',memory_level=1)
 
@@ -146,12 +148,12 @@ for num in range(len(subs)):
 
     '''define the contrasts - the order of trial types is stored in model.design_matrices_[0].columns
        pad_contrast() adds 0s to the end of a vector in the case that other regressors are modeled, but not included in the primary contrasts'''
-
-    contrasts = {'faces':             pad_contrast([1,-1],  n_columns),
-                 'scenes':               pad_contrast([-1,1],  n_columns)}
+       #order is: faces, rest, scenes 
+    contrasts = {'faces':             pad_contrast([2,-1,-1,0],  n_columns),
+                 'scenes':               pad_contrast([-1,-1,2,0],  n_columns)}
 
     '''point to and if necessary create the output folder'''
-    out_folder = os.path,join(container_path,sub,'preremoval_lvl1')
+    out_folder = os.path.join(container_path,sub,'preremoval_lvl1')
     if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
 
     '''compute and save the contrasts'''
@@ -160,7 +162,7 @@ for num in range(len(subs)):
         nib.save(z_map,os.path.join(out_folder,f'{contrast}_zmap.nii.gz'))
 
 
-def lvl2(subs=[],ses=None,task=None):
+#def lvl2(subs=[],ses=None,task=None):
 
     contrasts = ['faces','scenes']
 
