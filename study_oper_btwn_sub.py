@@ -33,10 +33,10 @@ from sklearn.metrics import roc_auc_score
 
 subs=['02','03','04']
 
-TR_shifts=[5,6]
+TR_shifts=[6] #[5,6]
 brain_flag='MNI' #MNI/T1w
 
-masks=['wholebrain'] #wholebrain/vtc
+masks=['GM_group'] #wholebrain/vtc/GM
 #masks=['vtc']
 
 clear_data=1 #0 off / 1 on
@@ -70,6 +70,9 @@ for TR_shift in TR_shifts:
 
             bold_files=find('*study*bold*.nii.gz',bold_path)
             wholebrain_mask_path=find('*study*mask*.nii.gz',bold_path)
+            anat_path=os.path.join(container_path,sub,'anat/')
+            gm_mask_path=find('*GM_MNI_mask*',container_path)
+            gm_mask=nib.load(gm_mask_path[0])            
             
             if brain_flag=='MNI':
                 pattern = '*MNI*'
@@ -133,6 +136,10 @@ for TR_shift in TR_shifts:
                         study_run1=apply_mask(mask=(vtc_mask.get_data()),target=(study_run1.get_data()))
                         study_run2=apply_mask(mask=(vtc_mask.get_data()),target=(study_run2.get_data()))
                         study_run3=apply_mask(mask=(vtc_mask.get_data()),target=(study_run3.get_data()))
+                    elif mask_flag=='GM_group':
+                        study_run1=apply_mask(mask=(gm_mask.get_data()),target=(study_run1.get_data()))
+                        study_run2=apply_mask(mask=(gm_mask.get_data()),target=(study_run2.get_data()))
+                        study_run3=apply_mask(mask=(gm_mask.get_data()),target=(study_run3.get_data()))                        
 
                     preproc_1 = clean(study_run1,t_r=1,detrend=False,standardize='zscore')
                     preproc_2 = clean(study_run2,t_r=1,detrend=False,standardize='zscore')
@@ -199,6 +206,10 @@ for TR_shift in TR_shifts:
                         study_run1=apply_mask(mask=(vtc_mask.get_data()),target=(study_run1.get_data()))
                         study_run2=apply_mask(mask=(vtc_mask.get_data()),target=(study_run2.get_data()))
                         study_run3=apply_mask(mask=(vtc_mask.get_data()),target=(study_run3.get_data()))
+                    elif mask_flag=='GM_group':
+                        study_run1=apply_mask(mask=(gm_mask.get_data()),target=(study_run1.get_data()))
+                        study_run2=apply_mask(mask=(gm_mask.get_data()),target=(study_run2.get_data()))
+                        study_run3=apply_mask(mask=(gm_mask.get_data()),target=(study_run3.get_data()))                        
 
                     preproc_1 = clean(study_run1,confounds=(confound_run1.iloc[:,:31]),t_r=1,detrend=False,standardize='zscore')
                     preproc_2 = clean(study_run2,confounds=(confound_run2.iloc[:,:31]),t_r=1,detrend=False,standardize='zscore')
@@ -225,9 +236,9 @@ for TR_shift in TR_shifts:
         sub_study_bold=np.concatenate((study_bold_sub1,study_bold_sub2,study_bold_sub3))
 
         #fill in the run array with run number
-        run1=np.full(study_bold_sub1,1)
-        run2=np.full(study_bold_sub2,2)
-        run3=np.full(study_bold_sub3,3)
+        run1=np.full(study_bold_sub1.shape[0],1)
+        run2=np.full(study_bold_sub2.shape[0],2)
+        run3=np.full(study_bold_sub3.shape[0],3)
 
         run_list=np.concatenate((run1,run2,run3)) #now combine
 
@@ -307,8 +318,8 @@ for TR_shift in TR_shifts:
 
 
         sub_stim_list_nr=np.delete(sub_stim_list, rest_times)
-        sub_stim_list_nr=stim_list_nr.flatten()
-        sub_stim_list_nr=stim_list_nr[:,None]
+        sub_stim_list_nr=sub_stim_list_nr.flatten()
+        sub_stim_list_nr=sub_stim_list_nr[:,None]
         sub_study_bold_nr=np.delete(sub_study_bold, rest_times, axis=0)
         run_list_nr=np.delete(run_list, rest_times)
 
@@ -383,15 +394,15 @@ for TR_shift in TR_shifts:
         
         for i in range(n_iters):
             clf_score_i = np.array([])
-            permuted_labels = np.random.permutation(stim_list_nr)
+            permuted_labels = np.random.permutation(sub_stim_list_nr)
             for train, test in sp.split():
         
                 # Pull out the sample data
-                train_data = study_bold_nr[train, :]
-                test_data = study_bold_nr[test, :]
+                train_data = sub_study_bold_nr[train, :]
+                test_data = sub_study_bold_nr[test, :]
                 
                 # Do voxel selection on all voxels
-                selected_voxels = SelectKBest(f_classif,k=2000).fit(train_data,stim_list_nr[train])
+                selected_voxels = SelectKBest(f_classif,k=2000).fit(train_data,sub_stim_list_nr[train])
         
                 # Train and test the classifier
                 classifier = LinearSVC()
@@ -403,7 +414,6 @@ for TR_shift in TR_shifts:
         
         print('done!')
         print('----------------------------------')
-        print('Data summary: Sub-0%s' % sub_num)
         print('TR Shift: %s' % TR_shift)            
         # print('Random Stim-Label score: %s' % clf_score)
         print('Random Operation Label score: %s' % clf_score)        
@@ -414,6 +424,8 @@ for TR_shift in TR_shifts:
     #need to save an output per subject here
         print('saving data...')
         output_table = {
+            "random score": clf_score,
+
             "L2 Average Scores (No Rest)" : L2_subject_score_mean_nr,
             "L2 Model (No Rest)" : L2_models_nr,
             "L2 Raw Scores (No Rest)" : L2_scores_nr,
@@ -423,7 +435,7 @@ for TR_shift in TR_shifts:
             "L2 True (No Rest)" : L2_trues_nr,
             "L2 Costs (No Rest)" : L2_costs_nr,
 
-            "Class List (No Rest)" : stim_list_nr,
+            "Class List (No Rest)" : sub_stim_list_nr,
 
             "L2 Evidence (No Rest)" : L2_evidence_nr,            
             
@@ -435,12 +447,12 @@ for TR_shift in TR_shifts:
         import pickle
         if clear_data==0:
             os.chdir(os.path.join(container_path))
-            f = open("%s-btwnsuboperation_%s_%s_%sTR lag_data.pkl" % (brain_flag,mask_flag,TR_shift),"wb")
+            f = open("btwnsuboperation_%s_%s_%sTR lag_data.pkl" % (brain_flag,mask_flag,TR_shift),"wb")
             pickle.dump(output_table,f)
             f.close()
         else:
             os.chdir(os.path.join(container_path))
-            f = open("%s-btwnsuboperation_%s_%s_%sTR lag_data_cleaned.pkl" % (brain_flag,mask_flag,TR_shift),"wb")
+            f = open("btwnsuboperation_%s_%s_%sTR lag_data_cleaned.pkl" % (brain_flag,mask_flag,TR_shift),"wb")
             pickle.dump(output_table,f)
             f.close()                            
         print('data saved!')

@@ -638,10 +638,10 @@ for num in range(len(subs)):
         "CLF Predictions" : L2_predicts,
         "CLF True" : L2_trues,
 
-        "Category List Shifted w/o Rest" : stim_on_filt,
+        "Category List Shifted w/ Rest" : stim_on_filt,
         "Operation List": study_stim_list,
         
-        "Localizer Shifted w/o Rest": localizer_bold_on_filt,
+        "Localizer Shifted w/ Rest": localizer_bold_on_filt,
         
         }
     

@@ -4,6 +4,12 @@ from nilearn.image import mean_img, get_data, threshold_img, new_img_like, clean
 from nilearn.glm.first_level import FirstLevelModel
 #from nilearn import plotting
 from nilearn.glm.second_level import SecondLevelModel
+import os
+import fnmatch
+import numpy as np
+
+subs=['02','03','04']
+brain_flag='T1w'
 
 
 def mkdir(path,local=False):
@@ -15,129 +21,148 @@ def pad_contrast(contrast_, n_columns):
     """A small routine to append zeros in contrast vectors"""
     return np.hstack((contrast_, np.zeros(n_columns - len(contrast_))))
 
-def run_lvl1(subs=[],ses_list=[]):
-    for sub in bar(subs):
-        for task in tasks:
-            for ses in tasks[task]['ses']:
-                if ses in ses_list:
-                    lvl1(sub,ses,task)
+def confound_cleaner(confounds):
+    COI = ['a_comp_cor_00','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
+    for _c in confounds.columns:
+        if 'cosine' in _c:
+            COI.append(_c)
+    confounds = confounds[COI]
+    confounds.loc[0,'framewise_displacement'] = confounds.loc[1:,'framewise_displacement'].mean()
+    return confounds    
 
-def lvl1(sub,ses=None,task=None):
-    '''object that returns useful relative paths'''
-    subj = bids_meta(sub)
 
+for num in range(len(subs)):
+
+    sub_num=subs[num]
+
+    print('Running sub-0%s...' %sub_num)
+    #define the subject
+    sub = ('sub-0%s' % sub_num)
+    container_path='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
+  
+    bold_path=os.path.join(container_path,sub,'func/')
+    os.chdir(bold_path)
+  
+    #set up the path to the files and then moved into that directory
+    
+    #find the proper nii.gz files
+    def find(pattern, path): #find the pattern we're looking for
+        result = []
+        for root, dirs, files in os.walk(path):
+            for name in files:
+                if fnmatch.fnmatch(name, pattern):
+                    result.append(os.path.join(root, name))
+            return result
+
+    localizer_files=find('*preremoval*bold*.nii.gz',bold_path)
+    wholebrain_mask_path=find('*preremoval*mask*.nii.gz',bold_path)
+    
+    if brain_flag=='MNI':
+        pattern = '*MNI*'
+        pattern2= '*MNI152NLin2009cAsym*preproc*'
+        brain_mask_path = fnmatch.filter(wholebrain_mask_path,pattern)
+        localizer_files = fnmatch.filter(localizer_files,pattern2)
+    elif brain_flag=='T1w':
+        pattern = '*T1w*'
+        pattern2 = '*T1w*preproc*'
+        brain_mask_path = fnmatch.filter(wholebrain_mask_path,pattern)
+        localizer_files = fnmatch.filter(localizer_files,pattern2)
+        
+    brain_mask_path.sort()
+    localizer_files.sort()
+    vtc_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_preremoval_%s_mask.nii.gz' % brain_flag)
+    
+        
+    vtc_mask=nib.load(vtc_mask_path)   
+
+    img=nib.concat_images(localizer_files,axis=3)
+
+    # localizer_run1=nib.load(localizer_files[0])
+    # localizer_run2=nib.load(localizer_files[1])
+    # localizer_run3=nib.load(localizer_files[2])
+    # localizer_run4=nib.load(localizer_files[3])
+    # localizer_run5=nib.load(localizer_files[4])
+    # localizer_run6=nib.load(localizer_files[5]) 
+
+      
+    #to be used to filter the data
+    #First we are removing the confounds
+    #get all the folders within the bold path
+    #confound_folders=[x[0] for x in os.walk(bold_path)]
+    localizer_confounds_1=find('*preremoval*1*confounds*.tsv',bold_path)
+    localizer_confounds_2=find('*preremoval*2*confounds*.tsv',bold_path)
+    localizer_confounds_3=find('*preremoval*3*confounds*.tsv',bold_path)
+    localizer_confounds_4=find('*preremoval*4*confounds*.tsv',bold_path)
+    localizer_confounds_5=find('*preremoval*5*confounds*.tsv',bold_path)
+    localizer_confounds_6=find('*preremoval*6*confounds*.tsv',bold_path)
+
+    
+    confound_run1 = pd.read_csv(localizer_confounds_1[0],sep='\t')
+    confound_run2 = pd.read_csv(localizer_confounds_2[0],sep='\t')
+    confound_run3 = pd.read_csv(localizer_confounds_3[0],sep='\t')
+    confound_run4 = pd.read_csv(localizer_confounds_4[0],sep='\t')
+    confound_run5 = pd.read_csv(localizer_confounds_5[0],sep='\t')
+    confound_run6 = pd.read_csv(localizer_confounds_6[0],sep='\t')            
+
+    confound_run1=confound_cleaner(confound_run1)
+    confound_run2=confound_cleaner(confound_run2)
+    confound_run3=confound_cleaner(confound_run3)
+    confound_run4=confound_cleaner(confound_run4)
+    confound_run5=confound_cleaner(confound_run5)
+    confound_run6=confound_cleaner(confound_run6)   
+    
+    localizer_confounds=pd.concat([confound_run1,confound_run2,confound_run3,confound_run4,confound_run5,confound_run6], ignore_index=False)  
+
+    #get run list so I can clean the data across each of the runs
+    run1_length=int((img.get_data().shape[3])/6)
+    run2_length=int((img.get_data().shape[3])/6)
+    run3_length=int((img.get_data().shape[3])/6)
+    run4_length=int((img.get_data().shape[3])/6)
+    run5_length=int((img.get_data().shape[3])/6)
+    run6_length=int((img.get_data().shape[3])/6)
+
+    run1=np.full(run1_length,1)
+    run2=np.full(run2_length,2)
+    run3=np.full(run3_length,3)
+    run4=np.full(run4_length,4)
+    run5=np.full(run5_length,5)    
+    run6=np.full(run6_length,6)    
+
+    run_list=np.concatenate((run1,run2,run3,run4,run5,run6))    
+    #clean data ahead of the GLM
+    img_clean=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore',confounds=localizer_confounds)
     '''load in the denoised bold data and events file'''
-    if task == 'localizer':
-        img = [nib.load(path(subj.denoised,f'{subj.fsub}_ses-1_task-localizer_run-{run}_space-MNI152NLin2009cAsym_res-2_desc-preproc_denoised_bold.nii.gz')) for run in [1,2]]
-        events = [pd.read_csv(path(subj.timing,'ses-1','func',f'{subj.fsub}_ses-1_task-localizer_run-{run}_events.tsv'),sep='\t') for run in [1,2]]
-        events = [df[df.trial_type!='rest'].reset_index(drop=True) for df in events]        
-    else:
-        img = nib.load(path(subj.denoised,f'{subj.fsub}_ses-{ses}_task-{task}_space-MNI152NLin2009cAsym_res-2_desc-preproc_denoised_bold.nii.gz'))
-        events = pd.read_csv(path(subj.timing,f'ses-{ses}','func',f'{subj.fsub}_ses-{ses}_task-{task}_events.tsv'),sep='\t')
-
-    if ses > 1:
-        events.trial_type = events.trial_type + '_' + events.half
-
-    if task == 'acquisition':
-        events.shock = events.shock.astype(bool)
-
-        for i in range(events.shape[0]):
-            onset, duration, trial_type, shock = events.loc[i,['onset','duration','trial_type','shock']]
- 
-            if shock: 
-                new_row = {'onset': (onset+duration), 'duration': 0, 'trial_type':'US'}
-                events = events.append(new_row, ignore_index=True)
-
-        events = events.sort_values(by='onset').reset_index(drop=True)
+    events = pd.read_csv(os.path.join(container_path,'task-preremoval_events.tsv'),sep='\t')        
 
     '''initialize and fit the GLM'''
     model = FirstLevelModel(t_r=1,slice_time_ref=.5,hrf_model='glover',
-                            drift_model=None,high_pass=None,mask_img=subj.refvol_mask,signal_scaling=False,
-                            smoothing_fwhm=6,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch1/05426/ach3377/nilearn_cache',memory_level=1)
-    
-    model.fit(run_imgs=img,events=events,confounds=None)
+                            drift_model=None,high_pass=None,mask_img=vtc_mask,signal_scaling=False,
+                            smoothing_fwhm=6,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch1/06873/zbretton/nilearn_cache',memory_level=1)
+
+    model.fit(run_imgs=img_clean,events=events,confounds=None)
 
     '''grab the number of regressors in the model'''
     n_columns = model.design_matrices_[0].shape[-1]
-    
+
     '''define the contrasts - the order of trial types is stored in model.design_matrices_[0].columns
        pad_contrast() adds 0s to the end of a vector in the case that other regressors are modeled, but not included in the primary contrasts'''
-    if ses > 1:
 
-        contrasts = {'early_CS+_vs_CS-':   pad_contrast([1,0,1,0,-2,0],  n_columns),
-                     'early_CS-_vs_CS+':   pad_contrast([-1,0,-1,0,2,0], n_columns),
-                     'early_CS+E_vs_CS-':  pad_contrast([1,0,0,0,-1,0],  n_columns),
-                     'early_CS+U_vs_CS-':  pad_contrast([0,0,1,0,-1,0],  n_columns),
-                     'early_CS+E_vs_CS+U': pad_contrast([1,0,-1,0,0,0],  n_columns),
-                     'early_CS+E':         pad_contrast([1,0,0,0,0,0],   n_columns),
-                     'early_CS+U':         pad_contrast([0,0,1,0,0,0],   n_columns),
-                     'early_CS-':          pad_contrast([0,0,0,0,1,0],   n_columns),
-                     'late_CS+_vs_CS-':    pad_contrast([0,1,0,1,0,-2],  n_columns),
-                     'late_CS-_vs_CS+':    pad_contrast([0,-1,0,-1,0,2], n_columns),
-                     'late_CS+E_vs_CS-':   pad_contrast([0,1,0,0,0,-1],  n_columns),
-                     'late_CS+U_vs_CS-':   pad_contrast([0,0,0,1,0,-1],  n_columns),
-                     'late_CS+E_vs_CS+U':  pad_contrast([0,1,0,1,0,0],   n_columns),
-                     'late_CS+E':          pad_contrast([0,-1,0,0,0,0],  n_columns),
-                     'late_CS+U':          pad_contrast([0,0,0,-1,0,0],  n_columns),
-                     'late_CS-':           pad_contrast([0,0,0,0,0,-1],  n_columns)
-                    }
-    
-    elif task == 'acquisition':  
-
-        contrasts = {'CS+_vs_CS-':   pad_contrast([1,1,-2],  n_columns),
-                     'CS-_vs_CS+':   pad_contrast([-1,-1,2], n_columns),
-                     'CS+E_vs_CS-':  pad_contrast([1,0,-1],  n_columns),
-                     'CS+U_vs_CS-':  pad_contrast([0,1,-1],  n_columns),
-                     'CS+E_vs_CS+U': pad_contrast([1,-1,0],  n_columns),
-                     'CS+E_acq':     pad_contrast([1,0,0],   n_columns),
-                     'CS+U_acq':     pad_contrast([0,1,0],   n_columns),
-                     'CS-_acq':      pad_contrast([0,0,1],   n_columns)
-                    }
-    
-    elif task == 'extinction':  
-
-        contrasts = {'CS+E_vs_CS-':  pad_contrast([1,-1], n_columns),
-                     'CS-_vs_CS+E':  pad_contrast([-1,1], n_columns),
-                     'CS+E_ext':     pad_contrast([1,0],  n_columns),
-                     'CS-_ext':      pad_contrast([0,1],  n_columns)
-                    }
-
-    elif task == 'localizer':
-    
-        contrasts = {'animals':             pad_contrast([3,-1,-1,0,-1],  n_columns),
-                     'tools':               pad_contrast([-1,-1,-1,0,3],  n_columns),
-                     'scenes':              pad_contrast([-1,3,-1,0,-1],  n_columns),
-                     'sound':               pad_contrast([-1,-1,-1,4,-1], n_columns),
-                     'visual_vs_sound':     pad_contrast([1,1,1,-4,1],    n_columns),
-                     'intact_vs_scrambled': pad_contrast([1,1,-3,0,1],    n_columns),
-                     'tags':                pad_contrast([1,-1,-1,0,1],   n_columns),
-                     'animals_vs_tools':    pad_contrast([1,0,0,0,-1],    n_columns)}
+    contrasts = {'faces':             pad_contrast([1,-1],  n_columns),
+                 'scenes':               pad_contrast([-1,1],  n_columns)}
 
     '''point to and if necessary create the output folder'''
-    out_folder = path(subj.model,f'ses-{ses}_task-{task}_lvl1')
+    out_folder = os.path,join(container_path,sub,'preremoval_lvl1')
     if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
 
     '''compute and save the contrasts'''
     for contrast in contrasts:
         z_map = model.compute_contrast(contrasts[contrast],output_type='z_score')
-        nib.save(z_map,path(out_folder,f'{contrast}_zmap.nii.gz'))
+        nib.save(z_map,os.path.join(out_folder,f'{contrast}_zmap.nii.gz'))
 
 
 def lvl2(subs=[],ses=None,task=None):
 
-    '''define the first level contrasts to use'''
-    if ses > 1:
-        contrasts = ['early_CS+_vs_CS-','early_CS-_vs_CS+','early_CS+E_vs_CS-','early_CS+U_vs_CS-','early_CS+E_vs_CS+U','early_CS+E','early_CS+U','early_CS-',
-                     'late_CS+_vs_CS-','late_CS-_vs_CS+','late_CS+E_vs_CS-','late_CS+U_vs_CS-','late_CS+E_vs_CS+U','late_CS+E','late_CS+U','late_CS-']
-
-    elif task == 'localizer':
-        contrasts = ['animals','tools','scenes','sound','visual_vs_sound','intact_vs_scrambled','tags','animals_vs_tools']
-
-    elif task == 'acquisition':
-        contrasts = ['CS+_vs_CS-','CS-_vs_CS+','CS+E_vs_CS-','CS+U_vs_CS-','CS+E_vs_CS+U','CS+E_acq','CS+U_acq','CS-_acq']
-
-    elif task == 'extinction':
-        contrasts = ['CS+E_vs_CS-','CS-_vs_CS+E','CS+E_ext','CS-_ext']
+    contrasts = ['faces','scenes']
 
     '''point to the save directory'''
     out_dir = path(bids_dir,'derivatives','group_model',f'ses-{ses}_task-{task}_lvl2')
