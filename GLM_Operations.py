@@ -4,6 +4,7 @@ from nilearn.image import mean_img, get_data, threshold_img, new_img_like, clean
 from nilearn.glm.first_level import FirstLevelModel
 #from nilearn import plotting
 from nilearn.glm.second_level import SecondLevelModel
+from nilearn.glm import threshold_stats_img
 import os
 import fnmatch
 import numpy as np
@@ -116,7 +117,7 @@ for num in range(len(subs)):
     '''initialize and fit the GLM'''
     model = FirstLevelModel(t_r=1,hrf_model='glover',
                             drift_model=None,high_pass=None,mask_img=mask,signal_scaling=False,
-                            smoothing_fwhm=6,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch1/06873/zbretton/nilearn_cache',memory_level=1)
+                            smoothing_fwhm=8,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch1/06873/zbretton/nilearn_cache',memory_level=1)
 
     model.fit(run_imgs=img_clean,events=events,confounds=None)
 
@@ -128,7 +129,8 @@ for num in range(len(subs)):
        #order is: maintain, replace, stim, suppress (may need to add in ITI)
     contrasts = {'maintain':             pad_contrast([2,-1,0,-1],  n_columns),
                  'replace':               pad_contrast([-1,2,0,-1],  n_columns),
-                 'suppress':               pad_contrast([-1,-1,0,2],  n_columns)}
+                 'suppress':               pad_contrast([-1,-1,0,2],  n_columns),
+                 'task':                    pad_contrast([1,1,-3,1], n_columns)}
 
     '''point to and if necessary create the output folder'''
     out_folder = os.path.join(container_path,sub,'study_lvl1')
@@ -136,16 +138,23 @@ for num in range(len(subs)):
 
     '''compute and save the contrasts'''
     for contrast in contrasts:
+        #z map
         z_map = model.compute_contrast(contrasts[contrast],output_type='z_score')
         nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_zmap.nii.gz'))
+        #t map
+        t_map = model.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
+        nib.save(t_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_tmap.nii.gz'))
+        #threshold the z_map
+        thresholded_map, threshold = threshold_stats_img(z_map,threshold=3,two_sided=True)
+        nib.save(thresholded_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_thresholded_zmap.nii.gz'))
 
 ####################################
 #level 2 GLM
 subs=['sub-002','sub-003','sub-004']
-contrasts = ['maintain','replace','suppress']
+contrasts = ['maintain','replace','suppress','task']
 
 '''point to the save directory'''
-out_dir = os.path.join(container_path,'group_model','group_category_lvl2')
+out_dir = os.path.join(container_path,'group_model','group_operation_lvl2')
 if not os.path.exists(out_dir):os.makedirs(out_dir,exist_ok=True)
 
 for contrast in contrasts:
@@ -164,3 +173,14 @@ for contrast in contrasts:
 
     '''save the group map'''
     nib.save(z_map, os.path.join(out_dir,f'group_{contrast}_{brain_flag}_zmap.nii.gz'))
+    #now I want to treshold this to focus on the important clusters - but for now this isnt working as expected:
+    thresholded_map, threshold = threshold_stats_img(
+        z_map,
+        alpha=0.01,
+        height_control='fpr',
+        cluster_threshold=10,
+        two_sided=True,
+        )
+    #use this threshold to look at the second-level results
+    nib.save(thresholded_map, os.path.join(out_dir,f'group+{contrast}_{brain_flag}_thresholded(z_of_1)_zmap.nii.gz'))
+    del threshold, thresholded_map, z_map, second_level_model, maps
