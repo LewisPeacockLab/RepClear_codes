@@ -181,8 +181,8 @@ for contrast in contrasts:
         z_map,
         alpha=0.05,
         height_control='fdr',
-        cluster_threshold=10
+        cluster_threshold=0
         )
     #use this threshold to look at the second-level results
     nib.save(thresholded_map, os.path.join(out_dir,f'group+{contrast}_{brain_flag}_thresholded_zmap.nii.gz'))
-    del threshold, thresholded_map, z_map, second_level_model, maps
+    del thresholded_map, z_map, second_level_model, maps
