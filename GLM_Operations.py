@@ -145,9 +145,12 @@ for num in range(len(subs)):
         t_map = model.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
         nib.save(t_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_tmap.nii.gz'))
         #threshold the z_map
-        thresholded_map, threshold = threshold_stats_img(z_map,threshold=3,two_sided=True)
+        thresholded_map, _ = threshold_stats_img(z_map,alpha=0.05, height_control='fdr',cluster_threshold=10)
         nib.save(thresholded_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_thresholded_zmap.nii.gz'))
 
+        #generate an HTML report to review:
+        file_data = model.generate_report(contrasts[contrast])
+        file_data.save_as_html(os.path.join(out_folder,f"{contrast}_{brain_flag}_report.html"))
 ####################################
 #level 2 GLM
 subs=['sub-002','sub-003','sub-004']
@@ -174,13 +177,12 @@ for contrast in contrasts:
     '''save the group map'''
     nib.save(z_map, os.path.join(out_dir,f'group_{contrast}_{brain_flag}_zmap.nii.gz'))
     #now I want to treshold this to focus on the important clusters - but for now this isnt working as expected:
-    thresholded_map, threshold = threshold_stats_img(
+    thresholded_map, _ = threshold_stats_img(
         z_map,
-        alpha=0.01,
-        height_control='fpr',
-        cluster_threshold=10,
-        two_sided=True,
+        alpha=0.05,
+        height_control='fdr',
+        cluster_threshold=10
         )
     #use this threshold to look at the second-level results
-    nib.save(thresholded_map, os.path.join(out_dir,f'group+{contrast}_{brain_flag}_thresholded(z_of_1)_zmap.nii.gz'))
+    nib.save(thresholded_map, os.path.join(out_dir,f'group+{contrast}_{brain_flag}_thresholded_zmap.nii.gz'))
     del threshold, thresholded_map, z_map, second_level_model, maps
