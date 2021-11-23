@@ -632,7 +632,7 @@ for num in range(len(subs)):
 
 
     np.savetxt("train_local(1256)_test_study_category_evidence.csv",L2_evidence, delimiter=",")
-    np.savetxt("train_local(1256)_test_study_category_decisions.csv",L2_decisions, delimiter=",")    
+    np.savetxt("train_local(1256)_test_study_category_predictprob.csv",L2_predict_probs[0], delimiter=",")    
     np.savetxt("Operation_labels.csv",study_stim_list, delimiter=",")
 
     output_table = {
