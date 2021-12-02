@@ -14,13 +14,15 @@ import os
 import fnmatch
 import pandas as pd
 import pickle
+from brainiak.searchlight.searchlight import Searchlight
+import brainiak
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
-from sklearn.model_selection import PredefinedSplit, cross_validate, cross_val_predict, GridSearchCV
+from sklearn.model_selection import PredefinedSplit, cross_validate, cross_val_predict, GridSearchCV, cross_val_score, GridSearchCV, StratifiedKFold
 from sklearn.feature_selection import VarianceThreshold, f_classif, SelectKBest, SelectFpr
 from sklearn.preprocessing import StandardScaler
 from nilearn.input_data import NiftiMasker,  MultiNiftiMasker
-from nilearn.image import clean_img, load_img, get_data, concat_imgs
+from nilearn.image import clean_img, load_img, get_data, concat_imgs, resample_img
 from nilearn.signal import clean
 from scipy import stats
 from sklearn import preprocessing
@@ -38,6 +40,15 @@ brain_flag='MNI' #MNI/T1w
 masks=['GM'] # this is masked to the group GM mask
 
 clear_data=1 #0 off / 1 on
+
+def confound_cleaner(confounds):
+    COI = ['a_comp_cor_00','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
+    for _c in confounds.columns:
+        if 'cosine' in _c:
+            COI.append(_c)
+    confounds = confounds[COI]
+    confounds.loc[0,'framewise_displacement'] = confounds.loc[1:,'framewise_displacement'].mean()
+    return confounds
 
 for TR_shift in TR_shifts:
     for mask_flag in masks:
@@ -67,7 +78,7 @@ for TR_shift in TR_shifts:
             bold_files=find('*study*bold*.nii.gz',bold_path)
             wholebrain_mask_path=find('*study*mask*.nii.gz',bold_path)
             anat_path=os.path.join(container_path,sub,'anat/')
-            gm_mask_path=find('*GM_MNI_mask*',container_path)
+            gm_mask_path=find('*MNI_GM_mask*',container_path)
             gm_mask=nib.load(gm_mask_path[0])  
             
             if brain_flag=='MNI':
@@ -101,9 +112,6 @@ for TR_shift in TR_shifts:
                 confound_run2 = pd.read_csv(study_confounds_2[0],sep='\t')
                 confound_run3 = pd.read_csv(study_confounds_3[0],sep='\t')
                 
-
-                #Whole section needs to be re-written to load in 4D but then mask using nilearn.image.clean_img to keep it 4D so that it can be passed into SL
-
                 preproc_1 = clean_img(study_run1,t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
                 preproc_2 = clean_img(study_run2,t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
                 preproc_3 = clean_img(study_run3,t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
@@ -132,20 +140,21 @@ for TR_shift in TR_shifts:
                 confound_run2 = pd.read_csv(study_confounds_2[0],sep='\t')
                 confound_run3 = pd.read_csv(study_confounds_3[0],sep='\t')
 
-                confound_run1=confound_run1.fillna(confound_run1.mean())
-                confound_run2=confound_run2.fillna(confound_run2.mean())
-                confound_run3=confound_run3.fillna(confound_run3.mean())                       
+                confound_run1=confound_cleaner(confound_run1)
+                confound_run2=confound_cleaner(confound_run2)
+                confound_run3=confound_cleaner(confound_run3)         
 
-                preproc_1 = clean_img(study_run1,confounds=(confound_run1.iloc[:,:31]),t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
-                preproc_2 = clean_img(study_run2,confounds=(confound_run2.iloc[:,:31]),t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
-                preproc_3 = clean_img(study_run3,confounds=(confound_run3.iloc[:,:31]),t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
+
+                preproc_1 = clean_img(study_run1,confounds=confound_run1,t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
+                preproc_2 = clean_img(study_run2,confounds=confound_run2,t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
+                preproc_3 = clean_img(study_run3,confounds=confound_run3,t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
 
                 study_bold=concat_imgs((preproc_1,preproc_2,preproc_3))
 
             #create run array
-                run1_length=int((len(study_run1)))
-                run2_length=int((len(study_run2)))
-                run3_length=int((len(study_run3)))                
+                run1_length=int(study_run1.shape[3]) #get the TR length of this run
+                run2_length=int(study_run2.shape[3])
+                run3_length=int(study_run3.shape[3])                
 
             #fill in the run array with run number
             run1=np.full(run1_length,1)
@@ -176,7 +185,7 @@ for TR_shift in TR_shifts:
         #1. maintain
         #2. replace_category
         #3. suppress
-            stim_list=np.full(len(study_bold),0)
+            stim_list=np.full(study_bold.shape[3],0)
             maintain_list=np.where((reg_operation==1) & ((reg_present==2) | (reg_present==3)))
             suppress_list=np.where((reg_operation==3) & ((reg_present==2) | (reg_present==3)))
             replace_list=np.where((reg_operation==2) & ((reg_present==2) | (reg_present==3)))
@@ -216,21 +225,6 @@ for TR_shift in TR_shifts:
 
 
             # Extract bold data for non-zero labels
-            def reshape_data(label_TR_shifted, masked_data_all,run_list):
-                label_index = np.nonzero(label_TR_shifted)
-                label_index = np.squeeze(label_index)
-                # Pull out the indexes
-                indexed_data = masked_data_all[label_index,:]
-                nonzero_labels = label_TR_shifted[label_index]
-                nonzero_runs = run_list[label_index] 
-                return indexed_data, nonzero_labels, nonzero_runs
-
-
-            stim_list_nr=np.delete(stim_list_shift, rest_times)
-            stim_list_nr=stim_list_nr.flatten()
-            stim_list_nr=stim_list_nr[:,None]
-            study_bold_nr=np.delete(study_bold, rest_times, axis=0)
-            run_list_nr=np.delete(run_list, rest_times)
 
             #parameters for the searchlight:
             #data = The brain data as a 4D volume.
@@ -240,16 +234,23 @@ for TR_shift in TR_shifts:
             #max_blk_edge = When the searchlight function carves the data up into chunks, it doesn't distribute only a single searchlight's worth of data. Instead, it creates a block of data, with the edge length specified by this variable, which determines the number of searchlights to run within a job.
             #pool_size = Maximum number of cores running on a block (typically 1).
 
+            #for now I am piloting this with a tiny mask before moving to the correct mask:
+            small_mask=np.zeros(gm_mask.shape)
+            small_mask[52,22,49]=1 #setting a single voxel to 1, so that we can get a sense of the searchlight with only 1 sphere
+
             # Preset the variables to be used in the searchlight
-            data = study_bold #need this as 4D data - this is 2D, must fix
-            mask = gm_mask #this is the group GM mask
-            bcvar = stim_list #this is the labels to determine which condition each 3D volume corresponds to (Operation decoding)
+            data = study_bold.get_fdata() #need this as 4D data
+            mask = small_mask           #gm_mask #this is the group GM mask
+            bcvar = stim_list_shift #this is the labels to determine which condition each 3D volume corresponds to (Operation decoding)
             sl_rad = 3 #Searchlight radius 
             max_blk_edge = 5 #blocks of data
             pool_size = 1 #Cores running on a block
 
+            affine_mat=study_bold.affine
+            dimsize = study_bold.header.get_zooms()
+
             # Create the searchlight object
-            sl = Searchlight(sl_rad=sl_rad,max_blk_edge=max_blk_edge,shape='Ball')
+            sl = Searchlight(sl_rad=sl_rad,max_blk_edge=max_blk_edge,shape=brainiak.searchlight.searchlight.Ball) #this runs the SL as a ball and not cube
             print("Setup searchlight inputs")
             print("Input data shape: " + str(data.shape))
             print("Input mask shape: " + str(mask.shape) + "\n")
@@ -298,6 +299,9 @@ for TR_shift in TR_shifts:
             print('Total searchlight duration (including start up time): %.2f' % (end_time - begin_time))
 
             # Save the results to a .nii file
+            output_dir=os.path.join(container_path,sub,'searchlight')
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
             output_name = os.path.join(output_dir, ('Sub-0%s_SL_operation_result.nii.gz' % (sub_num)))
             sl_result = sl_result.astype('double')  # Convert the output into a precision format that can be used by other applications
             sl_result[np.isnan(sl_result)] = 0  # Exchange nans with zero to ensure compatibility with other applications

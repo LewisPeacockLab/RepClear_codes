@@ -110,7 +110,7 @@ for num in range(len(subs)):
 
     run_list=np.concatenate((run1,run2,run3))    
     #clean data ahead of the GLM
-    img_clean=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore',confounds=study_confounds)
+    img_clean=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore',confounds=None)
     '''load in the denoised bold data and events file'''
     events = pd.read_csv('/scratch1/06873/zbretton/repclear_dataset/BIDS/task-study_events.tsv',sep='\t')        
 
@@ -119,7 +119,7 @@ for num in range(len(subs)):
                             drift_model=None,high_pass=None,mask_img=mask,signal_scaling=False,
                             smoothing_fwhm=8,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch1/06873/zbretton/nilearn_cache',memory_level=1)
 
-    model.fit(run_imgs=img_clean,events=events,confounds=None)
+    model.fit(run_imgs=img_clean,events=events,confounds=study_confounds)
 
     '''grab the number of regressors in the model'''
     n_columns = model.design_matrices_[0].shape[-1]
@@ -162,7 +162,7 @@ if not os.path.exists(out_dir):os.makedirs(out_dir,exist_ok=True)
 
 for contrast in contrasts:
     '''load in the subject maps'''
-    maps = [nib.load(os.path.join(container_path,sub,'study_lvl1',f'{contrast}_{brain_flag}_zmap.nii.gz')) for sub in subs]
+    maps = [nib.load(os.path.join(container_path,sub,'study_lvl1',f'{contrast}_{brain_flag}_tmap.nii.gz')) for sub in subs]
 
     '''a simple group mean design'''
     design_matrix = pd.DataFrame([1] * len(maps), columns=['intercept'])
@@ -172,17 +172,17 @@ for contrast in contrasts:
                                           mask_img=gm_mask_path[0],
                                           verbose=2,n_jobs=-1)
     second_level_model = second_level_model.fit(maps, design_matrix=design_matrix)
-    z_map = second_level_model.compute_contrast(output_type='z_score')
+    t_map = second_level_model.compute_contrast(second_level_stat_type='t',output_type='stat')
 
     '''save the group map'''
-    nib.save(z_map, os.path.join(out_dir,f'group_{contrast}_{brain_flag}_zmap.nii.gz'))
+    nib.save(t_map, os.path.join(out_dir,f'group_{contrast}_{brain_flag}_tmap.nii.gz'))
     #now I want to treshold this to focus on the important clusters - but for now this isnt working as expected:
     thresholded_map, _ = threshold_stats_img(
-        z_map,
+        t_map,
         alpha=0.05,
-        height_control='fdr',
-        cluster_threshold=0
+        height_control=None,
+        cluster_threshold=10
         )
     #use this threshold to look at the second-level results
-    nib.save(thresholded_map, os.path.join(out_dir,f'group+{contrast}_{brain_flag}_thresholded_zmap.nii.gz'))
-    del thresholded_map, z_map, second_level_model, maps
+    nib.save(thresholded_map, os.path.join(out_dir,f'group+{contrast}_{brain_flag}_thresholded_tmap.nii.gz'))
+    del thresholded_map, t_map, second_level_model, maps

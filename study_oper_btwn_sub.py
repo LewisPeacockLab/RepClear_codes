@@ -41,6 +41,14 @@ masks=['GM_group'] #wholebrain/vtc/GM
 
 clear_data=1 #0 off / 1 on
 
+def confound_cleaner(confounds):
+    COI = ['a_comp_cor_00','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
+    for _c in confounds.columns:
+        if 'cosine' in _c:
+            COI.append(_c)
+    confounds = confounds[COI]
+    confounds.loc[0,'framewise_displacement'] = confounds.loc[1:,'framewise_displacement'].mean()
+    return confounds  
 
 for TR_shift in TR_shifts:
     for mask_flag in masks:
@@ -71,7 +79,7 @@ for TR_shift in TR_shifts:
             bold_files=find('*study*bold*.nii.gz',bold_path)
             wholebrain_mask_path=find('*study*mask*.nii.gz',bold_path)
             anat_path=os.path.join(container_path,sub,'anat/')
-            gm_mask_path=find('*GM_MNI_mask*',container_path)
+            gm_mask_path=find('*MNI_GM_mask*',container_path)
             gm_mask=nib.load(gm_mask_path[0])            
             
             if brain_flag=='MNI':
@@ -181,9 +189,9 @@ for TR_shift in TR_shifts:
                     confound_run2 = pd.read_csv(study_confounds_2[0],sep='\t')
                     confound_run3 = pd.read_csv(study_confounds_3[0],sep='\t')
 
-                    confound_run1=confound_run1.fillna(confound_run1.mean())
-                    confound_run2=confound_run2.fillna(confound_run2.mean())
-                    confound_run3=confound_run3.fillna(confound_run3.mean())
+                    confound_run1=confound_cleaner(confound_run1)
+                    confound_run2=confound_cleaner(confound_run2)
+                    confound_run3=confound_cleaner(confound_run3)
 
                     wholebrain_mask1=nib.load(brain_mask_path[0])
                     
@@ -211,9 +219,9 @@ for TR_shift in TR_shifts:
                         study_run2=apply_mask(mask=(gm_mask.get_data()),target=(study_run2.get_data()))
                         study_run3=apply_mask(mask=(gm_mask.get_data()),target=(study_run3.get_data()))                        
 
-                    preproc_1 = clean(study_run1,confounds=(confound_run1.iloc[:,:31]),t_r=1,detrend=False,standardize='zscore')
-                    preproc_2 = clean(study_run2,confounds=(confound_run2.iloc[:,:31]),t_r=1,detrend=False,standardize='zscore')
-                    preproc_3 = clean(study_run3,confounds=(confound_run3.iloc[:,:31]),t_r=1,detrend=False,standardize='zscore')
+                    preproc_1 = clean(study_run1,confounds=(confound_run1),t_r=1,detrend=False,standardize='zscore')
+                    preproc_2 = clean(study_run2,confounds=(confound_run2),t_r=1,detrend=False,standardize='zscore')
+                    preproc_3 = clean(study_run3,confounds=(confound_run3),t_r=1,detrend=False,standardize='zscore')
 
 
                     study_bold=np.concatenate((preproc_1,preproc_2,preproc_3))
