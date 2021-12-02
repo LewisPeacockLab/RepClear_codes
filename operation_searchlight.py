@@ -269,6 +269,9 @@ for TR_shift in TR_shifts:
                 
                 t1 = time.time()
                 clf = LogisticRegression(penalty='l2',solver='liblinear', C=1)
+                #I believe this is the main area that needs to be edited, so that we can specifically look at the AUC for the operations
+                #we want the result to be an operation label being assigned to the central voxel of the searchlight, which is determined by peak AUC
+                #in other words: Based on this sphere, which operation are these voxels best at detecting and then assign the central voxel with that label
                 scores = cross_val_score(clf, bolddata_sl, labels, cv=3)
                 accuracy = scores.mean()
                 t2 = time.time()
