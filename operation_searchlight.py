@@ -268,11 +268,15 @@ for TR_shift in TR_shifts:
                 print("Searchlight mask (note that the center equals 1):\n" + str(sl_mask) + "\n")
                 
                 t1 = time.time()
-                clf = LogisticRegression(penalty='l2',solver='liblinear', C=1)
+                clf = LogisticRegression(solver='liblinear')
                 #I believe this is the main area that needs to be edited, so that we can specifically look at the AUC for the operations
                 #we want the result to be an operation label being assigned to the central voxel of the searchlight, which is determined by peak AUC
                 #in other words: Based on this sphere, which operation are these voxels best at detecting and then assign the central voxel with that label
-                scores = cross_val_score(clf, bolddata_sl, labels, cv=3)
+                scores = cross_val_score(clf, bolddata_sl, labels, cv=3) #Study session has three runs, so this should split the data properly... but will need to decide on that
+                # so likely the answer here is looking at the decision function of this classifier and from that, quantifying the results
+                evi=(1. / (1. + np.exp(-clf.decision_function(bolddata_sl)))) #the input needs to be properly segmented into a testing set, this is currently the full input
+                #the evidence from the classifier would be a way to select for optimal operation decoding? 
+
                 accuracy = scores.mean()
                 t2 = time.time()
                 
