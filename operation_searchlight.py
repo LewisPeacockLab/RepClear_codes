@@ -28,6 +28,8 @@ from scipy import stats
 from sklearn import preprocessing
 import time
 from sklearn.metrics import roc_auc_score
+from mpi4py import MPI
+
 
 
 
@@ -50,6 +52,11 @@ def confound_cleaner(confounds):
     confounds.loc[0,'framewise_displacement'] = confounds.loc[1:,'framewise_displacement'].mean()
     return confounds
 
+
+
+comm = MPI.COMM_WORLD
+rank = comm.rank
+size = comm.size
 for TR_shift in TR_shifts:
     for mask_flag in masks:
         for num in range(len(subs)):
@@ -189,14 +196,19 @@ for TR_shift in TR_shifts:
             maintain_list=np.where((reg_operation==1) & ((reg_present==2) | (reg_present==3)))
             suppress_list=np.where((reg_operation==3) & ((reg_present==2) | (reg_present==3)))
             replace_list=np.where((reg_operation==2) & ((reg_present==2) | (reg_present==3)))
-            stim_list[maintain_list]=1
-            stim_list[suppress_list]=3
-            stim_list[replace_list]=2
+            maintain_labels=stim_list
+            suppress_labels=stim_list
+            replace_labels=stim_list
 
-            oper_list=reg_operation
-            oper_list=oper_list[:,None]
+            maintain_labels[maintain_list]=1
+            suppress_labels[suppress_list]=1
+            replace_labels[replace_list]=1
 
-            stim_list=stim_list[:,None]
+
+            maintain_labels=maintain_labels[:,None]
+            suppress_labels=suppress_labels[:,None]
+            replace_labels=replace_labels[:,None]
+
      
 
                 # Create a function to shift the size, and will do the rest tag
@@ -214,7 +226,11 @@ for TR_shift in TR_shifts:
         # Apply the function
             shift_size = TR_shift #this is shifting by 10TR
             tag = 0 #rest label is 0
-            stim_list_shift = shift_timing(stim_list, shift_size, tag) #rest is label 0
+            maintain_labels_shift = shift_timing(maintain_labels, shift_size, tag) #rest is label 0
+            suppress_labels_shift = shift_timing(suppress_labels, shift_size, tag) #rest is label 0
+            replace_labels_shift = shift_timing(replace_labels, shift_size, tag) #rest is label 0
+
+            operation_labels={'maintain':maintain_labels_shift,'suppress':suppress_labels_shift,'replace':replace_labels_shift}
             import random
 
             #parameters for the searchlight:
@@ -226,13 +242,11 @@ for TR_shift in TR_shifts:
             #pool_size = Maximum number of cores running on a block (typically 1).
 
             #for now I am piloting this with a tiny mask before moving to the correct mask:
-            small_mask=np.zeros(gm_mask.shape)
-            small_mask[52,22,49]=1 #setting a single voxel to 1, so that we can get a sense of the searchlight with only 1 sphere
+
 
             # Preset the variables to be used in the searchlight
             data = study_bold.get_fdata() #need this as 4D data
-            mask = small_mask           #gm_mask #this is the group GM mask
-            bcvar = stim_list_shift #this is the labels to determine which condition each 3D volume corresponds to (Operation decoding)
+            mask = gm_mask.get_fdata()         #gm_mask #this is the group GM mask
             sl_rad = 3 #Searchlight radius 
             max_blk_edge = 5 #blocks of data
             pool_size = 1 #Cores running on a block
@@ -246,12 +260,6 @@ for TR_shift in TR_shifts:
             print("Input data shape: " + str(data.shape))
             print("Input mask shape: " + str(mask.shape) + "\n")
 
-            # Distribute the information to the searchlights (preparing it to run)
-            sl.distribute([data], mask)
-
-            # Data that is needed for all searchlights is sent to all cores via the sl.broadcast function. In this, we are sending the labels for classification to all searchlights.
-            sl.broadcast(bcvar)
-
             # Set up the kernel to be used in Searchlight
             def calc_L2(data, sl_mask, myrad, bcvar):
                 
@@ -261,21 +269,17 @@ for TR_shift in TR_shifts:
                 
                 bolddata_sl = data4D.reshape(sl_mask.shape[0] * sl_mask.shape[1] * sl_mask.shape[2], data[0].shape[3]).T
 
-                # Check if the number of voxels is what you expect.
-                print("Searchlight data shape: " + str(data[0].shape))
-                print("Searchlight data shape after reshaping: " + str(bolddata_sl.shape))
-                print("Searchlight mask shape:" + str(sl_mask.shape) + "\n")
-                print("Searchlight mask (note that the center equals 1):\n" + str(sl_mask) + "\n")
+                # # Check if the number of voxels is what you expect.
+                # print("Searchlight data shape: " + str(data[0].shape))
+                # print("Searchlight data shape after reshaping: " + str(bolddata_sl.shape))
+                # print("Searchlight mask shape:" + str(sl_mask.shape) + "\n")
+                # print("Searchlight mask (note that the center equals 1):\n" + str(sl_mask) + "\n")
                 
                 t1 = time.time()
                 clf = LogisticRegression(solver='liblinear')
-                #I believe this is the main area that needs to be edited, so that we can specifically look at the AUC for the operations
-                #we want the result to be an operation label being assigned to the central voxel of the searchlight, which is determined by peak AUC
-                #in other words: Based on this sphere, which operation are these voxels best at detecting and then assign the central voxel with that label
+
+                #this actually should work as intended, since I am running the searchlight for maintain, replace and suppress separately (e.g., a regressor list where maintain is labeled with a 1 and all other conditions as a 0, since we run the LogisticRegression as a 1vs.the-rest)
                 scores = cross_val_score(clf, bolddata_sl, labels, cv=3) #Study session has three runs, so this should split the data properly... but will need to decide on that
-                # so likely the answer here is looking at the decision function of this classifier and from that, quantifying the results
-                evi=(1. / (1. + np.exp(-clf.decision_function(bolddata_sl)))) #the input needs to be properly segmented into a testing set, this is currently the full input
-                #the evidence from the classifier would be a way to select for optimal operation decoding? 
 
                 accuracy = scores.mean()
                 t2 = time.time()
@@ -283,27 +287,35 @@ for TR_shift in TR_shifts:
                 print('Kernel duration: %.2f\n\n' % (t2 - t1))
                 
                 return accuracy
-            #time to execute the searchlight
-            print("Begin Searchlight\n")
-            sl_result = sl.run_searchlight(calc_L2, pool_size=pool_size)
-            print("End Searchlight\n")
 
-            end_time = time.time()
+            # Distribute the information to the searchlights (preparing it to run)
+            # This also knows how to handle the MPI information to split this up depending on the HPC parameters
+            sl.distribute([data], mask)
+            for key in operation_labels:
+                bcvar = operation_labels[key] #this is the labels to determine which condition each 3D volume corresponds to (Operation decoding)
 
+                # Data that is needed for all searchlights is sent to all cores via the sl.broadcast function. In this, we are sending the labels for classification to all searchlights.
+                sl.broadcast(bcvar)
+                #time to execute the searchlight
+                print("Begin Searchlight\n")
+                sl_result = sl.run_searchlight(calc_L2, pool_size=pool_size)
+                print("End Searchlight\n")
             # Print outputs
-            print("Summarize searchlight results")
-            print("Number of searchlights run: " + str(len(sl_result[mask==1])))
-            print("Accuracy for each kernel function: " +str(sl_result[mask==1].astype('double')))
-            print('Total searchlight duration (including start up time): %.2f' % (end_time - begin_time))
+                print("Summarize searchlight results")
+                print("Number of searchlights run: " + str(len(sl_result[mask==1])))
+                print("Accuracy for each kernel function: " +str(sl_result[mask==1].astype('double')))
+                print('Total searchlight duration (including start up time): %.2f' % (end_time - begin_time))
 
-            # Save the results to a .nii file
-            output_dir=os.path.join(container_path,sub,'searchlight')
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
-            output_name = os.path.join(output_dir, ('Sub-0%s_SL_operation_result.nii.gz' % (sub_num)))
-            sl_result = sl_result.astype('double')  # Convert the output into a precision format that can be used by other applications
-            sl_result[np.isnan(sl_result)] = 0  # Exchange nans with zero to ensure compatibility with other applications
-            sl_nii = nib.Nifti1Image(sl_result, affine_mat)  # create the volume image
-            hdr = sl_nii.header  # get a handle of the .nii file's header
-            hdr.set_zooms((dimsize[0], dimsize[1], dimsize[2]))
-            nib.save(sl_nii, output_name)  # Save the volume                
+                # Save the results to a .nii file
+                output_dir=os.path.join(container_path,sub,'searchlight')
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+                output_name = os.path.join(output_dir, ('Sub-0%s_SL_%s_result.nii.gz' % (sub_num,key)))
+                sl_result = sl_result.astype('double')  # Convert the output into a precision format that can be used by other applications
+                sl_result[np.isnan(sl_result)] = 0  # Exchange nans with zero to ensure compatibility with other applications
+                sl_nii = nib.Nifti1Image(sl_result, affine_mat)  # create the volume image
+                hdr = sl_nii.header  # get a handle of the .nii file's header
+                hdr.set_zooms((dimsize[0], dimsize[1], dimsize[2]))
+                nib.save(sl_nii, output_name)  # Save the volume  
+
+            end_time = time.time()              
