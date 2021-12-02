@@ -217,15 +217,6 @@ for TR_shift in TR_shifts:
             stim_list_shift = shift_timing(stim_list, shift_size, tag) #rest is label 0
             import random
 
-            def Diff(li1,li2):
-                return (list(set(li1)-set(li2)))
-            # tr_to_remove=Diff(rest_times,rest_times_index)
-
-            rest_times=np.where(stim_list_shift==0)
-
-
-            # Extract bold data for non-zero labels
-
             #parameters for the searchlight:
             #data = The brain data as a 4D volume.
             #mask = A binary mask specifying the "center" voxels in the brain around which you want to perform searchlight analyses. A searchlight will be drawn around every voxel with the value of 1. Hence, if you chose to use the wholebrain mask as the mask for the searchlight procedure, the searchlight may include voxels outside of your mask when the "center" voxel is at the border of the mask. It is up to you to decide whether then to include these results.
@@ -258,7 +249,7 @@ for TR_shift in TR_shifts:
             # Distribute the information to the searchlights (preparing it to run)
             sl.distribute([data], mask)
 
-            # Data that is needed for all searchlights is sent to all cores via the sl.broadcast function. In this example, we are sending the labels for classification to all searchlights.
+            # Data that is needed for all searchlights is sent to all cores via the sl.broadcast function. In this, we are sending the labels for classification to all searchlights.
             sl.broadcast(bcvar)
 
             # Set up the kernel to be used in Searchlight
