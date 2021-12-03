@@ -31,8 +31,6 @@ from mpi4py import MPI
 from brainiak.searchlight.searchlight import Ball, Searchlight
 
 
-
-
 subs=['02','03','04']
 
 
@@ -51,7 +49,6 @@ def confound_cleaner(confounds):
     confounds = confounds[COI]
     confounds.loc[0,'framewise_displacement'] = confounds.loc[1:,'framewise_displacement'].mean()
     return confounds
-
 
 
 comm = MPI.COMM_WORLD

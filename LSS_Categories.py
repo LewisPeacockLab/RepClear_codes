@@ -4,7 +4,6 @@ from nilearn.image import mean_img, get_data, threshold_img, new_img_like, clean
 from nilearn.glm.first_level import FirstLevelModel
 #from nilearn import plotting
 from nilearn.glm.second_level import SecondLevelModel
-from nilearn.glm import threshold_stats_img
 import os
 import fnmatch
 import numpy as np
@@ -12,6 +11,8 @@ import pandas as pd
 
 subs=['02','03','04']
 brain_flag='MNI'
+
+#code for the LSS of the Localizer data
 
 
 def mkdir(path,local=False):
@@ -73,21 +74,10 @@ for num in range(len(subs)):
         
     brain_mask_path.sort()
     localizer_files.sort()
-    vtc_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_preremoval_%s_mask.nii.gz' % brain_flag)
     
-        
-    vtc_mask=nib.load(vtc_mask_path)   
+    #load in category mask that was created from the first GLM  
 
     img=nib.concat_images(localizer_files,axis=3)
-
-    # localizer_run1=nib.load(localizer_files[0])
-    # localizer_run2=nib.load(localizer_files[1])
-    # localizer_run3=nib.load(localizer_files[2])
-    # localizer_run4=nib.load(localizer_files[3])
-    # localizer_run5=nib.load(localizer_files[4])
-    # localizer_run6=nib.load(localizer_files[5]) 
-
-      
     #to be used to filter the data
     #First we are removing the confounds
     #get all the folders within the bold path
@@ -135,71 +125,42 @@ for num in range(len(subs)):
     #clean data ahead of the GLM
     img_clean=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore')
     '''load in the denoised bold data and events file'''
-    events = pd.read_csv('/scratch1/06873/zbretton/repclear_dataset/BIDS/task-preremoval_events.tsv',sep='\t')        
+    events = pd.read_csv('/scratch1/06873/zbretton/repclear_dataset/BIDS/task-preremoval_events.tsv',sep='\t')
+    #now will need to create a loop where I iterate over the face & scene indexes
+    #I then relabel that trial of the face or scene as "face_trial#" or "scene_trial#" and then label rest and all other trials as "other"
+    #I can either do this in one loop, or two consecutive
 
-    '''initialize and fit the GLM'''
+
+    '''initialize the GLM'''
     model = FirstLevelModel(t_r=1,hrf_model='glover',
                             drift_model=None,high_pass=None,mask_img=vtc_mask,signal_scaling=False,
                             smoothing_fwhm=8,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch1/06873/zbretton/nilearn_cache',memory_level=1)
+    #I want to ensure that "trial" is the # of face (e.g., first instance of "face" is trial=1, second is trial=2...)
+    for trial in events.loc[:,'trial_type']=='face':
+        #this is a rough idea how I will create a temporary new version of the events file to use for the LSS
+        temp_events=events
+        temp_events.loc[:,'trial_type']='other'
+        temp_events.loc[trial,'trial_type']=('face_trial%s' % trial)
 
-    model.fit(run_imgs=img_clean,events=events,confounds=localizer_confounds)
 
-    '''grab the number of regressors in the model'''
-    n_columns = model.design_matrices_[0].shape[-1]
+        model.fit(run_imgs=img_clean,events=temp_events,confounds=localizer_confounds)
 
-    '''define the contrasts - the order of trial types is stored in model.design_matrices_[0].columns
-       pad_contrast() adds 0s to the end of a vector in the case that other regressors are modeled, but not included in the primary contrasts'''
-       #order is: faces, rest, scenes 
-    contrasts = {'faces':             pad_contrast([2,-1,-1],  n_columns),
-                 'scenes':               pad_contrast([-1,-1,2],  n_columns)}
+        '''grab the number of regressors in the model'''
+        n_columns = model.design_matrices_[0].shape[-1]
 
-    '''point to and if necessary create the output folder'''
-    out_folder = os.path.join(container_path,sub,'preremoval_lvl1')
-    if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
+        '''define the contrasts - the order of trial types is stored in model.design_matrices_[0].columns
+           pad_contrast() adds 0s to the end of a vector in the case that other regressors are modeled, but not included in the primary contrasts'''
+           #order is: trial, other
 
-    '''compute and save the contrasts'''
-    for contrast in contrasts:
-        z_map = model.compute_contrast(contrasts[contrast],output_type='z_score')
-        nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_zmap.nii.gz'))
-        t_map = model.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
-        nib.save(t_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_tmap.nii.gz'))  
-        file_data = model.generate_report(contrasts[contrast])
-        file_data.save_as_html(os.path.join(out_folder,f"{contrast}_{brain_flag}_report.html"))      
+        #I will need to generate constrasts for each item that the subject viewed in the localizer to get the item weighting, but this will change via subject
+        # to help that along I should write some code to generate the proper events files as well as contrasts.   
+        contrasts = {'face_trial%s' % trial: pad_contrast([1,-1],  n_columns)}
 
-####################################
-#level 2 GLM
-subs=['sub-002','sub-003','sub-004']
-contrasts = ['faces','scenes']
+        '''point to and if necessary create the output folder'''
+        out_folder = os.path.join(container_path,sub,'preremoval_lvl1')
+        if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
 
-'''point to the save directory'''
-out_dir = os.path.join(container_path,'group_model','group_category_lvl2')
-if not os.path.exists(out_dir):os.makedirs(out_dir,exist_ok=True)
-
-for contrast in contrasts:
-    '''load in the subject maps'''
-    maps = [nib.load(os.path.join(container_path,sub,'preremoval_lvl1',f'{contrast}_{brain_flag}_tmap.nii.gz')) for sub in subs]
-
-    '''a simple group mean design'''
-    design_matrix = pd.DataFrame([1] * len(maps), columns=['intercept'])
-    
-    '''initialize and fit the GLM'''
-    second_level_model = SecondLevelModel(smoothing_fwhm=None,
-                                          mask_img='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_MNI_VTC_mask.nii.gz',
-                                          verbose=2,n_jobs=-1)
-    second_level_model = second_level_model.fit(maps, design_matrix=design_matrix)
-    t_map = second_level_model.compute_contrast(second_level_stat_type='t',output_type='stat')
-
-    '''save the group map'''
-    nib.save(t_map, os.path.join(out_dir,f'group_{contrast}_{brain_flag}_tmap.nii.gz'))
-    #now I want to treshold this to focus on the important clusters:
-    thresholded_map, _ = threshold_stats_img(
-        t_map,
-        alpha=0.05,
-        height_control=None,
-        cluster_threshold=0
-        )
-    file_data = second_level_model.generate_report(contrasts='intercept',alpha=0.05,height_control=None,cluster_threshold=0)
-    file_data.save_as_html(os.path.join(out_dir,f"group+{contrast}_{brain_flag}_report.html"))     
-    #use this threshold to look at the second-level results
-    nib.save(thresholded_map, os.path.join(out_dir,f'group+{contrast}_{brain_flag}_thresholded_tmap.nii.gz'))
-    del thresholded_map, t_map, second_level_model, maps
+        '''compute and save the contrasts'''
+        for contrast in contrasts:
+            z_map = model.compute_contrast(contrasts[contrast],output_type='z_score')
+            nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_zmap.nii.gz'))
