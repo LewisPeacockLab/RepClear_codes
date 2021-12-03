@@ -74,6 +74,9 @@ for num in range(len(subs)):
         
     brain_mask_path.sort()
     localizer_files.sort()
+    vtc_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_preremoval_%s_mask.nii.gz' % brain_flag)
+    vtc_mask=nib.load(vtc_mask_path)   
+
     
     #load in category mask that was created from the first GLM  
 
@@ -136,16 +139,17 @@ for num in range(len(subs)):
                             drift_model=None,high_pass=None,mask_img=vtc_mask,signal_scaling=False,
                             smoothing_fwhm=8,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch1/06873/zbretton/nilearn_cache',memory_level=1)
     #I want to ensure that "trial" is the # of face (e.g., first instance of "face" is trial=1, second is trial=2...)
-    face_trails=events.trial_type.value_counts().faces
-    scene_trials=events.trial_type.value_counts().scenes
+    face_trails=events.trial_type.value_counts().face
+    scene_trials=events.trial_type.value_counts().scene
     #so this will give us a sense of total trials for these two conditions
         #next step is to then get the index of these conditions, and then use the trial# to iterate through the indexes properly
 
-    for trial in :
+    for trial in (range(face_trails)):
         #this is a rough idea how I will create a temporary new version of the events file to use for the LSS
-        temp_events=events
+        temp_events=events.copy()
+        index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'face'][trial] #this will find the nth occurance of a desired value in the list
         temp_events.loc[:,'trial_type']='other'
-        temp_events.loc[trial,'trial_type']=('face_trial%s' % trial)
+        temp_events.loc[index,'trial_type']=('face_trial%s' % (trial+1))
 
 
         model.fit(run_imgs=img_clean,events=temp_events,confounds=localizer_confounds)
@@ -159,13 +163,50 @@ for num in range(len(subs)):
 
         #I will need to generate constrasts for each item that the subject viewed in the localizer to get the item weighting, but this will change via subject
         # to help that along I should write some code to generate the proper events files as well as contrasts.   
-        contrasts = {'face_trial%s' % trial: pad_contrast([1,-1],  n_columns)}
+        contrasts = {'face_trial%s' % (trial+1): pad_contrast([1,-1],  n_columns)}
 
         '''point to and if necessary create the output folder'''
         out_folder = os.path.join(container_path,sub,'localizer_LSS_lvl1')
         if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
 
+        #as of now it is labeling the trial estimates by the trial number, which is helpful since I can look at their individual design matricies to see which stim that is
+        #but another way could be to load in the list for that sub right here, grab the number or name of that stim from the trial index and use that to save the name
+
         '''compute and save the contrasts'''
         for contrast in contrasts:
             z_map = model.compute_contrast(contrasts[contrast],output_type='z_score')
             nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_zmap.nii.gz'))
+        del temp_events
+
+    for trial in (range(scene_trails)):
+        #this is a rough idea how I will create a temporary new version of the events file to use for the LSS
+        temp_events=events.copy()
+        index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'scene'][trial] #this will find the nth occurance of a desired value in the list
+        temp_events.loc[:,'trial_type']='other'
+        temp_events.loc[index,'trial_type']=('scene_trial%s' % (trial+1))
+
+
+        model.fit(run_imgs=img_clean,events=temp_events,confounds=localizer_confounds)
+
+        '''grab the number of regressors in the model'''
+        n_columns = model.design_matrices_[0].shape[-1]
+
+        '''define the contrasts - the order of trial types is stored in model.design_matrices_[0].columns
+           pad_contrast() adds 0s to the end of a vector in the case that other regressors are modeled, but not included in the primary contrasts'''
+           #order is: trial, other
+
+        #I will need to generate constrasts for each item that the subject viewed in the localizer to get the item weighting, but this will change via subject
+        # to help that along I should write some code to generate the proper events files as well as contrasts.   
+        contrasts = {'face_trial%s' % (trial+1): pad_contrast([1,-1],  n_columns)}
+
+        '''point to and if necessary create the output folder'''
+        out_folder = os.path.join(container_path,sub,'localizer_LSS_lvl1')
+        if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
+
+        #as of now it is labeling the trial estimates by the trial number, which is helpful since I can look at their individual design matricies to see which stim that is
+        #but another way could be to load in the list for that sub right here, grab the number or name of that stim from the trial index and use that to save the name
+
+        '''compute and save the contrasts'''
+        for contrast in contrasts:
+            z_map = model.compute_contrast(contrasts[contrast],output_type='z_score')
+            nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_zmap.nii.gz'))            
