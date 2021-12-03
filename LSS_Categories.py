@@ -139,12 +139,12 @@ for num in range(len(subs)):
                             drift_model=None,high_pass=None,mask_img=vtc_mask,signal_scaling=False,
                             smoothing_fwhm=8,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch1/06873/zbretton/nilearn_cache',memory_level=1)
     #I want to ensure that "trial" is the # of face (e.g., first instance of "face" is trial=1, second is trial=2...)
-    face_trails=events.trial_type.value_counts().face
+    face_trials=events.trial_type.value_counts().face
     scene_trials=events.trial_type.value_counts().scene
     #so this will give us a sense of total trials for these two conditions
         #next step is to then get the index of these conditions, and then use the trial# to iterate through the indexes properly
 
-    for trial in (range(face_trails)):
+    for trial in (range(face_trials)):
         #this is a rough idea how I will create a temporary new version of the events file to use for the LSS
         temp_events=events.copy()
         index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'face'][trial] #this will find the nth occurance of a desired value in the list
@@ -178,7 +178,7 @@ for num in range(len(subs)):
             nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_zmap.nii.gz'))
         del temp_events
 
-    for trial in (range(scene_trails)):
+    for trial in (range(scene_trials)):
         #this is a rough idea how I will create a temporary new version of the events file to use for the LSS
         temp_events=events.copy()
         index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'scene'][trial] #this will find the nth occurance of a desired value in the list
