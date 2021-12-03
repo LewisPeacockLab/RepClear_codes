@@ -136,7 +136,12 @@ for num in range(len(subs)):
                             drift_model=None,high_pass=None,mask_img=vtc_mask,signal_scaling=False,
                             smoothing_fwhm=8,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch1/06873/zbretton/nilearn_cache',memory_level=1)
     #I want to ensure that "trial" is the # of face (e.g., first instance of "face" is trial=1, second is trial=2...)
-    for trial in events.loc[:,'trial_type']=='face':
+    face_trails=events.trial_type.value_counts().faces
+    scene_trials=events.trial_type.value_counts().scenes
+    #so this will give us a sense of total trials for these two conditions
+        #next step is to then get the index of these conditions, and then use the trial# to iterate through the indexes properly
+
+    for trial in :
         #this is a rough idea how I will create a temporary new version of the events file to use for the LSS
         temp_events=events
         temp_events.loc[:,'trial_type']='other'
@@ -157,7 +162,7 @@ for num in range(len(subs)):
         contrasts = {'face_trial%s' % trial: pad_contrast([1,-1],  n_columns)}
 
         '''point to and if necessary create the output folder'''
-        out_folder = os.path.join(container_path,sub,'preremoval_lvl1')
+        out_folder = os.path.join(container_path,sub,'localizer_LSS_lvl1')
         if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
 
         '''compute and save the contrasts'''
