@@ -14,7 +14,6 @@ import os
 import fnmatch
 import pandas as pd
 import pickle
-from brainiak.searchlight.searchlight import Searchlight
 import brainiak
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
@@ -29,6 +28,7 @@ from sklearn import preprocessing
 import time
 from sklearn.metrics import roc_auc_score
 from mpi4py import MPI
+from brainiak.searchlight.searchlight import Ball, Searchlight
 
 
 
@@ -57,6 +57,7 @@ def confound_cleaner(confounds):
 comm = MPI.COMM_WORLD
 rank = comm.rank
 size = comm.size
+
 for TR_shift in TR_shifts:
     for mask_flag in masks:
         for num in range(len(subs)):
@@ -224,7 +225,7 @@ for TR_shift in TR_shifts:
                 return label_TR_shifted
 
         # Apply the function
-            shift_size = TR_shift #this is shifting by 10TR
+            shift_size = TR_shift #this is shifting by 5TR
             tag = 0 #rest label is 0
             maintain_labels_shift = shift_timing(maintain_labels, shift_size, tag) #rest is label 0
             suppress_labels_shift = shift_timing(suppress_labels, shift_size, tag) #rest is label 0
@@ -241,21 +242,18 @@ for TR_shift in TR_shifts:
             #max_blk_edge = When the searchlight function carves the data up into chunks, it doesn't distribute only a single searchlight's worth of data. Instead, it creates a block of data, with the edge length specified by this variable, which determines the number of searchlights to run within a job.
             #pool_size = Maximum number of cores running on a block (typically 1).
 
-            #for now I am piloting this with a tiny mask before moving to the correct mask:
-
-
             # Preset the variables to be used in the searchlight
             data = study_bold.get_fdata() #need this as 4D data
-            mask = gm_mask.get_fdata()         #gm_mask #this is the group GM mask
+            mask = gm_mask.get_fdata() #this is the group GM mask
             sl_rad = 3 #Searchlight radius 
-            max_blk_edge = 5 #blocks of data
+            max_blk_edge = 30 #blocks of data
             pool_size = 1 #Cores running on a block
 
             affine_mat=study_bold.affine
             dimsize = study_bold.header.get_zooms()
 
             # Create the searchlight object
-            sl = Searchlight(sl_rad=sl_rad,max_blk_edge=max_blk_edge,shape=brainiak.searchlight.searchlight.Ball) #this runs the SL as a ball and not cube
+            sl = Searchlight(sl_rad=sl_rad,max_blk_edge=max_blk_edge,shape=Ball) #this runs the SL as a ball and not cube
             print("Setup searchlight inputs")
             print("Input data shape: " + str(data.shape))
             print("Input mask shape: " + str(mask.shape) + "\n")
@@ -290,6 +288,7 @@ for TR_shift in TR_shifts:
 
             # Distribute the information to the searchlights (preparing it to run)
             # This also knows how to handle the MPI information to split this up depending on the HPC parameters
+            print('distributing information to searchlights')
             sl.distribute([data], mask)
             for key in operation_labels:
                 bcvar = operation_labels[key] #this is the labels to determine which condition each 3D volume corresponds to (Operation decoding)
