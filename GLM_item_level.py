@@ -151,26 +151,31 @@ for num in range(len(subs)):
         #next step is to then get the index of these conditions, and then use the trial# to iterate through the indexes properly
 
     temp_events=events.copy() #copy the original events list, so that we can convert the "faces" and "scenes" to include the trial # (which corresponds to a unique image)
-    for trial in (range(face_trials)):
+    face_index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'face'] #this will find the nth occurance of a desired value in the list
+    scene_index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'scene']#this will find the nth occurance of a desired value in the list    
+    for trial in (range(len(face_index))):
         #this is a rough idea how I will create a temporary new version of the events file to use for the LSS
-        index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'face'][trial] #this will find the nth occurance of a desired value in the list
-        temp_events.loc[index,'trial_type']=('face_trial%s' % (trial+1))
-    for trial in (range(scene_trials)):    
-        index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'scene'][trial] #this will find the nth occurance of a desired value in the list
-        temp_events.loc[index,'trial_type']=('scene_trial%s' % (trial+1))
+        temp_events.loc[face_index[trial],'trial_type']=('face_trial%s' % (trial+1))
+    for trial in (range(len(scene_index))):    
+        temp_events.loc[scene_index[trial],'trial_type']=('scene_trial%s' % (trial+1))
 
-    for trial in (range(face_trials)):
+    for trial in (range(len(face_index))):
         face_model.fit(run_imgs=img_clean,events=temp_events,confounds=localizer_confounds)
 
         '''grab the number of regressors in the model'''
         n_columns = face_model.design_matrices_[0].shape[-1]
 
+        #since the columns are not sorted as expected, I will need to located the index of the current trial to place the contrast properly
+
+
         '''define the contrasts - the order of trial types is stored in model.design_matrices_[0].columns
            pad_contrast() adds 0s to the end of a vector in the case that other regressors are modeled, but not included in the primary contrasts'''
            #order is: trial1...trialN
         #bascially create an array the length of all the items
-        item_contrast=np.full((face_trials+scene_trials),-1)
-        item_contrast[trial]=((face_trials+scene_trials)-1)
+        item_contrast=np.full(n_columns,0) #start with an array of 0's
+        item_contrast[face_model.design_matrices_[0].columns.str.match('face_trial')]=-1 #find all the indices of face_trial and set to -1
+        item_contrast[face_model.design_matrices_[0].columns.str.match('scene_trial')]=-1 #find all the indices of scene_trial and set to -1        
+        item_contrast[face_model.design_matrices_[0].columns.get_loc('face_trial%s' % (trial+1))]=((face_trials+scene_trials)-1) #now find our trial of interest and set it equal to the sum of the rest of the contrasts
 
         contrasts = {'face_trial%s' % (trial+1): pad_contrast(item_contrast,  n_columns)}
 
@@ -204,8 +209,10 @@ for num in range(len(subs)):
            #order is: trial1...trialN
 
         #bascially create an array the length of all the items
-        item_contrast=np.full((face_trials+scene_trials),-1)
-        item_contrast[trial+face_trials]=((face_trials+scene_trials)-1)           
+        item_contrast=np.full(n_columns,0) #start with an array of 0's
+        item_contrast[scene_model.design_matrices_[0].columns.str.match('face_trial')]=-1 #find all the indices of face_trial and set to -1
+        item_contrast[scene_model.design_matrices_[0].columns.str.match('scene_trial')]=-1 #find all the indices of scene_trial and set to -1        
+        item_contrast[scene_model.design_matrices_[0].columns.get_loc('scene_trial%s' % (trial+1))]=((face_trials+scene_trials)-1) #now find our trial of interest and set it equal to the sum of the rest of the contrasts
  
         contrasts = {'scene_trial%s' % (trial+1): pad_contrast(item_contrast,  n_columns)}
 

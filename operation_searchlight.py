@@ -29,10 +29,15 @@ import time
 from sklearn.metrics import roc_auc_score
 from mpi4py import MPI
 from brainiak.searchlight.searchlight import Ball, Searchlight
+import argparse
+
+parser = argparse.ArgumentParser(description='Subject input')
+parser.add_argument('--subject',dest='subject',type=str,help='subject number',default=['02','03','04'])
+args = parser.parse_args()
 
 
-subs=['02','03','04']
-
+#subs=['02','03','04']
+subs=[args.subject] #allows me to input per subject so I can run the three subjects in parallel
 
 TR_shifts=[5] #5,6
 brain_flag='MNI' #MNI/T1w
@@ -301,7 +306,7 @@ for TR_shift in TR_shifts:
                 print("Number of searchlights run: " + str(len(sl_result[mask==1])))
                 print("Accuracy for each kernel function: " +str(sl_result[mask==1].astype('double')))
                 end_time = time.time()              
-                print('Total searchlight duration: %.2f' % (end_time - begin_time))
+                print('Total searchlight duration: %.2f' % (end_time - start_time))
 
                 # Save the results to a .nii file
                 output_dir=os.path.join(container_path,sub,'searchlight')
