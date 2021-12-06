@@ -58,7 +58,6 @@ size = comm.size
 for TR_shift in TR_shifts:
     for mask_flag in masks:
         for num in range(len(subs)):
-            start_time = time.time()
             sub_num=subs[num]
 
             print('Running sub-0%s...' %sub_num)
@@ -288,6 +287,7 @@ for TR_shift in TR_shifts:
             print('distributing information to searchlights')
             sl.distribute([data], mask)
             for key in operation_labels:
+                start_time = time.time()
                 bcvar = operation_labels[key] #this is the labels to determine which condition each 3D volume corresponds to (Operation decoding)
 
                 # Data that is needed for all searchlights is sent to all cores via the sl.broadcast function. In this, we are sending the labels for classification to all searchlights.
@@ -300,7 +300,8 @@ for TR_shift in TR_shifts:
                 print("Summarize searchlight results")
                 print("Number of searchlights run: " + str(len(sl_result[mask==1])))
                 print("Accuracy for each kernel function: " +str(sl_result[mask==1].astype('double')))
-                print('Total searchlight duration (including start up time): %.2f' % (end_time - begin_time))
+                end_time = time.time()              
+                print('Total searchlight duration: %.2f' % (end_time - begin_time))
 
                 # Save the results to a .nii file
                 output_dir=os.path.join(container_path,sub,'searchlight')
@@ -314,4 +315,4 @@ for TR_shift in TR_shifts:
                 hdr.set_zooms((dimsize[0], dimsize[1], dimsize[2]))
                 nib.save(sl_nii, output_name)  # Save the volume  
 
-            end_time = time.time()              
+        
