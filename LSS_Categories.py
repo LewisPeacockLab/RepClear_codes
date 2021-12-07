@@ -197,6 +197,7 @@ for num in range(len(subs)):
            pad_contrast() adds 0s to the end of a vector in the case that other regressors are modeled, but not included in the primary contrasts'''
            #order is: trial, other
  
+        #I believe that the order for the scene trials are actually "other" - "trial" which would mean that I need to get this adjusted
         contrasts = {'scene_trial%s' % (trial+1): pad_contrast([1,-1],  n_columns)}
 
         '''point to and if necessary create the output folder'''
