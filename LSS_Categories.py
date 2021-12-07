@@ -159,9 +159,14 @@ for num in range(len(subs)):
 
         '''define the contrasts - the order of trial types is stored in model.design_matrices_[0].columns
            pad_contrast() adds 0s to the end of a vector in the case that other regressors are modeled, but not included in the primary contrasts'''
-           #order is: trial, other
- 
-        contrasts = {'face_trial%s' % (trial+1): pad_contrast([1,-1],  n_columns)}
+        #set up the array to be used to feed into the pad_constrast function below
+        contrast_array=[0,0]
+        #these two lines then look for the column with the string that matches the input, and sets that value to 1 and -1 respectively
+        #this means that regardless of where the 'scene_trial' or 'other' are in the design, it assigns the contrast properly
+        contrast_array[model.design_matrices_[0].columns.str.match('face_trial')]=1
+        contrast_array[model.design_matrices_[0].columns.str.match('other')]=-1
+
+        contrasts = {'face_trial%s' % (trial+1): pad_contrast(contrast_array,  n_columns)}
 
         '''point to and if necessary create the output folder'''
         out_folder = os.path.join(container_path,sub,'localizer_LSS_lvl1')
@@ -178,7 +183,7 @@ for num in range(len(subs)):
             nib.save(t_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_tmap.nii.gz'))  
             file_data = model.generate_report(contrasts[contrast])
             file_data.save_as_html(os.path.join(out_folder,f"{contrast}_{brain_flag}_report.html"))  
-        del temp_events
+        del temp_events, contrast_array
 
     for trial in (range(scene_trials)):
         #this is a rough idea how I will create a temporary new version of the events file to use for the LSS
@@ -203,6 +208,9 @@ for num in range(len(subs)):
         contrast_array[model.design_matrices_[0].columns.str.match('scene_trial')]=1
         contrast_array[model.design_matrices_[0].columns.str.match('other')]=-1
 
+        contrasts = {'scene_trial%s' % (trial+1): pad_contrast(contrast_array,  n_columns)}
+
+
         '''point to and if necessary create the output folder'''
         out_folder = os.path.join(container_path,sub,'localizer_LSS_lvl1')
         if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
@@ -219,4 +227,4 @@ for num in range(len(subs)):
             file_data = model.generate_report(contrasts[contrast])
             file_data.save_as_html(os.path.join(out_folder,f"{contrast}_{brain_flag}_report.html"))         
 
-        del temp_events
+        del temp_events, contrast_array

@@ -188,4 +188,4 @@ for num in range(len(subs)):
             file_data = model.generate_report(contrasts[contrast])
             file_data.save_as_html(os.path.join(out_folder,f"{contrast}_{brain_flag}_report.html"))         
 
-        del temp_events
+        del temp_events, contrast_array
