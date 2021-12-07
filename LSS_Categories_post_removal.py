@@ -162,7 +162,15 @@ for num in range(len(subs)):
         #after reviewing some of the outputs, it seems that its actually "other" - "trial"
         #so I may need to reset these contrasts, even though it'll just flip the results (I believe)
         #so I need to double check that these contrasts are coming across as expected 
-        contrasts = {'scene_trial%s' % (trial+1): pad_contrast([1,-1],  n_columns)}
+
+        #set up the array to be used to feed into the pad_constrast function below
+        contrast_array=[0,0]
+        #these two lines then look for the column with the string that matches the input, and sets that value to 1 and -1 respectively
+        #this means that regardless of where the 'scene_trial' or 'other' are in the design, it assigns the contrast properly
+        contrast_array[model.design_matrices_[0].columns.str.match('scene_trial')]=1
+        contrast_array[model.design_matrices_[0].columns.str.match('other')]=-1
+
+        contrasts = {'scene_trial%s' % (trial+1): pad_contrast(contrast_array,  n_columns)}
 
         '''point to and if necessary create the output folder'''
         out_folder = os.path.join(container_path,sub,'post_localizer_LSS_lvl1')
