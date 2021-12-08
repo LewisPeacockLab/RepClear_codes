@@ -14,23 +14,30 @@ import os
 import fnmatch
 import pandas as pd
 import pickle
+import brainiak
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
-from sklearn.model_selection import PredefinedSplit, cross_validate, cross_val_predict, GridSearchCV
+from sklearn.model_selection import PredefinedSplit, cross_validate, cross_val_predict, GridSearchCV, cross_val_score, GridSearchCV, StratifiedKFold
 from sklearn.feature_selection import VarianceThreshold, f_classif, SelectKBest, SelectFpr
 from sklearn.preprocessing import StandardScaler
 from nilearn.input_data import NiftiMasker,  MultiNiftiMasker
-from nilearn.image import clean_img, load_img, get_data, concat_imgs
+from nilearn.image import clean_img, load_img, get_data, concat_imgs, resample_img
 from nilearn.signal import clean
 from scipy import stats
 from sklearn import preprocessing
 import time
 from sklearn.metrics import roc_auc_score
+from mpi4py import MPI
+from brainiak.searchlight.searchlight import Ball, Searchlight
+import argparse
+
+parser = argparse.ArgumentParser(description='Subject input')
+parser.add_argument('--subject',dest='subject',type=str,help='subject number',default=['02','03','04'])
+args = parser.parse_args()
 
 
-
-subs=['02','03','04']
-
+#subs=['02','03','04']
+subs=[args.subject] #allows me to input per subject so I can run the three subjects in parallel
 
 TR_shifts=[5] #5,6
 brain_flag='MNI' #MNI/T1w
@@ -39,10 +46,23 @@ masks=['GM'] # this is masked to the group GM mask
 
 clear_data=1 #0 off / 1 on
 
+def confound_cleaner(confounds):
+    COI = ['a_comp_cor_00','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
+    for _c in confounds.columns:
+        if 'cosine' in _c:
+            COI.append(_c)
+    confounds = confounds[COI]
+    confounds.loc[0,'framewise_displacement'] = confounds.loc[1:,'framewise_displacement'].mean()
+    return confounds
+
+
+comm = MPI.COMM_WORLD
+rank = comm.rank
+size = comm.size
+
 for TR_shift in TR_shifts:
     for mask_flag in masks:
         for num in range(len(subs)):
-            start_time = time.time()
             sub_num=subs[num]
 
             print('Running sub-0%s...' %sub_num)
@@ -67,7 +87,7 @@ for TR_shift in TR_shifts:
             bold_files=find('*study*bold*.nii.gz',bold_path)
             wholebrain_mask_path=find('*study*mask*.nii.gz',bold_path)
             anat_path=os.path.join(container_path,sub,'anat/')
-            gm_mask_path=find('*GM_MNI_mask*',container_path)
+            gm_mask_path=find('*MNI_GM_mask*',container_path)
             gm_mask=nib.load(gm_mask_path[0])  
             
             if brain_flag=='MNI':
@@ -101,9 +121,6 @@ for TR_shift in TR_shifts:
                 confound_run2 = pd.read_csv(study_confounds_2[0],sep='\t')
                 confound_run3 = pd.read_csv(study_confounds_3[0],sep='\t')
                 
-
-                #Whole section needs to be re-written to load in 4D but then mask using nilearn.image.clean_img to keep it 4D so that it can be passed into SL
-
                 preproc_1 = clean_img(study_run1,t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
                 preproc_2 = clean_img(study_run2,t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
                 preproc_3 = clean_img(study_run3,t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
@@ -132,20 +149,21 @@ for TR_shift in TR_shifts:
                 confound_run2 = pd.read_csv(study_confounds_2[0],sep='\t')
                 confound_run3 = pd.read_csv(study_confounds_3[0],sep='\t')
 
-                confound_run1=confound_run1.fillna(confound_run1.mean())
-                confound_run2=confound_run2.fillna(confound_run2.mean())
-                confound_run3=confound_run3.fillna(confound_run3.mean())                       
+                confound_run1=confound_cleaner(confound_run1)
+                confound_run2=confound_cleaner(confound_run2)
+                confound_run3=confound_cleaner(confound_run3)         
 
-                preproc_1 = clean_img(study_run1,confounds=(confound_run1.iloc[:,:31]),t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
-                preproc_2 = clean_img(study_run2,confounds=(confound_run2.iloc[:,:31]),t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
-                preproc_3 = clean_img(study_run3,confounds=(confound_run3.iloc[:,:31]),t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
+
+                preproc_1 = clean_img(study_run1,confounds=confound_run1,t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
+                preproc_2 = clean_img(study_run2,confounds=confound_run2,t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
+                preproc_3 = clean_img(study_run3,confounds=confound_run3,t_r=1,detrend=False,standardize='zscore',mask_img=gm_mask)
 
                 study_bold=concat_imgs((preproc_1,preproc_2,preproc_3))
 
             #create run array
-                run1_length=int((len(study_run1)))
-                run2_length=int((len(study_run2)))
-                run3_length=int((len(study_run3)))                
+                run1_length=int(study_run1.shape[3]) #get the TR length of this run
+                run2_length=int(study_run2.shape[3])
+                run3_length=int(study_run3.shape[3])                
 
             #fill in the run array with run number
             run1=np.full(run1_length,1)
@@ -176,18 +194,25 @@ for TR_shift in TR_shifts:
         #1. maintain
         #2. replace_category
         #3. suppress
-            stim_list=np.full(len(study_bold),0)
+            stim_list=np.full(study_bold.shape[3],0)
             maintain_list=np.where((reg_operation==1) & ((reg_present==2) | (reg_present==3)))
             suppress_list=np.where((reg_operation==3) & ((reg_present==2) | (reg_present==3)))
             replace_list=np.where((reg_operation==2) & ((reg_present==2) | (reg_present==3)))
-            stim_list[maintain_list]=1
-            stim_list[suppress_list]=3
-            stim_list[replace_list]=2
 
-            oper_list=reg_operation
-            oper_list=oper_list[:,None]
+            #this is KEY, if you dont use the .copy() ending, then it links these together such that the changes below occur across ALL three lists
+            maintain_labels=stim_list.copy()
+            suppress_labels=stim_list.copy()
+            replace_labels=stim_list.copy()
 
-            stim_list=stim_list[:,None]
+            maintain_labels[maintain_list]=1
+            suppress_labels[suppress_list]=1
+            replace_labels[replace_list]=1
+
+
+            maintain_labels=maintain_labels[:,None]
+            suppress_labels=suppress_labels[:,None]
+            replace_labels=replace_labels[:,None]
+
      
 
                 # Create a function to shift the size, and will do the rest tag
@@ -203,34 +228,14 @@ for TR_shift in TR_shifts:
                 return label_TR_shifted
 
         # Apply the function
-            shift_size = TR_shift #this is shifting by 10TR
+            shift_size = TR_shift #this is shifting by 5TR
             tag = 0 #rest label is 0
-            stim_list_shift = shift_timing(stim_list, shift_size, tag) #rest is label 0
+            maintain_labels_shift = shift_timing(maintain_labels, shift_size, tag) #rest is label 0
+            suppress_labels_shift = shift_timing(suppress_labels, shift_size, tag) #rest is label 0
+            replace_labels_shift = shift_timing(replace_labels, shift_size, tag) #rest is label 0
+
+            operation_labels={'maintain':maintain_labels_shift,'suppress':suppress_labels_shift,'replace':replace_labels_shift}
             import random
-
-            def Diff(li1,li2):
-                return (list(set(li1)-set(li2)))
-            # tr_to_remove=Diff(rest_times,rest_times_index)
-
-            rest_times=np.where(stim_list_shift==0)
-
-
-            # Extract bold data for non-zero labels
-            def reshape_data(label_TR_shifted, masked_data_all,run_list):
-                label_index = np.nonzero(label_TR_shifted)
-                label_index = np.squeeze(label_index)
-                # Pull out the indexes
-                indexed_data = masked_data_all[label_index,:]
-                nonzero_labels = label_TR_shifted[label_index]
-                nonzero_runs = run_list[label_index] 
-                return indexed_data, nonzero_labels, nonzero_runs
-
-
-            stim_list_nr=np.delete(stim_list_shift, rest_times)
-            stim_list_nr=stim_list_nr.flatten()
-            stim_list_nr=stim_list_nr[:,None]
-            study_bold_nr=np.delete(study_bold, rest_times, axis=0)
-            run_list_nr=np.delete(run_list, rest_times)
 
             #parameters for the searchlight:
             #data = The brain data as a 4D volume.
@@ -240,25 +245,27 @@ for TR_shift in TR_shifts:
             #max_blk_edge = When the searchlight function carves the data up into chunks, it doesn't distribute only a single searchlight's worth of data. Instead, it creates a block of data, with the edge length specified by this variable, which determines the number of searchlights to run within a job.
             #pool_size = Maximum number of cores running on a block (typically 1).
 
+            #make a small mask to debug!
+            small_mask = np.zeros(gm_mask.shape)
+            small_mask[18:23, 22:27, 32:37] = 1
+
             # Preset the variables to be used in the searchlight
-            data = study_bold #need this as 4D data - this is 2D, must fix
-            mask = gm_mask #this is the group GM mask
-            bcvar = stim_list #this is the labels to determine which condition each 3D volume corresponds to (Operation decoding)
+            data = study_bold.get_fdata() #need this as 4D data
+            mask = gm_mask.get_fdata() #this is the group GM mask
+            #to debug set the mask to the small_mask
+
             sl_rad = 3 #Searchlight radius 
-            max_blk_edge = 5 #blocks of data
+            max_blk_edge = 30 #blocks of data
             pool_size = 1 #Cores running on a block
 
+            affine_mat=study_bold.affine
+            dimsize = study_bold.header.get_zooms()
+
             # Create the searchlight object
-            sl = Searchlight(sl_rad=sl_rad,max_blk_edge=max_blk_edge,shape='Ball')
+            sl = Searchlight(sl_rad=sl_rad,max_blk_edge=max_blk_edge,shape=Ball) #this runs the SL as a ball and not cube
             print("Setup searchlight inputs")
             print("Input data shape: " + str(data.shape))
             print("Input mask shape: " + str(mask.shape) + "\n")
-
-            # Distribute the information to the searchlights (preparing it to run)
-            sl.distribute([data], mask)
-
-            # Data that is needed for all searchlights is sent to all cores via the sl.broadcast function. In this example, we are sending the labels for classification to all searchlights.
-            sl.broadcast(bcvar)
 
             # Set up the kernel to be used in Searchlight
             def calc_L2(data, sl_mask, myrad, bcvar):
@@ -269,39 +276,58 @@ for TR_shift in TR_shifts:
                 
                 bolddata_sl = data4D.reshape(sl_mask.shape[0] * sl_mask.shape[1] * sl_mask.shape[2], data[0].shape[3]).T
 
-                # Check if the number of voxels is what you expect.
-                print("Searchlight data shape: " + str(data[0].shape))
-                print("Searchlight data shape after reshaping: " + str(bolddata_sl.shape))
-                print("Searchlight mask shape:" + str(sl_mask.shape) + "\n")
-                print("Searchlight mask (note that the center equals 1):\n" + str(sl_mask) + "\n")
+                # # Check if the number of voxels is what you expect.
+                # print("Searchlight data shape: " + str(data[0].shape))
+                # print("Searchlight data shape after reshaping: " + str(bolddata_sl.shape))
+                # print("Searchlight mask shape:" + str(sl_mask.shape) + "\n")
+                # print("Searchlight mask (note that the center equals 1):\n" + str(sl_mask) + "\n")
                 
                 t1 = time.time()
-                clf = LogisticRegression(penalty='l2',solver='liblinear', C=1)
-                scores = cross_val_score(clf, bolddata_sl, labels, cv=3)
+                clf = LogisticRegression(solver='liblinear')
+
+                #this actually should work as intended, since I am running the searchlight for maintain, replace and suppress separately (e.g., a regressor list where maintain is labeled with a 1 and all other conditions as a 0, since we run the LogisticRegression as a 1vs.the-rest)
+                scores = cross_val_score(clf, bolddata_sl, labels, scoring='roc_auc', cv=3) #Study session has three runs, so this should split the data properly... but will need to decide on that
+                #adjusted the scoring system to roc_auc, since just using accuracy was a wrong approach since the samples are not balanced
+
+
                 accuracy = scores.mean()
                 t2 = time.time()
                 
                 print('Kernel duration: %.2f\n\n' % (t2 - t1))
                 
                 return accuracy
-            #time to execute the searchlight
-            print("Begin Searchlight\n")
-            sl_result = sl.run_searchlight(calc_L2, pool_size=pool_size)
-            print("End Searchlight\n")
 
-            end_time = time.time()
+            # Distribute the information to the searchlights (preparing it to run)
+            # This also knows how to handle the MPI information to split this up depending on the HPC parameters
+            print('distributing information to searchlights')
+            sl.distribute([data], mask)
+            for key in operation_labels:
+                start_time = time.time()
+                bcvar = operation_labels[key] #this is the labels to determine which condition each 3D volume corresponds to (Operation decoding)
 
+                # Data that is needed for all searchlights is sent to all cores via the sl.broadcast function. In this, we are sending the labels for classification to all searchlights.
+                sl.broadcast(bcvar)
+                #time to execute the searchlight
+                print("Begin Searchlight\n")
+                sl_result = sl.run_searchlight(calc_L2, pool_size=pool_size)
+                print("End Searchlight\n")
             # Print outputs
-            print("Summarize searchlight results")
-            print("Number of searchlights run: " + str(len(sl_result[mask==1])))
-            print("Accuracy for each kernel function: " +str(sl_result[mask==1].astype('double')))
-            print('Total searchlight duration (including start up time): %.2f' % (end_time - begin_time))
+                print("Summarize searchlight results")
+                print("Number of searchlights run: " + str(len(sl_result[mask==1])))
+                print("Accuracy for each kernel function: " +str(sl_result[mask==1].astype('double')))
+                end_time = time.time()              
+                print('Total searchlight duration: %.2f' % (end_time - start_time))
 
-            # Save the results to a .nii file
-            output_name = os.path.join(output_dir, ('Sub-0%s_SL_operation_result.nii.gz' % (sub_num)))
-            sl_result = sl_result.astype('double')  # Convert the output into a precision format that can be used by other applications
-            sl_result[np.isnan(sl_result)] = 0  # Exchange nans with zero to ensure compatibility with other applications
-            sl_nii = nib.Nifti1Image(sl_result, affine_mat)  # create the volume image
-            hdr = sl_nii.header  # get a handle of the .nii file's header
-            hdr.set_zooms((dimsize[0], dimsize[1], dimsize[2]))
-            nib.save(sl_nii, output_name)  # Save the volume                
+                # Save the results to a .nii file
+                output_dir=os.path.join(container_path,sub,'searchlight')
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+                output_name = os.path.join(output_dir, ('Sub-0%s_SL_%s_debug_result.nii.gz' % (sub_num,key)))
+                sl_result = sl_result.astype('double')  # Convert the output into a precision format that can be used by other applications
+                sl_result[np.isnan(sl_result)] = 0  # Exchange nans with zero to ensure compatibility with other applications
+                sl_nii = nib.Nifti1Image(sl_result, affine_mat)  # create the volume image
+                hdr = sl_nii.header  # get a handle of the .nii file's header
+                hdr.set_zooms((dimsize[0], dimsize[1], dimsize[2]))
+                nib.save(sl_nii, output_name)  # Save the volume  
+
+        
