@@ -198,9 +198,11 @@ for TR_shift in TR_shifts:
             maintain_list=np.where((reg_operation==1) & ((reg_present==2) | (reg_present==3)))
             suppress_list=np.where((reg_operation==3) & ((reg_present==2) | (reg_present==3)))
             replace_list=np.where((reg_operation==2) & ((reg_present==2) | (reg_present==3)))
-            maintain_labels=stim_list
-            suppress_labels=stim_list
-            replace_labels=stim_list
+
+            #this is KEY, if you dont use the .copy() ending, then it links these together such that the changes below occur across ALL three lists
+            maintain_labels=stim_list.copy()
+            suppress_labels=stim_list.copy()
+            replace_labels=stim_list.copy()
 
             maintain_labels[maintain_list]=1
             suppress_labels[suppress_list]=1
@@ -243,9 +245,15 @@ for TR_shift in TR_shifts:
             #max_blk_edge = When the searchlight function carves the data up into chunks, it doesn't distribute only a single searchlight's worth of data. Instead, it creates a block of data, with the edge length specified by this variable, which determines the number of searchlights to run within a job.
             #pool_size = Maximum number of cores running on a block (typically 1).
 
+            #make a small mask to debug!
+            small_mask = np.zeros(gm_mask.shape)
+            small_mask[18:23, 22:27, 32:37] = 1
+
             # Preset the variables to be used in the searchlight
             data = study_bold.get_fdata() #need this as 4D data
             mask = gm_mask.get_fdata() #this is the group GM mask
+            #to debug set the mask to the small_mask
+
             sl_rad = 3 #Searchlight radius 
             max_blk_edge = 30 #blocks of data
             pool_size = 1 #Cores running on a block
@@ -278,7 +286,9 @@ for TR_shift in TR_shifts:
                 clf = LogisticRegression(solver='liblinear')
 
                 #this actually should work as intended, since I am running the searchlight for maintain, replace and suppress separately (e.g., a regressor list where maintain is labeled with a 1 and all other conditions as a 0, since we run the LogisticRegression as a 1vs.the-rest)
-                scores = cross_val_score(clf, bolddata_sl, labels, cv=3) #Study session has three runs, so this should split the data properly... but will need to decide on that
+                scores = cross_val_score(clf, bolddata_sl, labels, scoring='roc_auc', cv=3) #Study session has three runs, so this should split the data properly... but will need to decide on that
+                #adjusted the scoring system to roc_auc, since just using accuracy was a wrong approach since the samples are not balanced
+
 
                 accuracy = scores.mean()
                 t2 = time.time()
@@ -312,7 +322,7 @@ for TR_shift in TR_shifts:
                 output_dir=os.path.join(container_path,sub,'searchlight')
                 if not os.path.exists(output_dir):
                     os.makedirs(output_dir)
-                output_name = os.path.join(output_dir, ('Sub-0%s_SL_%s_result.nii.gz' % (sub_num,key)))
+                output_name = os.path.join(output_dir, ('Sub-0%s_SL_%s_debug_result.nii.gz' % (sub_num,key)))
                 sl_result = sl_result.astype('double')  # Convert the output into a precision format that can be used by other applications
                 sl_result[np.isnan(sl_result)] = 0  # Exchange nans with zero to ensure compatibility with other applications
                 sl_nii = nib.Nifti1Image(sl_result, affine_mat)  # create the volume image
