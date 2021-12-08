@@ -20,8 +20,8 @@ cmap = sns.color_palette("crest", as_cmap=True)
 # import pickle
 # from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
-from sklearn.model_selection import train_test_split  #PredefinedSplit, cross_validate, cross_val_predict, GridSearchCV, LeaveOneGroupOut
-from sklearn.feature_selection import SelectFpr, f_classif  #VarianceThreshold, f_classif, SelectKBest, 
+from sklearn.model_selection import GridSearchCV, LeaveOneGroupOut  #train_test_split, PredefinedSplit, cross_validate, cross_val_predict, 
+from sklearn.feature_selection import SelectFpr, f_classif  #VarianceThreshold, SelectKBest, 
 # from sklearn.preprocessing import StandardScaler
 # from nilearn.input_data import NiftiMasker,  MultiNiftiMasker
 # from scipy import stats
@@ -39,8 +39,8 @@ ROIs = ['VVS', 'PHG', 'FG']
 shift_sizes_TR = [5, 6]
 
 stim_labels = {0: "Rest",
-        1: "Scenes",
-        2: "Faces"}
+                1: "Scenes",
+                2: "Faces"}
 
 workspace = 'scratch'
 if workspace == 'work':
@@ -51,8 +51,6 @@ elif workspace == 'scratch':
     data_dir = '/scratch1/07365/sguo19/fmriprep/'
     event_dir = '/scratch1/07365/sguo19/events/'
     results_dir = '/scratch1/07365/sguo19/model_fitting_results/'
-
-
 
 
 def get_preprocessed_data(subID, task, space, mask_ROIS, runs=np.arange(6)+1, save=False):
@@ -82,7 +80,7 @@ def get_preprocessed_data(subID, task, space, mask_ROIS, runs=np.arange(6)+1, sa
                 print("Loading saved preprocessed data", out_fname_template, '...')
                 preproc_data["wholebrain"] = np.load(os.path.join(bold_dir, out_fname_template.format('wholebrain')))
             else:
-                print(f"wholebrain data to be processed.")
+                print("Wholebrain data to be processed.")
                 todo_ROIs = "wholebrain"
 
         elif type(mask_ROIS) == list:
@@ -92,6 +90,7 @@ def get_preprocessed_data(subID, task, space, mask_ROIS, runs=np.arange(6)+1, sa
                     print("Loading saved preprocessed data", out_fname_template.format(ROI), '...')
                     preproc_data[ROI] = np.load(os.path.join(bold_dir, out_fname_template.format(ROI)))
                 else: 
+                    if ROI == 'vtc': ROI = 'VVS'  # change back to laod masks...
                     print(f"ROI {ROI} data to be processed.")
                     todo_ROIs.append(ROI)
         else: 
@@ -127,7 +126,8 @@ def get_preprocessed_data(subID, task, space, mask_ROIS, runs=np.arange(6)+1, sa
     if mask_ROIS == 'wholebrain':
         raise NotImplementedError("function doesn't support wholebrain mask!")
 
-    bold_dir = os.path.join(data_dir, f"sub-{subID}", "func")
+    # FIXME: regenerate masked & cleaned data & save to new dir
+    bold_dir = os.path.join(data_dir, f"sub-{subID}", "func", "masked_cleaned")
     out_fname_template = f"sub-{subID}_{space}_{task}_{{}}_masked_cleaned.npy"
 
     # ========== check & load existing files
@@ -203,9 +203,11 @@ def get_preprocessed_data(subID, task, space, mask_ROIS, runs=np.arange(6)+1, sa
                 masked = apply_mask(mask=mask.get_data(), target=bold.get_data())
                 # *** clean: confound length in time; transpose signal to (time x vox) for cleaning & model fitting ***
                 cleaned_bolds[rowi][coli] = clean(masked.T, confounds=confound, t_r=1, detrend=False, standardize='zscore')
+                print(f"ROI {rowi}, run {coli}")
+                print(f"shape: {cleaned_bolds[rowi][coli].shape}")
 
         # {ROI: time x vox}
-        preproc_data = {ROI: np.hstack(run_data) for ROI, run_data in zip(mask_ROIS, cleaned_bolds)}
+        preproc_data = {ROI: np.vstack(run_data) for ROI, run_data in zip(mask_ROIS, cleaned_bolds)}
 
     print("processed data shape: ", [d.shape for d in preproc_data.values()])
     print("*** Done with preprocessing!")
@@ -214,45 +216,58 @@ def get_preprocessed_data(subID, task, space, mask_ROIS, runs=np.arange(6)+1, sa
     if save: 
         for ROI, run_data in preproc_data.items():
             out_fname = out_fname_template.format(ROI)
-            print(f"Saving to file {out_fname}...")
-            np.save(out_fname, run_data)
+            print(f"Saving to file {bold_dir}/{out_fname}...")
+            np.save(f"{bold_dir}/{out_fname}", run_data)
 
     full_dict = {**ready_data, **preproc_data}
     # array: all_runs_time x all_ROI_vox 
-    full_data = np.vstack(list(full_dict.values()))
+    full_data = np.hstack(list(full_dict.values()))
     return full_data
 
 
 def get_labels(task, shift_size_TR, rest_tag=0):
-    # load labels, & add hemodynamic shift
+    # load labels, & add hemodynamic shift to all vars
 
-    def shift_timing(label_TR, TR_shift_size, tag=0):
-        # Shift 1D label vectors by given TRs with paddings of tag
-        shifted = np.concatenate([np.zeros(TR_shift_size)+tag, label_TR])
-        return shifted[:len(label_TR)]  # trim time points outside of scanning time
+    def shift_timing(label_df, TR_shift_size, tag=0):
+        # Shift 2D df labels by given TRs with paddings of tag
+        # Input label_df must be time x nvars
+        nvars = len(label_df.loc[0])
+        shift = pd.DataFrame(np.zeros((TR_shift_size, nvars))+tag, columns=label_df.columns)
+        shifted = pd.concat([shift, label_df])
+        return shifted[:len(label_df)]  # trim time points outside of scanning time
 
     print("\n***** Loading labels...")
 
     event_path = os.path.join(event_dir, f'{task}_events.csv')
     events_df = pd.read_csv(event_path)
-    # categories: 1 Scenes, 2 Faces / 0 is rest
-    TR_category = events_df["category"].values
-    # stim_on labels: 1 actual stim; 2 rest between stims; 0 actual rest
-    TR_stim_on = events_df["stim_present"].values
+    # === commented out: getting only three rows
+    # # categories: 1 Scenes, 2 Faces / 0 is rest
+    # TR_category = events_df["category"].values
+    # # stim_on labels: 1 actual stim; 2 rest between stims; 0 actual rest
+    # TR_stim_on = events_df["stim_present"].values
+    # # run
+    # TR_run_list = events_df["run"].values
+    # # shifted
+    # sTR_category = shift_timing(TR_category, shift_size_TR, rest_tag)
+    # sTR_stim_on = shift_timing(TR_stim_on, shift_size_TR, rest_tag)
+    # sTR_run_list = shift_timing(TR_run_list, shift_size_TR, rest_tag)
 
-    # shifted
-    sTR_category = shift_timing(TR_category, shift_size_TR, rest_tag)
-    sTR_stim_on = shift_timing(TR_stim_on, shift_size_TR, rest_tag)
+    shifted_df = shift_timing(events_df, shift_size_TR, rest_tag)
 
-    return sTR_category, sTR_stim_on
+    return shifted_df
 
 
-def subsample(full_data, stim_list, stim_on, include_rest=True):
+def random_subsample(full_data, label_df, include_rest=True):
+    """
+    Subsample data by random sampling, only based on target labels but not runs
+    """
     # stim_list: 1 Scenes, 2 Faces / 0 is rest
     # stim_on labels: 1 actual stim; 2 rest between stims; 0 rest between runs
-    print("\n***** Subsampling data points...")
+    print("\n***** Randomly subsampling data points...")
 
-    # ===== get indices of samples to choose
+    stim_list = label_df['category']
+    stim_on = label_df['stim_present']
+
     labels = set(stim_list)
     labels.remove(0)  # rest will be done separately afterwards
 
@@ -260,8 +275,9 @@ def subsample(full_data, stim_list, stim_on, include_rest=True):
     stim_inds = {lab: np.where((stim_on == 1) & (stim_list == lab))[0] for lab in labels}
     min_n = min([len(inds) for inds in stim_inds.values()])  # min sample size to get from each category
 
-    # subsample min_n samples from each catefgory
     sampled_inds = {}
+    # ===== get indices of samples to choose
+    # subsample min_n samples from each catefgory
     for lab, inds in stim_inds.items():
         chosen_inds = np.random.choice(inds, min_n, replace=False)
         sampled_inds[int(lab)] = sorted(chosen_inds)
@@ -274,6 +290,8 @@ def subsample(full_data, stim_list, stim_on, include_rest=True):
         padded_bools = np.r_[False, rest_bools, False]  # pad the bools at beginning and end for diff to operate
         rest_diff = np.diff(padded_bools)  # get the pairwise diff in the array --> True for start and end indices of rest periods
         rest_intervals = rest_diff.nonzero()[0].reshape((-1,2))  # each pair is the interval of rest periods
+        print("random sample rest_intervals: ", rest_intervals)
+        exit()
 
         # get desired time points: can be changed to be middle/end of resting periods, or just random subsample
         # current choice: get time points in the middle of rest periods for rest samples; if 0.5, round up
@@ -283,7 +301,7 @@ def subsample(full_data, stim_list, stim_on, include_rest=True):
         chosen_rest_inds = np.random.choice(rest_inds, min_n, replace=False)
         sampled_inds[0] = sorted(chosen_rest_inds)
 
-    # ===== stack samples
+    # ===== stack indices
     X = []
     Y = []
     for lab, inds in sampled_inds.items():
@@ -292,43 +310,143 @@ def subsample(full_data, stim_list, stim_on, include_rest=True):
 
     X = np.vstack(X)
     Y = np.concatenate(Y)
-    return X, Y
+    return X, Y, _
 
 
-def fit_model(X, Y, save=False, out_fname=None, v=False):
+def subsample_by_runs(full_data, label_df, include_rest=True):
+    """
+    Subsample data by runs. Yield splits or all combination of 2 runs.
+    Return: stacked X & Y for train/test split & model fitting
+    """ 
+
+    # stim_list: 1 Scenes, 2 Faces / 0 is rest
+    # stim_on labels: 1 actual stim; 2 rest between stims; 0 rest between runs
+    print("\n***** Subsampling data points by runs...")
+
+    stim_list = label_df['category']
+    stim_on = label_df['stim_present']
+    run_list = label_df['run']
+
+    # get faces
+    face_inds = np.where((stim_on == 1) & (stim_list == 2))[0]
+    rest_inds = []
+    groups = np.concatenate([np.full(int(len(face_inds)/2), 1), np.full(int(len(face_inds)/2), 2)])
+
+    scenes_runs = [3,4,5,6]
+    for i in range(len(scenes_runs)):
+        runi = scenes_runs[i]
+        for j in range(i+1, len(scenes_runs)):
+            runj = scenes_runs[j]
+            print(f"\nSubsampling scenes with runs {runi} & {runj}...")
+            
+            # choose scene samples based on run
+            scene_inds = np.where((stim_on == 1) & (stim_list == 1) & 
+                                    ((run_list == runi) | (run_list == runj)))[0] # actual stim; stim is scene; stim in the two runs
+            
+            if include_rest:
+                print("Including resting category...")
+                # get TR intervals for rest between stims (stim_on == 2)
+                rest_bools = ((run_list == runi) | (run_list == runj)) & (stim_on == 2)
+                padded_bools = np.r_[False, rest_bools, False]  # pad the bools at beginning and end for diff to operate
+                rest_diff = np.diff(padded_bools)  # get the pairwise diff in the array --> True for start and end indices of rest periods
+                rest_intervals = rest_diff.nonzero()[0].reshape((-1,2))  # each pair is the interval of rest periods
+
+                # get desired time points: can be changed to be middle/end of resting periods, or just random subsample
+                # current choice: get time points in the middle of rest periods for rest samples; if 0.5, round up
+                rest_intervals[:,-1] -= 1
+                rest_inds = [np.ceil(np.average(interval)).astype(int) for interval in rest_intervals] + \
+                            [np.ceil(np.average(interval)).astype(int)+1 for interval in rest_intervals]
+
+                # should give same number of rest samples; if not, do random sample
+                # rest_inds = np.random.choice(rest_inds, len(face_inds), replace=False)
+
+            # === get X & Y
+            X = []
+            Y = []
+            print(f"rest_inds: {len(rest_inds)}, scene_inds: {len(scene_inds)}, face_inds: {len(face_inds)}")
+            for lab, inds in zip([0,1,2], [rest_inds, scene_inds, face_inds]):
+                print("label counts:", lab, len(inds))
+                X.append(full_data[inds, :])
+                Y.append(np.zeros(len(inds)) + lab)
+
+            X = np.vstack(X)
+            Y = np.concatenate(Y)
+            all_groups = np.concatenate([groups, groups, groups])
+            yield X, Y, all_groups
+
+            # flip groups so even & odd groups can be paired
+            all_groups = np.concatenate([groups, list(reversed(groups)), list(reversed(groups))])
+            yield X, Y, all_groups
+                
+
+def fit_model(X, Y, groups, save=False, out_fname=None, v=False):
     if v: print("\n***** Fitting model...")
 
     # train-test split
-    X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=1/5, stratify=Y)
+    # X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=1/5, stratify=Y)
 
-    # feature selection
-    fpr = SelectFpr(f_classif, alpha=0.01).fit(X_train, y_train)
-    X_train_sub = fpr.transform(X_train)
-    X_test_sub = fpr.transform(X_test)
+    # normal train xval
+    scores = []
+    auc_scores = []
+    cms = []
+    best_Cs = []
 
-    # train
-    lr = LogisticRegressionCV(penalty='l2', solver='liblinear', cv=5)
-    lr = lr.fit(X_train_sub, y_train)
+    logo = LeaveOneGroupOut()
+    for train_inds, test_inds in logo.split(X, Y, groups):
+        X_train, X_test, y_train, y_test = X[train_inds], X[test_inds], Y[train_inds], Y[test_inds]
+        
+        # feature selection
+        fpr = SelectFpr(f_classif, alpha=0.01).fit(X_train, y_train)
+        X_train_sub = fpr.transform(X_train)
+        X_test_sub = fpr.transform(X_test)
 
-    # test & save
-    score = lr.score(X_test_sub, y_test)
-    auc_score = roc_auc_score(y_test, lr.predict_proba(X_test_sub), multi_class='ovr')
-    preds = lr.predict(X_test_sub)
+        # train & hyperparam tuning
+        # Cs = np.logspace(-2, 3, num=10)
+        # Cs = [0.01,0.1,1,10,100,1000]
+        # lr = LogisticRegressionCV(Cs=Cs, cv=5, penalty='l2', solver='liblinear')
+        parameters ={'C':[0.01,0.1,1,10,100,1000]}
+        gscv = GridSearchCV(
+            LogisticRegression(penalty='l2', solver='liblinear'),
+            parameters,
+            return_train_score=True)
+        gscv.fit(X_train_sub, y_train)
+        best_Cs.append(gscv.best_params_['C'])
+        
+        # refit with full data
+        lr = LogisticRegression(penalty='l2', solver='liblinear', C=best_Cs[-1])
+        lr.fit(X_train_sub, y_train)
+        # test
+        score = lr.score(X_test_sub, y_test)
+        auc_score = roc_auc_score(y_test, lr.predict_proba(X_test_sub), multi_class='ovr')
+        preds = lr.predict(X_test_sub)
 
-    if v: print(f"Classifier score: {score}, AUC score: {auc_score}")
+        # confusion matrix
+        true_counts = np.asarray([np.sum(y_test == i) for i in stim_labels.keys()])
+        cm = confusion_matrix(y_test, preds, labels=list(stim_labels.keys())) / true_counts[:,None] * 100
 
-    true_counts = np.asarray([np.sum(y_test == i) for i in stim_labels.keys()])
-    print(f"True counts: {true_counts}")
-    cm = confusion_matrix(y_test, preds, labels=list(stim_labels.keys())) / true_counts[:,None] * 100
+        scores.append(score)
+        auc_scores.append(auc_score)
+        cms.append(cm)
+    scores = np.asarray(scores)
+    auc_scores = np.asarray(auc_scores)
+    cms = np.stack(cms)
+    best_Cs = np.asarray(best_Cs)
 
-    if save:
-        if out_fname is None:
-            out_fname = os.path.join(results_dir, "lr_fitting.npz")
-            print(f"*** Warning: saving without specified path. Saving to {out_fname}")
+    if v: print(f"\nClassifier score: \n"
+        f"scores: {scores.mean()} +/- {scores.std()}\n"
+        f"auc scores: {auc_scores.mean()} +/- {auc_scores.std()}\n"
+        f"best Cs: {best_Cs}\n"
+        f"average confution matrix:\n"
+        f"{cms.mean(axis=0)}")
 
-        np.savez_compressed(out_fname, model=lr, X_train=X_train_sub, X_test=X_test_sub, y_train=y_train, y_test=y_test, preds=preds, cm=cm)
+    # if save:
+    #     if out_fname is None:
+    #         out_fname = os.path.join(results_dir, "lr_fitting.npz")
+    #         print(f"*** Warning: saving without specified path. Saving to {out_fname}")
 
-    return lr, score, auc_score, cm
+    #     np.savez_compressed(out_fname, model=lr, X_train=X_train_sub, X_test=X_test_sub, y_train=y_train, y_test=y_test, preds=preds, cm=cm)
+
+    return scores, auc_scores, cms
 
 
 def permutation_test(X, Y, n_iters=1):
@@ -340,7 +458,7 @@ def permutation_test(X, Y, n_iters=1):
 
     for iteri in range(n_iters):
         permuted_Y = np.random.permutation(Y)
-        _, score, auc_score, cm = fit_model(X, permuted_Y)
+        score, auc_score, cm = fit_model(X, permuted_Y)
 
         scores.append(score)
         auc_scores.append(auc_score)
@@ -366,62 +484,69 @@ def classification():
     space = 'T1w'
     ROIs = ['VVS']
     # ROIs = 'wholebrain'
-    n_iters = 10
+    n_iters = 1
 
     # TODO: add random seed
 
     shift_size_TR = shift_sizes_TR[0]
     rest_tag = 0
 
+    print(f"\n***** Running category level classification for sub {subID} {task} {space} with ROIs {ROIs}...")
+
     # get data: all_ROI_vox x all_runs_time
-    full_data = get_preprocessed_data(subID, task, space, ROIs)
+    full_data = get_preprocessed_data(subID, task, space, ROIs, save=True)
     print(f"Full_data shape: {full_data.shape}")
 
     # get labels
-    sTR_category, sTR_stim_on = get_labels(task, shift_size_TR, rest_tag)
-    print(f"Category label shape: {sTR_category.shape}, stim_on shape: {sTR_stim_on.shape}")
+    label_df = get_labels(task, shift_size_TR, rest_tag)
+    print(f"Category label shape: {label_df.shape}")
 
-    assert len(full_data) == len(sTR_category) == len(sTR_stim_on), \
-        f"Length of data ({len(full_data)}) does not match Length of labels ({len(sTR_category)})!"
+    assert len(full_data) == len(label_df), \
+        f"Length of data ({len(full_data)}) does not match Length of labels ({len(label_df)})!"
     
+    # cross run xval
     scores = []
     auc_scores = []
     cms = []
-    for iteri in range(n_iters):
-        print(f"Running model fitting iteration {iteri}/{n_iters}...")
-        # subsample category data & bold time points based on labels
-        X, Y = subsample(full_data, sTR_category, sTR_stim_on)
+    perm_scores = []
+    perm_auc_scores = []
+    perm_cms = []
+    # random_subsample(full_data, label_df)
+    for X, Y, groups in subsample_by_runs(full_data, label_df): 
+        print(f"Running model fitting...")
         print("shape of X & Y:", X.shape, Y.shape)
-
         assert len(X) == len(Y), f"Length of X ({len(X)}) doesn't match length of Y({len(Y)})"
 
         # model fitting 
-        results_fname = os.path.join(results_dir, f"sub-{subID}_task-{task}_space-{space}_{ROIs[0]}_lr.npz")
-        _, score, auc_score, cm = fit_model(X, Y, save=False, v=True)
+        results_fname = os.path.join(results_dir, f"sub-{subID}_task-{task}_space-{space}_{ROIs[0]}_lrxval.npz")
+        score, auc_score, cm = fit_model(X, Y, groups, save=False, v=True)
         
         scores.append(score)
         auc_scores.append(auc_score)
         cms.append(cm)
-    scores = np.asarray(scores)
-    auc_scores = np.asarray(auc_scores)
-    cms = np.asarray(cms)
 
-    print("Model fitting results: \n"
+        # FIXME
+        # # permutation test
+        # perm_score, perm_auc_score, perm_cm = permutation_test(X, Y, n_iters=n_iters)
+
+    scores = np.concatenate(scores)
+    auc_scores = np.concatenate(auc_scores)
+    cms = np.stack(cms)
+
+    print(f"\nModel fitting results for sub {subID} {task} {space} with ROIs {ROIs}: \n"
         f"scores: {scores.mean()} +/- {scores.std()}\n"
         f"auc scores: {auc_scores.mean()} +/- {auc_scores.std()}\n"
         f"average confution matrix:\n"
-        f"{cms.mean(axis=0)}"
+        f"{cms.mean(axis=0).mean(axis=0)}"  #
+        # FIXME
     )
     
-    # permutation test
-    perm_scores, perm_auc_scores, perm_cms = permutation_test(X, Y, n_iters=n_iters)
-
     # save results
-    np.savez_compressed(results_fname, scores=scores, auc_scores=auc_scores, cms=cms,
-                        perm_scores=perm_scores, perm_auc_scores=perm_auc_scores, perm_cms=perm_cms)
+    np.savez_compressed(results_fname, scores=scores, auc_scores=auc_scores, cms=cms,)
+                        # perm_scores=perm_scores, perm_auc_scores=perm_auc_scores, perm_cms=perm_cms)
 
 def visualization():
-    subID = '002'
+    subID = '003'
     task = 'preremoval'
     space = 'T1w'
     ROIs = ['VVS']
@@ -451,9 +576,10 @@ if __name__ == '__main__':
     # add arguments
     # import argparse
     # parser = argparse.ArgumentParser()
-    # parser.add_argument("-s", type=str, help="subject ID in 3 digits")
-    # parser.add_argument("-t", type=str, help="task", choice=tasks)
-    # parser.add_argument("-b", type=str, help="brain space", choice=spaces.keys())
+    # parser.add_argument("-sub", type=str, help="subject ID in 3 digits", default='002', choices=subIDs)
+    # parser.add_argument("-task", type=str, help="task", default="preremoval", choice=tasks)
+    # parser.add_argument("-brain", type=str, help="brain space", default="T1w", choice=spaces.keys())
+    
     
 
     classification()
