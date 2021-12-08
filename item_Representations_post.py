@@ -28,7 +28,7 @@ from sklearn.metrics import roc_auc_score
 subs=['02','03','04']
 brain_flag='MNI'
 
-#code for the item level voxel activity for faces and scenes
+#code for the item level voxel activity for scenes in the post localizer
 
 
 def mkdir(path,local=False):
@@ -86,9 +86,7 @@ for num in range(len(subs)):
         localizer_files = fnmatch.filter(localizer_files,pattern2)
         
     localizer_files.sort()
-    face_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_model/group_category_lvl2/','group_face_%s_mask.nii.gz' % brain_flag)
     scene_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_model/group_category_lvl2/','group_scene_%s_mask.nii.gz' % brain_flag)    
-    face_mask=nib.load(face_mask_path)   
     scene_mask=nib.load(scene_mask_path)
     
     #load in category mask that was created from the first GLM  
@@ -139,60 +137,25 @@ for num in range(len(subs)):
 
     run_list=np.concatenate((run1,run2,run3,run4,run5,run6))    
     #clean data ahead of the GLM
-    img_clean_faces=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore',mask_img=face_mask,confounds=localizer_confounds)
     img_clean_scene=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore',mask_img=scene_mask,confounds=localizer_confounds)
     '''load in the denoised bold data and events file'''
     events = pd.read_csv('/scratch1/06873/zbretton/repclear_dataset/BIDS/task-preremoval_events.tsv',sep='\t')
-    #now will need to create a loop where I iterate over the face & scene indexes
     #I then relabel that trial of the face or scene as "face_trial#" or "scene_trial#" and then label rest and all other trials as "other"
     #I can either do this in one loop, or two consecutive
 
     #I want to ensure that "trial" is the # of face (e.g., first instance of "face" is trial=1, second is trial=2...)
-    face_trials=events.trial_type.value_counts().face
     scene_trials=events.trial_type.value_counts().scene
     #so this will give us a sense of total trials for these two conditions
         #next step is to then get the index of these conditions, and then use the trial# to iterate through the indexes properly
 
     temp_events=events.copy() #copy the original events list, so that we can convert the "faces" and "scenes" to include the trial # (which corresponds to a unique image)
-    face_index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'face'] #this will find the nth occurance of a desired value in the list
     scene_index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'scene']#this will find the nth occurance of a desired value in the list    
-    for trial in (range(len(face_index))):
-        #this is a rough idea how I will create a temporary new version of the events file to use for the LSS
-        temp_events.loc[face_index[trial],'trial_type']=('face_trial%s' % (trial+1))
+
     for trial in (range(len(scene_index))):    
         temp_events.loc[scene_index[trial],'trial_type']=('scene_trial%s' % (trial+1))
 
 
     print('data is loaded, and events file is sorted...')
-    for trial in (range(len(face_index))):
-
-        print('running face trial %s' % (trial+1))
-        #get the onset of the trial so that I can average the time points:
-        onset=(temp_events.loc[face_index[trial],'onset']+5)
-
-        affine_mat=img_clean_faces.affine
-        dimsize = img_clean_faces.header.get_zooms()
-
-        '''point to and if necessary create the output folder'''
-        out_folder = os.path.join(container_path,sub,'item_representations')
-        if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
-
-        
-        trial_pattern=np.mean(img_clean_faces.get_fdata()[:,:,:,(onset):(onset+2)],axis=3) #this is getting the 2 TRs for that trial's onset and then taking the average of it across the 4th dimension (time)
-        
-
-        output_name = os.path.join(out_folder, ('Sub-0%s_pre_face_trial%s_result.nii.gz' % (sub_num,(trial+1))))
-        trial_pattern = trial_pattern.astype('double')  # Convert the output into a precision format that can be used by other applications
-        trial_pattern[np.isnan(trial_pattern)] = 0  # Exchange nans with zero to ensure compatibility with other applications
-        trial_pattern_nii = nib.Nifti1Image(trial_pattern, affine_mat)  # create the volume image
-        hdr = trial_pattern_nii.header  # get a handle of the .nii file's header
-        hdr.set_zooms((dimsize[0], dimsize[1], dimsize[2]))
-        nib.save(trial_pattern_nii, output_name)  # Save the volume  
-
-        del trial_pattern, trial_pattern_nii, affine_mat, onset, out_folder, output_name, hdr
-
-    print('face trials done... now doing scenes')
-
 
     for trial in (range(len(scene_index))):
 
@@ -211,7 +174,7 @@ for num in range(len(subs)):
         trial_pattern=np.mean(img_clean_scene.get_fdata()[:,:,:,(onset):(onset+2)],axis=3) #this is getting the 2 TRs for that trial's onset and then taking the average of it across the 4th dimension (time)
         
 
-        output_name = os.path.join(out_folder, ('Sub-0%s_pre_scene_trial%s_result.nii.gz' % (sub_num,(trial+1))))
+        output_name = os.path.join(out_folder, ('Sub-0%s_post_scene_trial%s_result.nii.gz' % (sub_num,(trial+1))))
         trial_pattern = trial_pattern.astype('double')  # Convert the output into a precision format that can be used by other applications
         trial_pattern[np.isnan(trial_pattern)] = 0  # Exchange nans with zero to ensure compatibility with other applications
         trial_pattern_nii = nib.Nifti1Image(trial_pattern, affine_mat)  # create the volume image
@@ -220,4 +183,5 @@ for num in range(len(subs)):
         nib.save(trial_pattern_nii, output_name)  # Save the volume  
 
         del trial_pattern, trial_pattern_nii, affine_mat, onset, out_folder, output_name, hdr
+    print('subject finished')
         
