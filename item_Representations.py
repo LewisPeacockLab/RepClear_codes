@@ -220,4 +220,5 @@ for num in range(len(subs)):
         nib.save(trial_pattern_nii, output_name)  # Save the volume  
 
         del trial_pattern, trial_pattern_nii, affine_mat, onset, out_folder, output_name, hdr
+    print('subject finished')
         

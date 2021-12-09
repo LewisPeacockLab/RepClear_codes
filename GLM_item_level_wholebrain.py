@@ -12,7 +12,7 @@ import pandas as pd
 subs=['02','03','04']
 brain_flag='MNI'
 
-#code for the LSS of the Localizer data
+#code for the item level weighting for faces and scenes
 
 
 def mkdir(path,local=False):
@@ -74,10 +74,11 @@ for num in range(len(subs)):
         
     brain_mask_path.sort()
     localizer_files.sort()
-    vtc_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_preremoval_%s_mask.nii.gz' % brain_flag)
+    vtc_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_%s_VTC_mask.nii.gz' % brain_flag)
+
     vtc_mask=nib.load(vtc_mask_path)   
 
-    
+
     img=nib.concat_images(localizer_files,axis=3)
     #to be used to filter the data
     #First we are removing the confounds
@@ -132,42 +133,48 @@ for num in range(len(subs)):
     #I can either do this in one loop, or two consecutive
 
 
-    '''initialize the GLM'''
+    '''initialize the face GLM with face mask'''
     model = FirstLevelModel(t_r=1,hrf_model='glover',
                             drift_model=None,high_pass=None,mask_img=vtc_mask,signal_scaling=False,
                             smoothing_fwhm=8,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch1/06873/zbretton/nilearn_cache',memory_level=1)
+
     #I want to ensure that "trial" is the # of face (e.g., first instance of "face" is trial=1, second is trial=2...)
     face_trials=events.trial_type.value_counts().face
     scene_trials=events.trial_type.value_counts().scene
     #so this will give us a sense of total trials for these two conditions
         #next step is to then get the index of these conditions, and then use the trial# to iterate through the indexes properly
 
-    for trial in (range(face_trials)):
+    temp_events=events.copy() #copy the original events list, so that we can convert the "faces" and "scenes" to include the trial # (which corresponds to a unique image)
+    face_index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'face'] #this will find the nth occurance of a desired value in the list
+    scene_index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'scene']#this will find the nth occurance of a desired value in the list    
+    for trial in (range(len(face_index))):
         #this is a rough idea how I will create a temporary new version of the events file to use for the LSS
-        temp_events=events.copy()
-        index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'face'][trial] #this will find the nth occurance of a desired value in the list
-        temp_events.loc[:,'trial_type']='other'
-        temp_events.loc[index,'trial_type']=('face_trial%s' % (trial+1))
+        temp_events.loc[face_index[trial],'trial_type']=('face_trial%s' % (trial+1))
+    for trial in (range(len(scene_index))):    
+        temp_events.loc[scene_index[trial],'trial_type']=('scene_trial%s' % (trial+1))
 
-
+    for trial in (range(len(face_index))):
         model.fit(run_imgs=img_clean,events=temp_events,confounds=localizer_confounds)
 
         '''grab the number of regressors in the model'''
         n_columns = model.design_matrices_[0].shape[-1]
 
+        #since the columns are not sorted as expected, I will need to located the index of the current trial to place the contrast properly
+
+
         '''define the contrasts - the order of trial types is stored in model.design_matrices_[0].columns
            pad_contrast() adds 0s to the end of a vector in the case that other regressors are modeled, but not included in the primary contrasts'''
-        #set up the array to be used to feed into the pad_constrast function below
-        contrast_array=[0,0]
-        #these two lines then look for the column with the string that matches the input, and sets that value to 1 and -1 respectively
-        #this means that regardless of where the 'scene_trial' or 'other' are in the design, it assigns the contrast properly
-        contrast_array[np.where(model.design_matrices_[0].columns[:2].str.match('face_trial'))[0][0]]=1
-        contrast_array[np.where(model.design_matrices_[0].columns[:2].str.match('other'))[0][0]]=-1
+           #order is: trial1...trialN
+        #bascially create an array the length of all the items
+        item_contrast=np.full(n_columns,0) #start with an array of 0's
+        item_contrast[model.design_matrices_[0].columns.str.match('face_trial')]=-1 #find all the indices of face_trial and set to -1
+        item_contrast[model.design_matrices_[0].columns.str.match('scene_trial')]=-1 #find all the indices of scene_trial and set to -1        
+        item_contrast[model.design_matrices_[0].columns.get_loc('face_trial%s' % (trial+1))]=((face_trials+scene_trials)-1) #now find our trial of interest and set it equal to the sum of the rest of the contrasts
 
-        contrasts = {'face_trial%s' % (trial+1): pad_contrast(contrast_array,  n_columns)}
+        contrasts = {'face_trial%s' % (trial+1): pad_contrast(item_contrast,  n_columns)}
 
         '''point to and if necessary create the output folder'''
-        out_folder = os.path.join(container_path,sub,'localizer_LSS_lvl1')
+        out_folder = os.path.join(container_path,sub,'localizer_item_level')
         if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
 
         #as of now it is labeling the trial estimates by the trial number, which is helpful since I can look at their individual design matricies to see which stim that is
@@ -175,21 +182,16 @@ for num in range(len(subs)):
 
         '''compute and save the contrasts'''
         for contrast in contrasts:
-            z_map = model.compute_contrast(contrasts[contrast],output_type='z_score')
-            nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_zmap.nii.gz'))
-            t_map = model.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
-            nib.save(t_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_tmap.nii.gz'))  
-            file_data = model.generate_report(contrasts[contrast])
-            file_data.save_as_html(os.path.join(out_folder,f"{contrast}_{brain_flag}_report.html"))  
-        del temp_events, contrast_array
+            z_map = face_model.compute_contrast(contrasts[contrast],output_type='z_score')
+            nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_full_zmap.nii.gz'))
+            t_map = face_model.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
+            nib.save(t_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_full_tmap.nii.gz'))  
+            file_data = face_model.generate_report(contrasts[contrast])
+            file_data.save_as_html(os.path.join(out_folder,f"{contrast}_{brain_flag}_full_report.html")) 
+
+        del item_contrast
 
     for trial in (range(scene_trials)):
-        #this is a rough idea how I will create a temporary new version of the events file to use for the LSS
-        temp_events=events.copy()
-        index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'scene'][trial] #this will find the nth occurance of a desired value in the list
-        temp_events.loc[:,'trial_type']='other'
-        temp_events.loc[index,'trial_type']=('scene_trial%s' % (trial+1))
-
 
         model.fit(run_imgs=img_clean,events=temp_events,confounds=localizer_confounds)
 
@@ -198,19 +200,18 @@ for num in range(len(subs)):
 
         '''define the contrasts - the order of trial types is stored in model.design_matrices_[0].columns
            pad_contrast() adds 0s to the end of a vector in the case that other regressors are modeled, but not included in the primary contrasts'''
-           #order is: trial, other
-        #set up the array to be used to feed into the pad_constrast function below
-        contrast_array=[0,0]
-        #these two lines then look for the column with the string that matches the input, and sets that value to 1 and -1 respectively
-        #this means that regardless of where the 'scene_trial' or 'other' are in the design, it assigns the contrast properly
-        contrast_array[np.where(model.design_matrices_[0].columns[:2].str.match('scene_trial'))[0][0]]=1
-        contrast_array[np.where(model.design_matrices_[0].columns[:2].str.match('other'))[0][0]]=-1
+           #order is: trial1...trialN
 
-        contrasts = {'scene_trial%s' % (trial+1): pad_contrast(contrast_array,  n_columns)}
-
+        #bascially create an array the length of all the items
+        item_contrast=np.full(n_columns,0) #start with an array of 0's
+        item_contrast[model.design_matrices_[0].columns.str.match('face_trial')]=-1 #find all the indices of face_trial and set to -1
+        item_contrast[model.design_matrices_[0].columns.str.match('scene_trial')]=-1 #find all the indices of scene_trial and set to -1        
+        item_contrast[model.design_matrices_[0].columns.get_loc('scene_trial%s' % (trial+1))]=((face_trials+scene_trials)-1) #now find our trial of interest and set it equal to the sum of the rest of the contrasts
+ 
+        contrasts = {'scene_trial%s' % (trial+1): pad_contrast(item_contrast,  n_columns)}
 
         '''point to and if necessary create the output folder'''
-        out_folder = os.path.join(container_path,sub,'localizer_LSS_lvl1')
+        out_folder = os.path.join(container_path,sub,'localizer_item_level')
         if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
 
         #as of now it is labeling the trial estimates by the trial number, which is helpful since I can look at their individual design matricies to see which stim that is
@@ -218,11 +219,11 @@ for num in range(len(subs)):
 
         '''compute and save the contrasts'''
         for contrast in contrasts:
-            z_map = model.compute_contrast(contrasts[contrast],output_type='z_score')
-            nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_zmap.nii.gz'))
-            t_map = model.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
-            nib.save(t_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_tmap.nii.gz'))  
-            file_data = model.generate_report(contrasts[contrast])
-            file_data.save_as_html(os.path.join(out_folder,f"{contrast}_{brain_flag}_report.html"))         
-
-        del temp_events, contrast_array
+            z_map = scene_model.compute_contrast(contrasts[contrast],output_type='z_score')
+            nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_full_zmap.nii.gz'))
+            t_map = scene_model.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
+            nib.save(t_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_full_tmap.nii.gz'))  
+            file_data = scene_model.generate_report(contrasts[contrast])
+            file_data.save_as_html(os.path.join(out_folder,f"{contrast}_{brain_flag}_full_report.html"))
+        #make sure to clear the item constrast to make sure we dont carry it over in to the next trial     
+        del item_contrast

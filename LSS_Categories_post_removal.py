@@ -77,8 +77,6 @@ for num in range(len(subs)):
     vtc_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_postremoval_%s_mask.nii.gz' % brain_flag)
     vtc_mask=nib.load(vtc_mask_path)   
 
-    
-    #load in category mask that was created from the first GLM  
 
     img=nib.concat_images(localizer_files,axis=3)
     #to be used to filter the data
@@ -158,17 +156,13 @@ for num in range(len(subs)):
 
         '''define the contrasts - the order of trial types is stored in model.design_matrices_[0].columns
            pad_contrast() adds 0s to the end of a vector in the case that other regressors are modeled, but not included in the primary contrasts'''
-           #order is: trial, other
-        #after reviewing some of the outputs, it seems that its actually "other" - "trial"
-        #so I may need to reset these contrasts, even though it'll just flip the results (I believe)
-        #so I need to double check that these contrasts are coming across as expected 
-
+        #set up the array to be used to feed into the pad_constrast function below
         #set up the array to be used to feed into the pad_constrast function below
         contrast_array=[0,0]
         #these two lines then look for the column with the string that matches the input, and sets that value to 1 and -1 respectively
         #this means that regardless of where the 'scene_trial' or 'other' are in the design, it assigns the contrast properly
-        contrast_array[model.design_matrices_[0].columns.str.match('scene_trial')]=1
-        contrast_array[model.design_matrices_[0].columns.str.match('other')]=-1
+        contrast_array[np.where(model.design_matrices_[0].columns[:2].str.match('scene_trial'))[0][0]]=1
+        contrast_array[np.where(model.design_matrices_[0].columns[:2].str.match('other'))[0][0]]=-1
 
         contrasts = {'scene_trial%s' % (trial+1): pad_contrast(contrast_array,  n_columns)}
 

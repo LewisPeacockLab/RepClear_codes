@@ -322,7 +322,7 @@ for TR_shift in TR_shifts:
                 output_dir=os.path.join(container_path,sub,'searchlight')
                 if not os.path.exists(output_dir):
                     os.makedirs(output_dir)
-                output_name = os.path.join(output_dir, ('Sub-0%s_SL_%s_debug_result.nii.gz' % (sub_num,key)))
+                output_name = os.path.join(output_dir, ('Sub-0%s_SL_%s_result.nii.gz' % (sub_num,key)))
                 sl_result = sl_result.astype('double')  # Convert the output into a precision format that can be used by other applications
                 sl_result[np.isnan(sl_result)] = 0  # Exchange nans with zero to ensure compatibility with other applications
                 sl_nii = nib.Nifti1Image(sl_result, affine_mat)  # create the volume image

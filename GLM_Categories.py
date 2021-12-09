@@ -73,7 +73,7 @@ for num in range(len(subs)):
         
     brain_mask_path.sort()
     localizer_files.sort()
-    vtc_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_preremoval_%s_mask.nii.gz' % brain_flag)
+    vtc_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_%s_VTC_mask.nii.gz' % brain_flag)
     
         
     vtc_mask=nib.load(vtc_mask_path)   
@@ -170,7 +170,7 @@ for num in range(len(subs)):
 ####################################
 #level 2 GLM
 subs=['sub-002','sub-003','sub-004']
-contrasts = ['faces','scenes']
+contrasts = ['faces','scenes','stimuli']
 
 '''point to the save directory'''
 out_dir = os.path.join(container_path,'group_model','group_category_lvl2')

@@ -139,7 +139,7 @@ for num in range(len(subs)):
     #clean data ahead of the GLM
     img_clean_scene=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore',mask_img=scene_mask,confounds=localizer_confounds)
     '''load in the denoised bold data and events file'''
-    events = pd.read_csv('/scratch1/06873/zbretton/repclear_dataset/BIDS/task-preremoval_events.tsv',sep='\t')
+    events = pd.read_csv('/scratch1/06873/zbretton/repclear_dataset/BIDS/task-postremoval_events.tsv',sep='\t')
     #I then relabel that trial of the face or scene as "face_trial#" or "scene_trial#" and then label rest and all other trials as "other"
     #I can either do this in one loop, or two consecutive
 
