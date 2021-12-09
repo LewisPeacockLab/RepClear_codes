@@ -151,7 +151,8 @@ for num in range(len(subs)):
        pad_contrast() adds 0s to the end of a vector in the case that other regressors are modeled, but not included in the primary contrasts'''
        #order is: faces, rest, scenes 
     contrasts = {'faces':             pad_contrast([2,-1,-1],  n_columns),
-                 'scenes':               pad_contrast([-1,-1,2],  n_columns)}
+                 'scenes':               pad_contrast([-1,-1,2],  n_columns),
+                 'stimuli':              pad_contrast([1,-2,1], n_columns)}
 
     '''point to and if necessary create the output folder'''
     out_folder = os.path.join(container_path,sub,'preremoval_lvl1')
