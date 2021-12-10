@@ -30,7 +30,7 @@ from sklearn.metrics import roc_auc_score, confusion_matrix, ConfusionMatrixDisp
 
 # global consts
 subIDs = ['002', '003', '004']
-tasks = ['rest', 'preremoval', 'study', 'postremoval']
+phases = ['rest', 'preremoval', 'study', 'postremoval']
 runs = np.arange(6) + 1  
 spaces = {'T1w': 'T1w', 
             'MNI': 'MNI152NLin2009cAsym'}
@@ -577,7 +577,7 @@ if __name__ == '__main__':
     # import argparse
     # parser = argparse.ArgumentParser()
     # parser.add_argument("-sub", type=str, help="subject ID in 3 digits", default='002', choices=subIDs)
-    # parser.add_argument("-task", type=str, help="task", default="preremoval", choice=tasks)
+    # parser.add_argument("-task", type=str, help="task", default="preremoval", choice=phases)
     # parser.add_argument("-brain", type=str, help="brain space", default="T1w", choice=spaces.keys())
     
     
