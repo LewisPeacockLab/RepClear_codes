@@ -61,7 +61,7 @@ def get_images(nimgs=10):
         return background
 
     # rn these are local paths on lab workstation
-    #data_dir = "/Users/sunaguo/Documents/code/repclear_data/stim"
+    data_dir = "/Users/sunaguo/Documents/code/repclear_data/stim"
     print(f"Loading {nimgs} from each subcategory...")
     print(f"data dir: {data_dir}")
     print(f"subcates: {sub_cates}")
@@ -122,7 +122,7 @@ def select_MDS(data, ncomps=np.arange(1,6), save=False, out_fname=results_dir):
     return mdss
 
 
-def item_level_RSA(subID="003", phase="pre", weight_source="LSS", stats_test="tmap"):
+def item_level_RSA(subID="002", phase="pre", weight_source="LSS", stats_test="tmap"):
     """
     Load ready BOLD for each trial & weights from LSA/LSS, 
     multiply, select MDS with best ncomp, save 
@@ -240,6 +240,20 @@ def item_level_RSA(subID="003", phase="pre", weight_source="LSS", stats_test="tm
     if not os.path.exists(os.path.join(results_dir, "RSM")): os.makedirs(os.path.join(results_dir, "RSM"),exist_ok=True)    
     np.save(out_name,corr_matrix)
 
+def prepare_plot(subID):
+    data_path='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/model_fitting_results/MDS'
+    label_names=['faces','scenes']
+    labels=['' for i in range(180)]
+    for i in range(180):
+        if (i < 60):
+            labels[i]=label_names[0]
+        elif (i>=60):
+            labels[i]=label_names[1]
+    labels=np.array(labels)
+    data=np.load(os.path.join(data_path,'sub-%s_pre_LSS_tmap_mdss.npz' % subID),allow_pickle=True)
+    mds=data['mdss'][1]
+    return mds,labels
+
 def vis_mds(mds, labels):
     """
     example function demonstrating how to visualize mds results.
@@ -257,18 +271,20 @@ def vis_mds(mds, labels):
     ax.imshow(mds.dissimilarity_matrix_, cmap="GnBu")
     im = ax.imshow(mds.dissimilarity_matrix_, cmap="GnBu")
     plt.colorbar(im)
-    
+    plt.show()
     # ax.set_title("")
     # plt.savefig("")
 
     # ===== MDS scatter
     fig, ax = plt.subplots(1,1)
     # fix the label order 
-    label_set = ["male", "female", "manamde", "natural"]
+    #label_set = ["male", "female", "manamde", "natural"]
+    label_set = ['faces','scenes']
     for subcateID in label_set:
         inds = np.where(labels == subcateID)[0]
         ax.scatter(embs[inds, 0], embs[inds, 1], label=subcateID)
     plt.legend()
+    plt.show()
 
     # ac.set_title("")
     # plt.savefig("")
