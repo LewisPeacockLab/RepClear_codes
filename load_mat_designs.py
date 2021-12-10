@@ -68,3 +68,5 @@ for sub in subIDs:
     df_map={'pre_localizer_design':pre_localizer_df,'study_design':study_df, 'post_localizer_design':post_localizer_df}
     for name, df in df_map.items():
         df.to_pickle(os.path.join(out_dir,f'{sub}_{name}.pkl'))
+
+#when on the server it will be in the /scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/ path
