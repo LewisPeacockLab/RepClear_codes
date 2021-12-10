@@ -28,12 +28,20 @@ sub_cates = {
 workspace = 'scratch'
 if workspace == 'work':
     data_dir = '/work/07365/sguo19/frontera/fmriprep/'
-    event_dir = '/work/07365/sguo19/frontera/events/'
+    param_dir = '/work/07365/sguo19/frontera/params/'
     results_dir = '/work/07365/sguo19/model_fitting_results/'
 elif workspace == 'scratch':
     data_dir = '/scratch1/07365/sguo19/fmriprep/'
-    event_dir = '/scratch1/07365/sguo19/events/'
+    param_dir = '/scratch1/07365/sguo19/params/'
     results_dir = '/scratch1/07365/sguo19/model_fitting_results/'
+
+# helper function 
+def apply_mask(mask=None,target=None):
+    coor = np.where(mask == 1)
+    values = target[coor]
+    if values.ndim > 1:
+        values = np.transpose(values) #swap axes to get feature X sample
+    return values
 
 
 def get_images(nimgs=10):
@@ -122,6 +130,41 @@ def select_MDS(data, ncomps=np.arange(1,6), save=False, out_fname=results_dir):
     return mdss
 
 
+def run_MDS(subID="002", task="preremoval", space="T1w", mask_ROIS=["VVS"], ):
+    # stim; bold;
+    data_source = "bold"
+
+    if data_source == "stim":
+        all_images = get_images(i)
+
+        out_fname = os.path.join(results_dir, "MDS", f"sub-{subID}_{task}_stim_mdss")
+        select_MDS(all_images, save=True, out_fname=out_fname)
+
+    elif data_source == "bold":
+        from classification_replicate import get_preprocessed_data, get_shifted_labels
+
+        # load masked & cleaned bold 
+        full_data = get_preprocessed_data(subID, task, space, mask_ROIS)
+        print("data shape: ", full_data.shape)
+        full_label_df = get_shifted_labels(task, 5)
+        print("label df shape: ", full_label_df.shape)
+        # TODO: load stim mask & mask bold 
+
+        # load event labels
+        stim_on = full_label_df["stim_present"]
+        stim_on_TRs = np.where(stim_on == 1)[0]  # all TRs here a stim is on
+        trial_start_TRs = stim_on_TRs[::2]  # starting TRs of each trial. used for getting trial number & image_id & category
+
+        # subsample & average bold
+        avg_trial_bolds = full_data[stim_on_TRs]
+        avg_trial_bolds = np.array([avg_trial_bolds[i:i+2].mean(axis=0) for i in range(0, len(avg_trial_bolds), 2)])
+        print("avg trial bolds shape:", avg_trial_bolds.shape)
+
+        # MDS
+        out_fname = os.path.join(results_dir, "MDS", f"sub-{subID}_{task}_bold_vtc_mdss")
+        select_MDS(avg_trial_bolds, save=True, out_fname=out_fname)
+
+
 def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tmap"):
     """
     Load ready BOLD for each trial & weights from LSA/LSS, 
@@ -133,23 +176,20 @@ def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tm
     weight_source: "LSA" / "LSS". 
     stats_test: "tmap" / "zmap"
     """
-    def apply_mask(mask=None,target=None):
-        coor = np.where(mask == 1)
-        values = target[coor]
-        if values.ndim > 1:
-            values = np.transpose(values) #swap axes to get feature X sample
-        return values
 
     print(f"Running item level RSA & MDS for sub{subID}, {phase}, {weight_source}, {stats_test}...")
+    sub_cates.pop("face")
+    expt_tag = "scene"
 
     # ===== load mask for BOLD
-    mask_path = os.path.join(data_dir, "group_MNI_thresholded_VTC_mask.nii.gz")
+    mask_path = os.path.join(data_dir, "group_MNI_thresholded_VTC_mask.nii.gz")  # voxels chosen with GLM contrast: stim vs non-stim
     mask = nib.load(mask_path)
     print("mask shape: ", mask.shape)
 
     # ===== load ready BOLD for each trial 
     print(f"Loading preprocessed BOLDs for {phase} operation...")
-    bold_dir = os.path.join(data_dir, f"sub-{subID}", "item_representations_MDS")
+    # bold_dir = os.path.join(data_dir, f"sub-{subID}", "item_representations")   # for pre-post comparison
+    bold_dir = os.path.join(data_dir, f"sub-{subID}", "item_representations_MDS")   # for (sub)cate comparison
 
     all_bolds = {}  # {cateID: {trialID: bold}}
     bolds_arr = []  # sample x vox
@@ -182,8 +222,10 @@ def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tm
     # ===== load weights
     print(f"Loading {weight_source} weights ...")
     if weight_source == "LSA":
+        # weights generated from GLM: target trial vs every other trial
         weights_dir = os.path.join(data_dir, f"sub-{subID}", "localizer_item_level")
     elif weight_source == "LSS":
+        # weights generated from GLM: target trial vs combination of all other trials
         weights_dir = os.path.join(data_dir, f"sub-{subID}", "localizer_LSS_lvl1")
     else:
         raise ValueError("Weight source must be LSA or LSS")
@@ -191,7 +233,9 @@ def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tm
     all_weights = {}
     weights_arr= []
     for cateID in sub_cates.keys():
-        cate_weights_fnames = glob.glob(f"{weights_dir}/{cateID}*full*{stats_test}*")
+        # cate_weights_fnames = glob.glob(f"{weights_dir}/{cateID}*MNI_{stats_test}*")  # for pre-post comparison
+        cate_weights_fnames = glob.glob(f"{weights_dir}/{cateID}*full*{stats_test}*") # for (sub)cate comparison
+        
         print(cateID, len(cate_weights_fnames))
         cate_weights = {}
 
@@ -222,12 +266,50 @@ def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tm
     print("item_repres shape: ", item_repress.shape)
 
     # ===== select MDS with best ncomp
-    out_fname = os.path.join(results_dir, "MDS", f"sub-{subID}_{phase}_{weight_source}_{stats_test}_mdss")
+    out_fname = os.path.join(results_dir, "MDS", f"sub-{subID}_{phase}_{weight_source}_{stats_test}_{expt_tag}_mdss")
     _ = select_MDS(item_repress, save=True, out_fname=out_fname)
 
 
+def vis_mds(mds, labels):
+    """
+    example function demonstrating how to visualize mds results.
+
+    Input: 
+    mds: fitted sklearn mds object
+    labels: group labels for each sample within mds embedding
+    """
+
+    embs = mds.embedding_
+    assert len(embs) == len(labels), f"length of labels ({len(0=labels)}) do not match length of embedding ({len(embs)})"
+
+    # ===== RDM: internally computed RDM by sklearn 
+    fig, ax = plt.subplots(1,1)
+    ax.imshow(mds.dissimilarity_matrix_, cmap="GnBu")
+    im = ax.imshow(mds.dissimilarity_matrix_, cmap="GnBu")
+    plt.colorbar(im)
+    
+    # ax.set_title("")
+    # plt.savefig("")
+
+    # ===== MDS scatter
+    fig, ax = plt.subplots(1,1)
+    # fix the label order 
+    label_set = ["male", "female", "manamde", "natural"]
+    for subcateID in label_set:
+        inds = np.where(labels == subcateID)[0]
+        ax.scatter(embs[inds, 0], embs[inds, 1], label=subcateID)
+    plt.legend()
+
+    # ac.set_title("")
+    # plt.savefig("")
+
+
+
+
 if __name__ == "__main__":
+
     item_level_RSA()
+    # run_MDS()
 
 
     # item vs cateogory average

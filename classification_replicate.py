@@ -45,11 +45,11 @@ stim_labels = {0: "Rest",
 workspace = 'scratch'
 if workspace == 'work':
     data_dir = '/work/07365/sguo19/frontera/fmriprep/'
-    event_dir = '/work/07365/sguo19/frontera/events/'
+    param_dir = '/work/07365/sguo19/frontera/params/'
     results_dir = '/work/07365/sguo19/model_fitting_results/'
 elif workspace == 'scratch':
     data_dir = '/scratch1/07365/sguo19/fmriprep/'
-    event_dir = '/scratch1/07365/sguo19/events/'
+    param_dir = '/scratch1/07365/sguo19/params/'
     results_dir = '/scratch1/07365/sguo19/model_fitting_results/'
 
 
@@ -127,7 +127,7 @@ def get_preprocessed_data(subID, task, space, mask_ROIS, runs=np.arange(6)+1, sa
         raise NotImplementedError("function doesn't support wholebrain mask!")
 
     # FIXME: regenerate masked & cleaned data & save to new dir
-    bold_dir = os.path.join(data_dir, f"sub-{subID}", "func", "masked_cleaned")
+    bold_dir = os.path.join(data_dir, f"sub-{subID}", "func")
     out_fname_template = f"sub-{subID}_{space}_{task}_{{}}_masked_cleaned.npy"
 
     # ========== check & load existing files
@@ -225,7 +225,7 @@ def get_preprocessed_data(subID, task, space, mask_ROIS, runs=np.arange(6)+1, sa
     return full_data
 
 
-def get_labels(task, shift_size_TR, rest_tag=0):
+def get_shifted_labels(task, shift_size_TR, rest_tag=0):
     # load labels, & add hemodynamic shift to all vars
 
     def shift_timing(label_df, TR_shift_size, tag=0):
@@ -238,7 +238,7 @@ def get_labels(task, shift_size_TR, rest_tag=0):
 
     print("\n***** Loading labels...")
 
-    event_path = os.path.join(event_dir, f'{task}_events.csv')
+    event_path = os.path.join(param_dir, f'{task}_events.csv')
     events_df = pd.read_csv(event_path)
     # === commented out: getting only three rows
     # # categories: 1 Scenes, 2 Faces / 0 is rest
@@ -498,7 +498,7 @@ def classification():
     print(f"Full_data shape: {full_data.shape}")
 
     # get labels
-    label_df = get_labels(task, shift_size_TR, rest_tag)
+    label_df = get_shifted_labels(task, shift_size_TR, rest_tag)
     print(f"Category label shape: {label_df.shape}")
 
     assert len(full_data) == len(label_df), \
