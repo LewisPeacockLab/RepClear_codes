@@ -240,6 +240,39 @@ def item_level_RSA(subID="003", phase="pre", weight_source="LSS", stats_test="tm
     if not os.path.exists(os.path.join(results_dir, "RSM")): os.makedirs(os.path.join(results_dir, "RSM"),exist_ok=True)    
     np.save(out_name,corr_matrix)
 
+def vis_mds(mds, labels):
+    """
+    example function demonstrating how to visualize mds results.
+
+    Input: 
+    mds: fitted sklearn mds object
+    labels: group labels for each sample within mds embedding
+    """
+
+    embs = mds.embedding_
+    assert len(embs) == len(labels), f"length of labels ({len(labels)}) do not match length of embedding ({len(embs)})"
+
+    # ===== RDM: internally computed RDM by sklearn 
+    fig, ax = plt.subplots(1,1)
+    ax.imshow(mds.dissimilarity_matrix_, cmap="GnBu")
+    im = ax.imshow(mds.dissimilarity_matrix_, cmap="GnBu")
+    plt.colorbar(im)
+    
+    # ax.set_title("")
+    # plt.savefig("")
+
+    # ===== MDS scatter
+    fig, ax = plt.subplots(1,1)
+    # fix the label order 
+    label_set = ["male", "female", "manamde", "natural"]
+    for subcateID in label_set:
+        inds = np.where(labels == subcateID)[0]
+        ax.scatter(embs[inds, 0], embs[inds, 1], label=subcateID)
+    plt.legend()
+
+    # ac.set_title("")
+    # plt.savefig("")
+
 
 if __name__ == "__main__":
     item_level_RSA()
