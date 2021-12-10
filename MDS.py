@@ -2,6 +2,7 @@ import os
 import glob
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.manifold import MDS
 import nibabel as nib
@@ -18,8 +19,8 @@ ROIs = ['VVS', 'PHG', 'FG']
 shift_sizes_TR = [5, 6]
 
 stim_labels = {0: "Rest",
-                1: "Scenes",
-                2: "Faces"}
+                1: "Scenes",  # 1: manmade, 2: natural
+                2: "Faces"}  # 1: female, 2: male
 sub_cates = {
             "face": ["male", "female"],         #60
             "scene": ["manmade", "natural"],    #120
@@ -42,6 +43,32 @@ def apply_mask(mask=None,target=None):
     if values.ndim > 1:
         values = np.transpose(values) #swap axes to get feature X sample
     return values
+
+
+def sort_trials_by_categories(subID="002", phase=2):
+    """
+    Input: 
+    subID: 3 digit string
+    phase: single digit int. 1: "pre-exposure", 2: "pre-localizer", 3: "study", 4: "post-localizer"
+
+    Output: 
+    face_order: trial numbers ordered by ["female", "male"]. 
+    scene_order: trial numbers ordered by ["manmade", "natural"]
+
+    (It's hard to sort the RDM matrix once that's been computed, so the best practice would be to sort the input to MDS before we run it)
+    """
+    # *** change file saved location
+    tim_path = os.path.join(param_dir, f"sub-{subID}_trial_image_match.csv")
+
+    tim_df = pd.read_csv(tim_path)
+    tim_df = tim_df[tim_df["phase"]==phase]
+    tim_df = tim_df.sort_values(by=["category", "subcategory", "trial_id"])
+    
+    scene_order = tim_df[tim_df["category"]==1]["trial_id"]
+    face_order = tim_df[tim_df["category"]==2]["trial_id"]
+
+    return face_order, scene_order
+
 
 
 def get_images(nimgs=10):
@@ -178,8 +205,8 @@ def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tm
     """
 
     print(f"Running item level RSA & MDS for sub{subID}, {phase}, {weight_source}, {stats_test}...")
-    sub_cates.pop("face")
-    expt_tag = "scene"
+    sub_cates.pop("scene")
+    expt_tag = "face"
 
     # ===== load mask for BOLD
     mask_path = os.path.join(data_dir, "group_MNI_thresholded_VTC_mask.nii.gz")  # voxels chosen with GLM contrast: stim vs non-stim
@@ -188,7 +215,11 @@ def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tm
 
     # ===== load ready BOLD for each trial 
     print(f"Loading preprocessed BOLDs for {phase} operation...")
+
+    # item_repres: bold masked by category selective voxels
     # bold_dir = os.path.join(data_dir, f"sub-{subID}", "item_representations")   # for pre-post comparison
+
+    # item_repres_MDS: bold masked by stim selective voxels
     bold_dir = os.path.join(data_dir, f"sub-{subID}", "item_representations_MDS")   # for (sub)cate comparison
 
     all_bolds = {}  # {cateID: {trialID: bold}}
@@ -233,7 +264,9 @@ def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tm
     all_weights = {}
     weights_arr= []
     for cateID in sub_cates.keys():
+        # no full: weights from GLM with only category selective voxels
         # cate_weights_fnames = glob.glob(f"{weights_dir}/{cateID}*MNI_{stats_test}*")  # for pre-post comparison
+        # full: weigthts from GLM with stim selective voxels
         cate_weights_fnames = glob.glob(f"{weights_dir}/{cateID}*full*{stats_test}*") # for (sub)cate comparison
         
         print(cateID, len(cate_weights_fnames))
@@ -280,7 +313,7 @@ def vis_mds(mds, labels):
     """
 
     embs = mds.embedding_
-    assert len(embs) == len(labels), f"length of labels ({len(0=labels)}) do not match length of embedding ({len(embs)})"
+    assert len(embs) == len(labels), f"length of labels ({len(labels)}) do not match length of embedding ({len(embs)})"
 
     # ===== RDM: internally computed RDM by sklearn 
     fig, ax = plt.subplots(1,1)
@@ -300,7 +333,7 @@ def vis_mds(mds, labels):
         ax.scatter(embs[inds, 0], embs[inds, 1], label=subcateID)
     plt.legend()
 
-    # ac.set_title("")
+    # ax.set_title("")
     # plt.savefig("")
 
 
@@ -308,8 +341,11 @@ def vis_mds(mds, labels):
 
 if __name__ == "__main__":
 
-    item_level_RSA()
+    # item_level_RSA()
     # run_MDS()
+    # f, s = sort_trials_by_categories()
+    # print(f)
+    # print(s)
 
 
     # item vs cateogory average
