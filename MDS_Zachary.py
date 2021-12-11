@@ -36,6 +36,31 @@ elif workspace == 'scratch':
     results_dir = '/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/model_fitting_results/'
 
 
+def sort_trials_by_categories(subID="002", phase=2):
+    """
+    Input: 
+    subID: 3 digit string
+    phase: single digit int. 1: "pre-exposure", 2: "pre-localizer", 3: "study", 4: "post-localizer"
+
+    Output: 
+    face_order: trial numbers ordered by ["female", "male"]. 
+    scene_order: trial numbers ordered by ["manmade", "natural"]
+
+    (It's hard to sort the RDM matrix once that's been computed, so the best practice would be to sort the input to MDS before we run it)
+    """
+    # *** change file saved location
+    tim_path = os.path.join(param_dir, f"sub-{subID}_trial_image_match.csv")
+
+    tim_df = pd.read_csv(tim_path)
+    tim_df = tim_df[tim_df["phase"]==phase]
+    tim_df = tim_df.sort_values(by=["category", "subcategory", "trial_id"])
+    
+    scene_order = tim_df[tim_df["category"]==1]["trial_id"]
+    face_order = tim_df[tim_df["category"]==2]["trial_id"]
+
+    return face_order, scene_order
+
+
 def get_images(nimgs=10):
     """
     Read and returns stim images
@@ -61,7 +86,7 @@ def get_images(nimgs=10):
         return background
 
     # rn these are local paths on lab workstation
-    data_dir = "/Users/sunaguo/Documents/code/repclear_data/stim"
+    #data_dir = "/Users/sunaguo/Documents/code/repclear_data/stim"
     print(f"Loading {nimgs} from each subcategory...")
     print(f"data dir: {data_dir}")
     print(f"subcates: {sub_cates}")
@@ -288,6 +313,205 @@ def vis_mds(mds, labels):
 
     # ac.set_title("")
     # plt.savefig("")
+
+def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="LSS", stats_test="tmap"):
+    """
+    Load ready BOLD for each trial & weights from LSA or load in LSS, 
+    take RSA across phases
+
+    Input: 
+    subID: 3 digit string. e.g. "002"
+    phase1: "pre" / "post". for loading item_represenation
+    phase2: "pre" / "study" / "post" for loading item_representation
+    weight_source: "LSA" / "LSS". 
+    stats_test: "tmap" / "zmap"
+    """
+    def apply_mask(mask=None,target=None):
+        coor = np.where(mask == 1)
+        values = target[coor]
+        if values.ndim > 1:
+            values = np.transpose(values) #swap axes to get feature X sample
+        return values
+
+    print(f"Running item level RSA & MDS for sub{subID}, {phase1} comapred to {phase2}, {weight_source}, {stats_test}...")
+
+    # ===== load mask for BOLD
+    mask_path = os.path.join(data_dir, "group_MNI_thresholded_VTC_mask.nii.gz")
+    mask = nib.load(mask_path)
+    print("mask shape: ", mask.shape)
+
+    # ===== load ready BOLD for each trial 
+    print(f"Loading preprocessed BOLDs for {phase1} operation...")
+    bold_dir_1 = os.path.join(data_dir, f"sub-{subID}", "item_representations")
+
+    all_bolds_1 = {}  # {cateID: {trialID: bold}}
+    bolds_arr_1 = []  # sample x vox
+    for cateID in sub_cates.keys():
+        cate_bolds_fnames_1 = glob.glob(f"{bold_dir}/*{phase1}*{cateID}*")
+        cate_bolds_1 = {}
+        
+        for fname in cate_bolds_fnames_1:
+            trialID = fname.split("/")[-1].split("_")[-2]  # "trial1"
+            trialID = int(trialID[5:])
+            cate_bolds_1[trialID] = nib.load(fname).get_fdata()  #.flatten()
+        cate_bolds_1 = {i: cate_bolds_1[i] for i in sorted(cate_bolds_1.keys())}
+        all_bolds_1[cateID] = cate_bolds_1
+
+        bolds_arr_1.append(np.stack( [ cate_bolds_1[i] for i in sorted(cate_bolds_1.keys()) ] ))
+
+    bolds_arr_1 = np.vstack(bolds_arr_1)
+    print("bolds for phase 1 - shape: ", bolds_arr_1.shape)
+
+    # ===== load ready BOLD for each trial 
+    print(f"Loading preprocessed BOLDs for {phase2} operation...")
+    bold_dir_2 = os.path.join(data_dir, f"sub-{subID}", "item_representations")
+
+    all_bolds_2 = {}  # {cateID: {trialID: bold}}
+    bolds_arr_2 = []  # sample x vox
+    for cateID in sub_cates.keys():
+        cate_bolds_fnames_2 = glob.glob(f"{bold_dir}/*{phase2}*{cateID}*")
+        cate_bolds_2 = {}
+        
+        for fname in cate_bolds_fnames_2:
+            trialID = fname.split("/")[-1].split("_")[-2]  # "trial1"
+            trialID = int(trialID[5:])
+            cate_bolds_2[trialID] = nib.load(fname).get_fdata()  #.flatten()
+        cate_bolds_2 = {i: cate_bolds_2[i] for i in sorted(cate_bolds_2.keys())}
+        all_bolds_2[cateID] = cate_bolds_2
+
+        bolds_arr_2.append(np.stack( [ cate_bolds_2[i] for i in sorted(cate_bolds_2.keys()) ] ))
+
+    bolds_arr_2 = np.vstack(bolds_arr_2)
+    print("bolds for phase 2 - shape: ", bolds_arr_2.shape)    
+
+    #when comparing pre vs. post, the pre scene have 120 trials, while post has 180 (which are the 120 we saw before plus 60 novel images)
+
+
+    # apply mask on BOLD
+    masked_bolds_arr_1 = []
+    for bold in bolds_arr_1:
+        masked_bolds_arr_1.append(apply_mask(mask=mask.get_fdata(), target=bold).flatten())
+    masked_bolds_arr_1 = np.vstack(masked_bolds_arr_1)
+    print("masked phase1 bold array shape: ", masked_bolds_arr_1.shape)
+
+    # apply mask on BOLD
+    masked_bolds_arr_2 = []
+    for bold in bolds_arr_2:
+        masked_bolds_arr_2.append(apply_mask(mask=mask.get_fdata(), target=bold).flatten())
+    masked_bolds_arr_2 = np.vstack(masked_bolds_arr_2)
+    print("masked phase2 bold array shape: ", masked_bolds_arr_2.shape)    
+
+    # ===== load weights
+    print(f"Loading {weight_source}...")
+    if phase1 == 'pre':
+        if weight_source == "LSA":
+            weights_dir_1 = os.path.join(data_dir, f"sub-{subID}", "localizer_item_level")
+        elif weight_source == "LSS":
+            weights_dir_1 = os.path.join(data_dir, f"sub-{subID}", "localizer_LSS_lvl1")
+        else:
+            raise ValueError("Weight source must be LSA or LSS")
+    if phase2 == 'post':
+        if weight_source == "LSA":
+            weights_dir_2 = os.path.join(data_dir, f"sub-{subID}", "localizer_item_level")
+        elif weight_source == "LSS":
+            weights_dir_2 = os.path.join(data_dir, f"sub-{subID}", "post_localizer_LSS_lvl1")
+        else:
+            raise ValueError("Weight source must be LSA or LSS")
+    
+    all_weights = {}
+    all_weights_1 = {}
+    all_weights_2 = {}
+    weights_arr= []
+    weights_arr_1= []
+    weights_arr_2= []    
+
+    for cateID in sub_cates.keys():
+        if weight_source=='LSA':
+            cate_weights_fnames = glob.glob(f"{weights_dir_1}/{cateID}*full*{stats_test}*")
+            print(cateID, len(cate_weights_fnames))
+            cate_weights = {}
+
+            for fname in cate_weights_fnames:
+                trialID = fname.split("/")[-1].split("_")[1]  # "trial1"
+                trialID = int(trialID[5:])
+                cate_weights[trialID] = nib.load(fname).get_fdata()
+            cate_weights = {i: cate_weights[i] for i in sorted(cate_weights.keys())}
+            all_weights[cateID] = cate_weights
+
+        weights_arr.append(np.stack( [ cate_weights[i] for i in sorted(cate_weights.keys()) ] ))    
+
+        elif weight_source=='LSS':
+            cate_weights_fnames_1 = glob.glob(f"{weights_dir_1}/{cateID}*{stats_test}*")            
+            cate_weights_fnames_2 = glob.glob(f"{weights_dir_2}/{cateID}*{stats_test}*")
+            print(cateID, len(cate_weights_fnames_1),len(cate_weights_fnames_2))
+        
+            cate_weights_1 = {}
+            cate_weights_2 = {}            
+
+            for fname in cate_weights_fnames_1:
+                trialID = fname.split("/")[-1].split("_")[1]  # "trial1"
+                trialID = int(trialID[5:])
+                cate_weights_1[trialID] = nib.load(fname).get_fdata()
+
+            for fname in cate_weights_fnames_2:
+                trialID = fname.split("/")[-1].split("_")[1]  # "trial1"
+                trialID = int(trialID[5:])
+                cate_weights_2[trialID] = nib.load(fname).get_fdata()     
+
+            cate_weights_1 = {i: cate_weights_1[i] for i in sorted(cate_weights_1.keys())}
+            cate_weights_2 = {i: cate_weights_2[i] for i in sorted(cate_weights_2.keys())}
+
+            all_weights_1[cateID] = cate_weights_1
+            all_weights_2[cateID] = cate_weights_2            
+
+            weights_arr_1.append(np.stack( [ cate_weights_1[i] for i in sorted(cate_weights_1.keys()) ] ))
+            weights_arr_2.append(np.stack( [ cate_weights_2[i] for i in sorted(cate_weights_2.keys()) ] ))
+
+    if weight_source=='LSA':
+        weights_arr = np.vstack(weights_arr)
+        print("weights shape: ", weights_arr.shape)
+        # apply mask on BOLD
+        masked_weights_arr = []
+        for weight in weights_arr:
+            masked_weights_arr.append(apply_mask(mask=mask.get_fdata(), target=weight).flatten())
+        masked_weights_arr = np.vstack(masked_weights_arr)
+        print("masked weights arr shape: ", masked_weights_arr.shape)        
+    elif weight_source=='LSS':
+        weights_arr_1 = np.vstack(weights_arr_1)
+        weights_arr_2 = np.vstack(weights_arr_2)
+        print("weights 1 shape: ", weights_arr_1.shape)      
+        print("weights 2 shape: ", weights_arr_2.shape)
+        # apply mask on BOLD
+        masked_weights_arr_1 = []
+        masked_weights_arr_2 = []        
+        for weight in weights_arr_1:
+            masked_weights_arr_1.append(apply_mask(mask=mask.get_fdata(), target=weight).flatten())
+        masked_weights_arr_1 = np.vstack(masked_weights_arr_1)
+        for weight in weights_arr_2:
+            masked_weights_arr_2.append(apply_mask(mask=mask.get_fdata(), target=weight).flatten())
+        masked_weights_arr_2 = np.vstack(masked_weights_arr_2)        
+        print("masked weights 1 arr shape: ", masked_weights_arr_1.shape)
+        print("masked weights 2 arr shape: ", masked_weights_arr_2.shape)
+
+    # ===== multiply
+    if weight_source=='LSA':
+        item_repress = np.multiply(masked_bolds_arr, masked_weights_arr)
+        print("item_repres shape: ", item_repress.shape)
+    elif weight_source=='LSS':
+        item_repress_1=masked_weights_arr_1
+        item_repress_2=masked_weights_arr_2
+        print("item_repres 1 shape: ", item_repress_1.shape)
+        print("item_repres 2 shape: ", item_repress_2.shape)        
+
+    # I will need to add the code here to use the sorting of the trials, to both organize the data... drop the novel from the post (or if study is phase2, drop the unoperated from the phase1)
+    # I will also need to set up the correlation BETWEEN these phases, so pre vs. post and not a pair-wise comparison within the phase 
+    
+
+    # ===== perform the correlation 
+    corr_matrix=np.corrcoef(item_repress)
+    out_name=os.path.join(results_dir,"RSM",f"sub-{subID}_{phase}_{weight_source}_{stats_test}_rsm")
+    if not os.path.exists(os.path.join(results_dir, "RSM")): os.makedirs(os.path.join(results_dir, "RSM"),exist_ok=True)    
+    np.save(out_name,corr_matrix)    
 
 
 if __name__ == "__main__":
