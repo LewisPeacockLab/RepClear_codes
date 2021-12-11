@@ -509,6 +509,12 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="LS
     #so the code below here would basically look at what is the phase1 and phase2, have the data sorted so that we know what item each trial is associated with
         #then I would loop over the pairs and collect the RSA between pre and post, and then likely save that into a dictionary or a dataframe
 
+        #the way this would look is that the r=np.corrcoef(x,y), where x is the 1-D activity (BOLD or LSS) of the pre, and y is the 1-D activity of the post
+        #the output when then be saved into its corresponding label in a dictionary: e.g., {'image_ID_100': r}
+
+        #additionally it may help to also segment by the operation on that item since we also have that information available when sorting, all we have to do is look at the operation column to see
+            #so I may just sort them into separate dictionary or dataframes
+
     # ===== perform the correlation 
     corr_matrix=np.corrcoef(item_repress)
     out_name=os.path.join(results_dir,"RSM",f"sub-{subID}_{phase}_{weight_source}_{stats_test}_rsm")
