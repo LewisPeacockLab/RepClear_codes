@@ -505,7 +505,9 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="LS
 
     # I will need to add the code here to use the sorting of the trials, to both organize the data... drop the novel from the post (or if study is phase2, drop the unoperated from the phase1)
     # I will also need to set up the correlation BETWEEN these phases, so pre vs. post and not a pair-wise comparison within the phase 
-    
+
+    #so the code below here would basically look at what is the phase1 and phase2, have the data sorted so that we know what item each trial is associated with
+        #then I would loop over the pairs and collect the RSA between pre and post, and then likely save that into a dictionary or a dataframe
 
     # ===== perform the correlation 
     corr_matrix=np.corrcoef(item_repress)
