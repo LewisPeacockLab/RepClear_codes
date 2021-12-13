@@ -423,7 +423,6 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
         elif weight_source == "LSS":
             weights_dir_2 = os.path.join(data_dir, f"sub-{subID}", "post_localizer_LSS_lvl1")
         elif weight_source == 'BOTH':
-            weights_dir_2 = os.path.join(data_dir, f"sub-{subID}", "localizer_item_level")
             LSS_dir_2 = os.path.join(data_dir, f"sub-{subID}", "post_localizer_LSS_lvl1")
         else:
             raise ValueError("Weight source must be LSA, LSS or BOTH")
@@ -431,9 +430,13 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
     all_weights = {}
     all_weights_1 = {}
     all_weights_2 = {}
+    all_LSS_1 = {}
+    all_LSS_2 = {}
     weights_arr= []
     weights_arr_1= []
     weights_arr_2= []    
+    LSS_arr_1= []
+    LSS_arr_2= []     
 
     for cateID in sub_cates.keys():
         if weight_source=='LSA':
@@ -448,6 +451,8 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
                 cate_weights_1[trialID] = nib.load(fname).get_fdata()
             cate_weights_1 = {i: cate_weights_1[i] for i in sorted(cate_weights_1.keys())}
             all_weights_1[cateID] = cate_weights_1  
+            weights_arr_1.append(np.stack( [ cate_weights_1[i] for i in sorted(cate_weights_1.keys()) ] ))
+
 
         elif weight_source=='LSS':
             #here we are using the weights loading to load in the LSS results
@@ -480,6 +485,7 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
         elif weight_source=='BOTH':
             #in this combined condition we are going to both load the pre and post LSS data along with the LSA weights
             #this will allow us to do both comparisons within one script and then just export all the information we need
+            #only one set of weights since we are using the pre-weights (template weights) to weight any study or post data
             cate_weights_fnames_1 = glob.glob(f"{weights_dir_1}/{cateID}*full*{stats_test}*")
             print(cateID, len(cate_weights_fnames_1))
             cate_weights_1 = {}
@@ -489,21 +495,35 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
                 trialID = int(trialID[5:])
                 cate_weights_1[trialID] = nib.load(fname).get_fdata()
             cate_weights_1 = {i: cate_weights_1[i] for i in sorted(cate_weights_1.keys())}
-            all_weights_1[cateID] = cate_weights_1
+            all_weights_1[cateID] = cate_weights_1  
+            weights_arr_1.append(np.stack( [ cate_weights_1[i] for i in sorted(cate_weights_1.keys()) ] ))
 
-            cate_weights_fnames_@ = glob.glob(f"{weights_dir_2}/{cateID}*full*{stats_test}*")
-            print(cateID, len(cate_weights_fnames_2))
-            cate_weights_2 = {}
 
-            for fname in cate_weights_fnames_2:
+            LSS_fnames_1 = glob.glob(f"{LSS_dir_1}/{cateID}*{stats_test}*")            
+            LSS_fnames_2 = glob.glob(f"{LSS_dir_2}/{cateID}*{stats_test}*")
+            print(cateID, len(LSS_fnames_1),',',len(LSS_fnames_2))
+
+            LSS_data_1 = {}
+            LSS_data_2 = {}
+
+            for fname in LSS_fnames_1:
                 trialID = fname.split("/")[-1].split("_")[1]  # "trial1"
                 trialID = int(trialID[5:])
-                cate_weights_2[trialID] = nib.load(fname).get_fdata()
-            cate_weights_2 = {i: cate_weights_2[i] for i in sorted(cate_weights_2.keys())}
-            all_weights_2[cateID] = cate_weights_2            
+                LSS_data_1[trialID] = nib.load(fname).get_fdata()      
+            LSS_data_1 = {i: LSS_data_1[i] for i in sorted(LSS_data_1.keys())}
+            all_LSS_1[cateID] = LSS_data_1
+            LSS_arr_1.append(np.stack( [ LSS_data_1[i] for i in sorted(LSS_data_1.keys()) ] ))
 
-        weights_arr_1.append(np.stack( [ cate_weights_1[i] for i in sorted(cate_weights_1.keys()) ] ))    
-        weights_arr_2.append(np.stack( [ cate_weights_2[i] for i in sorted(cate_weights_2.keys()) ] ))              
+            for fname in LSS_fnames_2:
+                trialID = fname.split("/")[-1].split("_")[1]  # "trial1"
+                trialID = int(trialID[5:])
+                LSS_data_2[trialID] = nib.load(fname).get_fdata()      
+            LSS_data_2 = {i: LSS_data_2[i] for i in sorted(LSS_data_2.keys())}
+            all_LSS_2[cateID] = LSS_data_2
+            try:
+                LSS_arr_2.append(np.stack( [ LSS_data_2[i] for i in sorted(LSS_data_2.keys()) ] ))            
+            except:
+                print('no %s trials in post' % cateID)
 
 
     if weight_source=='LSA':
@@ -514,7 +534,8 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
         for weight in weights_arr:
             masked_weights_arr.append(apply_mask(mask=mask.get_fdata(), target=weight).flatten())
         masked_weights_arr = np.vstack(masked_weights_arr)
-        print("masked weights arr shape: ", masked_weights_arr.shape)        
+        print("masked weights arr shape: ", masked_weights_arr.shape)    
+
     elif weight_source=='LSS':
         weights_arr_1 = np.vstack(weights_arr_1)
         weights_arr_2 = np.vstack(weights_arr_2)
@@ -532,6 +553,34 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
         print("masked weights 1 arr shape: ", masked_weights_arr_1.shape)
         print("masked weights 2 arr shape: ", masked_weights_arr_2.shape)
 
+    elif weight_source=='BOTH':
+        weights_arr_1=np.vstack(weights_arr_1)
+        print("weights LSA shape: ", weights_arr_1.shape)
+        masked_weights_arr_1 = []
+        for weight in weights_arr_1:
+            masked_weights_arr_1.append(apply_mask(mask=mask.get_fdata(), target=weight).flatten())
+        masked_weights_arr_1 = np.vstack(masked_weights_arr_1)
+        print("masked weights 1 arr shape: ", masked_weights_arr_1.shape)
+
+        LSS_arr_1 = np.vstack(LSS_arr_1)
+        LSS_arr_2 = np.vstack(LSS_arr_2)
+
+        print("LSS pre shape: ", LSS_arr_1.shape)      
+        print("LSS post shape: ", LSS_arr_2.shape)
+        # apply mask on BOLD
+        masked_LSS_arr_1 = []
+        masked_LSS_arr_2 = []        
+        for weight in LSS_arr_1:
+            masked_LSS_arr_1.append(apply_mask(mask=mask.get_fdata(), target=weight).flatten())
+        masked_LSS_arr_1 = np.vstack(masked_LSS_arr_1)
+        for weight in LSS_arr_2:
+            masked_LSS_arr_2.append(apply_mask(mask=mask.get_fdata(), target=weight).flatten())
+        masked_LSS_arr_2 = np.vstack(masked_LSS_arr_2)        
+        print("masked LSS pre arr shape: ", masked_LSS_arr_1.shape)
+        print("masked LSS post arr shape: ", masked_LSS_arr_2.shape)        
+
+
+
     # ===== multiply
     if weight_source=='LSA':
         item_repress = np.multiply(masked_bolds_arr, masked_weights_arr)
@@ -540,7 +589,19 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
         item_repress_1=masked_weights_arr_1
         item_repress_2=masked_weights_arr_2
         print("item_repres 1 shape: ", item_repress_1.shape)
-        print("item_repres 2 shape: ", item_repress_2.shape)        
+        print("item_repres 2 shape: ", item_repress_2.shape)    
+    elif weight_source=='BOTH':
+        item_repress_pre = np.multiply(masked_bolds_arr_1, masked_weights_arr_1)
+        item_repress_post = np.multiply(masked_bolds_arr_2, masked_weights_arr_1)
+        print("item_repress pre shape: ", item_repress_pre.shape)
+        print("item_repress post shape: ", item_repress_post.shape)
+
+        item_LSS_pre = masked_LSS_arr_1
+        item_LSS_post = masked_LSS_arr_2
+
+        print("item LSS pre shape: ", item_LSS_pre.shape)
+        print("item LSS post shape: ", item_LSS_post.shape)
+
 
     # I will need to add the code here to use the sorting of the trials, to both organize the data... drop the novel from the post (or if study is phase2, drop the unoperated from the phase1)
     # I will also need to set up the correlation BETWEEN these phases, so pre vs. post and not a pair-wise comparison within the phase 
