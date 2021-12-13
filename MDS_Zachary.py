@@ -7,8 +7,13 @@ from sklearn.manifold import MDS
 import nibabel as nib
 import pandas as pd
 import seaborn as sns
+import scipy
+from scipy.stats import f_oneway, ttest_ind
+from statsmodels.stats.multicomp import pairwise_tukeyhsd
 import warnings
 import sys
+import pickle
+
 if not sys.warnoptions:
     warnings.simplefilter("ignore")
 
@@ -663,6 +668,65 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
             LSS_suppress_dict['image ID: %s' % image_id] = LSS_trial_fidelity[1][0]    
             LSA_suppress_dict['image ID: %s' % image_id] = LSA_trial_fidelity[1][0]                        
 
+    print('Average LSS Fidelity of unoperated items: %s | std: %s' % (np.array(list(LSS_unoperated_dict.values())).mean(),np.array(list(LSS_unoperated_dict.values())).std()))
+    print('Average LSS Fidelity of maintained items: %s | std: %s' % (np.array(list(LSS_maintain_dict.values())).mean(),np.array(list(LSS_maintain_dict.values())).std()))
+    print('Average LSS Fidelity of replaced items: %s | std: %s' % (np.array(list(LSS_replace_dict.values())).mean(),np.array(list(LSS_replace_dict.values())).std()))
+    print('Average LSS Fidelity of suppressed items: %s | std: %s' % (np.array(list(LSS_suppress_dict.values())).mean(),np.array(list(LSS_suppress_dict.values())).std()))
+
+    #organize this data into dataframes (which may be the best way to handle this data):
+    LSS_df=pd.DataFrame()
+    LSS_df['unoperated']=np.array(list(LSS_unoperated_dict.values()))
+    LSS_df['maintain']=np.array(list(LSS_maintain_dict.values()))
+    LSS_df['replace']=np.array(list(LSS_replace_dict.values()))
+    LSS_df['suppress']=np.array(list(LSS_suppress_dict.values()))
+
+    #plot and save the figures of the data
+    fig=sns.barplot(data=LSS_df)
+    fig.set_xlabel('Operations')
+    fig.set_ylabel('Fidelity')
+    fig.set_title('LSS - Pre vs. Post')
+    plt.savefig(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSS_fidelity_bar_summary.png'))
+    plt.clf()
+
+    fig=sns.violinplot(data=LSS_df,inner='point')
+    fig.set_xlabel('Operations')
+    fig.set_ylabel('Fidelity')
+    fig.set_title('LSS - Pre vs. Post')    
+    plt.savefig(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSS_fidelity_violin_summary.png'))
+    plt.clf()    
+
+    #quickly summarize the statistics:
+    print('One-Way ANOVA on LSS:')
+    print(f_oneway(LSS_df['unoperated'],LSS_df['maintain'],LSS_df['replace'],LSS_df['suppress']))
+
+    #organize this data into dataframes (which may be the best way to handle this data):
+    LSA_df=pd.DataFrame()
+    LSA_df['unoperated']=np.array(list(LSA_unoperated_dict.values()))
+    LSA_df['maintain']=np.array(list(LSA_maintain_dict.values()))
+    LSA_df['replace']=np.array(list(LSA_replace_dict.values()))
+    LSA_df['suppress']=np.array(list(LSA_suppress_dict.values()))
+
+    #plot and save the figures of the data
+    fig=sns.barplot(data=LSA_df)
+    fig.set_xlabel('Operations')
+    fig.set_ylabel('Fidelity')
+    fig.set_title('LSA - Pre vs. Post')
+    plt.savefig(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSA_fidelity_bar_summary.png'))
+    plt.clf()
+
+    fig=sns.violinplot(data=LSA_df,inner='point')
+    fig.set_xlabel('Operations')
+    fig.set_ylabel('Fidelity')
+    fig.set_title('LSA - Pre vs. Post')    
+    plt.savefig(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSA_fidelity_violin_summary.png'))
+    plt.clf()    
+
+    #quickly summarize the statistics:
+    print('One-Way ANOVA on LSA:')
+    print(f_oneway(LSA_df['unoperated'],LSA_df['maintain'],LSA_df['replace'],LSA_df['suppress']))
+
+
+    #this is just dumping all the individual dictionaries, which is nice since each comparison is labeled with the corresponding image
     if not os.path.exists(os.path.join(data_dir,"sub-%s" % subID,"Representational_Changes")): os.makedirs(os.path.join(data_dir,"sub-%s" % subID,"Representational_Changes"),exist_ok=True)
     dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSS_unoperated.pkl'),"wb")
     pickle.dump(LSS_unoperated_dict,dict_file)
@@ -702,8 +766,6 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
     dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSA_Suppress.pkl'),"wb")
     pickle.dump(LSA_suppress_dict,dict_file)
     dict_file.close()    
-
-    #now need to write code to create a figure for LSS and a figure for LSA, and then save both
 
 
 
