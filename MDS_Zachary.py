@@ -58,8 +58,8 @@ def sort_trials_by_categories(subID="002", phase=2):
     tim_df = tim_df[tim_df["phase"]==phase]
     tim_df = tim_df.sort_values(by=["category", "subcategory", "trial_id"])
     
-    scene_order = tim_df[tim_df["category"]==1][["trial_id","image_id"]]
-    face_order = tim_df[tim_df["category"]==2][["trial_id","image_id"]]
+    scene_order = tim_df[tim_df["category"]==1][["trial_id","image_id","condition"]]
+    face_order = tim_df[tim_df["category"]==2][["trial_id","image_id","condition"]]
 
     return face_order, scene_order
 
@@ -615,8 +615,44 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
         #additionally it may help to also segment by the operation on that item since we also have that information available when sorting, all we have to do is look at the operation column to see
             #so I may just sort them into separate dictionary or dataframes
 
+
+    #the way the data is currently sorted is by the index:
+    #pre-localizer: 0-59 = Face trial 1 - 60 | 60-179 = Scene trial 1 - 120
+    #study: 0-89 = Scene trial 1 - 90
+    #post-localizer: 0-179 = Scene trial 1-180 (but 60 of these are novel)
+
+    #the specific output of this "order" DataFrame is by subcategory within the category, but we can still use this to sort by trial since the conditions are in order
     if phase1=='pre':
-        _,pre_scene_order=sort_trials_by_categories(subID=subID,phase=2)
+        pre_face_order,pre_scene_order=sort_trials_by_categories(subID=subID,phase=2)
+    if phase2=='post':
+        _,post_scene_order=sort_trials_by_categories(subID=subID,phase=4)
+    elif phase2=='study':
+        _,study_scene_order=sort_trials_by_categories(subID=subID,phase=3)
+
+    maintain_dict={}
+    replace_dict={}
+    suppress_dict={}
+    unoperated_dict={}
+
+    for trial in range(len(pre_scene_order)):
+        trial_index=pre_scene_order.index[pre_scene_order['trial_id']==(trial+1)].tolist()[0] #adding 1 to trial since index starts at 1, then finding that index in the scene_order DF
+        image_id=pre_scene_order.loc[trial_index,'image_id'] #this now uses the index of the dataframe to find the image_id
+        image_condition=pre_scene_order.loc[trial_index,'condition']
+        #this mean we now know both the trial #, the image id and we can also grab the condition to help sort
+
+        post_trial_index=post_scene_order.index[post_scene_order['image_id']==image_id].tolist()[0]
+        post_trial_num=post_scene_order.loc[post_trial_index,'trial_id'] #now we used the image ID to find the proper trial in the post condition to link to
+
+        LSS_trial_fidelity=np.corrcoef(item_LSS_pre[trial+len(pre_face_order),:],item_LSS_post[(post_trial_num-1),:])
+
+        if image_condition==0:
+            unoperated_dict['LSS - image ID: %s' % image_id] = LSS_trial_fidelity[1][0]
+        elif image_condition==1:
+            maintain_dict['LSS - image ID: %s' % image_id] = LSS_trial_fidelity[1][0]
+        elif image_condition==2:
+            replace_dict['LSS - image ID: %s' % image_id] = LSS_trial_fidelity[1][0]
+        elif image_condition==3:
+            suppress_dict['LSS - image ID: %s' % image_id] = LSS_trial_fidelity[1][0]                        
 
 
 
