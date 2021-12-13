@@ -346,7 +346,7 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
             values = np.transpose(values) #swap axes to get feature X sample
         return values
 
-    print(f"Running item level RSA & MDS for sub{subID}, {phase1} comapred to {phase2}, {weight_source}, {stats_test}...")
+    print(f"Running item level RSA for sub{subID}, {phase1} comapred to {phase2}, {weight_source}, {stats_test}...")
 
     # ===== load mask for BOLD
     mask_path = os.path.join(data_dir, "group_MNI_thresholded_VTC_mask.nii.gz")
@@ -673,6 +673,8 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
     print('Average LSS Fidelity of replaced items: %s | std: %s' % (np.array(list(LSS_replace_dict.values())).mean(),np.array(list(LSS_replace_dict.values())).std()))
     print('Average LSS Fidelity of suppressed items: %s | std: %s' % (np.array(list(LSS_suppress_dict.values())).mean(),np.array(list(LSS_suppress_dict.values())).std()))
 
+    if not os.path.exists(os.path.join(data_dir,"sub-%s" % subID,"Representational_Changes")): os.makedirs(os.path.join(data_dir,"sub-%s" % subID,"Representational_Changes"),exist_ok=True)
+
     #organize this data into dataframes (which may be the best way to handle this data):
     LSS_df=pd.DataFrame()
     LSS_df['unoperated']=np.array(list(LSS_unoperated_dict.values()))
@@ -727,7 +729,6 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
 
 
     #this is just dumping all the individual dictionaries, which is nice since each comparison is labeled with the corresponding image
-    if not os.path.exists(os.path.join(data_dir,"sub-%s" % subID,"Representational_Changes")): os.makedirs(os.path.join(data_dir,"sub-%s" % subID,"Representational_Changes"),exist_ok=True)
     dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSS_unoperated.pkl'),"wb")
     pickle.dump(LSS_unoperated_dict,dict_file)
     dict_file.close()
@@ -767,6 +768,8 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
     pickle.dump(LSA_suppress_dict,dict_file)
     dict_file.close()    
 
+    print("Subject is done... saving everything")
+    print("===============================================================================")
 
 
 if __name__ == "__main__":
