@@ -6,6 +6,11 @@ import matplotlib.pyplot as plt
 from sklearn.manifold import MDS
 import nibabel as nib
 import pandas as pd
+import seaborn as sns
+import warnings
+import sys
+if not sys.warnoptions:
+    warnings.simplefilter("ignore")
 
 
 # global consts
@@ -629,10 +634,15 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
     elif phase2=='study':
         _,study_scene_order=sort_trials_by_categories(subID=subID,phase=3)
 
-    maintain_dict={}
-    replace_dict={}
-    suppress_dict={}
-    unoperated_dict={}
+    LSS_maintain_dict={}
+    LSS_replace_dict={}
+    LSS_suppress_dict={}
+    LSS_unoperated_dict={}
+
+    LSA_maintain_dict={}
+    LSA_replace_dict={}
+    LSA_suppress_dict={}
+    LSA_unoperated_dict={}    
 
     for trial in range(len(pre_scene_order)):
         trial_index=pre_scene_order.index[pre_scene_order['trial_id']==(trial+1)].tolist()[0] #adding 1 to trial since index starts at 1, then finding that index in the scene_order DF
@@ -644,23 +654,63 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
         post_trial_num=post_scene_order.loc[post_trial_index,'trial_id'] #now we used the image ID to find the proper trial in the post condition to link to
 
         LSS_trial_fidelity=np.corrcoef(item_LSS_pre[trial+len(pre_face_order),:],item_LSS_post[(post_trial_num-1),:])
+        LSA_trial_fidelity=np.corrcoef(item_repress_pre[trial+len(pre_face_order),:],item_repress_post[(post_trial_num-1),:])
 
         if image_condition==0:
-            unoperated_dict['LSS - image ID: %s' % image_id] = LSS_trial_fidelity[1][0]
+            LSS_unoperated_dict['image ID: %s' % image_id] = LSS_trial_fidelity[1][0]
+            LSA_unoperated_dict['image ID: %s' % image_id] = LSA_trial_fidelity[1][0]            
         elif image_condition==1:
-            maintain_dict['LSS - image ID: %s' % image_id] = LSS_trial_fidelity[1][0]
+            LSS_maintain_dict['image ID: %s' % image_id] = LSS_trial_fidelity[1][0]
+            LSA_maintain_dict['image ID: %s' % image_id] = LSA_trial_fidelity[1][0]            
         elif image_condition==2:
-            replace_dict['LSS - image ID: %s' % image_id] = LSS_trial_fidelity[1][0]
+            LSS_replace_dict['image ID: %s' % image_id] = LSS_trial_fidelity[1][0]
+            LSA_replace_dict['image ID: %s' % image_id] = LSA_trial_fidelity[1][0]            
         elif image_condition==3:
-            suppress_dict['LSS - image ID: %s' % image_id] = LSS_trial_fidelity[1][0]                        
+            LSS_suppress_dict['image ID: %s' % image_id] = LSS_trial_fidelity[1][0]    
+            LSA_suppress_dict['image ID: %s' % image_id] = LSA_trial_fidelity[1][0]                        
 
+    if not os.path.exists(os.path.join(data_dir,"sub-%s" % subID,"Representational_Changes")): os.makedirs(os.path.join(data_dir,"sub-%s" % subID,"Representational_Changes"),exist_ok=True)
+    dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSS_unoperated.pkl'),"wb")
+    pickle.dump(LSS_unoperated_dict,dict_file)
+    dict_file.close()
+    del dict_file
 
+    dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSA_unoperated.pkl'),"wb")
+    pickle.dump(LSA_unoperated_dict,dict_file)
+    dict_file.close()
+    del dict_file
 
-    # ===== perform the correlation 
-    corr_matrix=np.corrcoef(item_repress)
-    out_name=os.path.join(results_dir,"RSM",f"sub-{subID}_{phase}_{weight_source}_{stats_test}_rsm")
-    if not os.path.exists(os.path.join(results_dir, "RSM")): os.makedirs(os.path.join(results_dir, "RSM"),exist_ok=True)    
-    np.save(out_name,corr_matrix)    
+    dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSS_Maintain.pkl'),"wb")
+    pickle.dump(LSS_maintain_dict,dict_file)
+    dict_file.close()
+    del dict_file
+
+    dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSA_Maintain.pkl'),"wb")
+    pickle.dump(LSA_maintain_dict,dict_file)
+    dict_file.close()
+    del dict_file
+
+    dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSS_Replace.pkl'),"wb")
+    pickle.dump(LSS_replace_dict,dict_file)
+    dict_file.close()
+    del dict_file
+
+    dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSA_Replace.pkl'),"wb")
+    pickle.dump(LSA_replace_dict,dict_file)
+    dict_file.close()
+    del dict_file
+
+    dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSS_Suppress.pkl'),"wb")
+    pickle.dump(LSS_suppress_dict,dict_file)
+    dict_file.close()
+    del dict_file
+
+    dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSA_Suppress.pkl'),"wb")
+    pickle.dump(LSA_suppress_dict,dict_file)
+    dict_file.close()    
+
+    #now need to write code to create a figure for LSS and a figure for LSA, and then save both
+    
 
 
 if __name__ == "__main__":
