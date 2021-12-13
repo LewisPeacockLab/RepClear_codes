@@ -64,8 +64,8 @@ def sort_trials_by_categories(subID="002", phase=2):
     tim_df = tim_df[tim_df["phase"]==phase]
     tim_df = tim_df.sort_values(by=["category", "subcategory", "trial_id"])
     
-    scene_order = tim_df[tim_df["category"]==1]["trial_id"]
-    face_order = tim_df[tim_df["category"]==2]["trial_id"]
+    scene_order = tim_df[tim_df["category"]==1]["trial_id"].values
+    face_order = tim_df[tim_df["category"]==2]["trial_id"].values
 
     return face_order, scene_order
 
@@ -203,15 +203,24 @@ def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tm
     weight_source: "LSA" / "LSS". 
     stats_test: "tmap" / "zmap"
     """
+    phase_dict = {"pre": 2, "post": 4}
 
-    print(f"Running item level RSA & MDS for sub{subID}, {phase}, {weight_source}, {stats_test}...")
-    sub_cates.pop("scene")
-    expt_tag = "face"
+    # sub_cates.pop("face")
+    # expt_tag = "scene"
+    # expt_tag = "nonweighted_"
+    # expt_tag = ""
+
+    print(f"Running item level RSA & MDS for sub{subID}, {phase}, {stats_test}, {expt_tag}...")
 
     # ===== load mask for BOLD
     mask_path = os.path.join(data_dir, "group_MNI_thresholded_VTC_mask.nii.gz")  # voxels chosen with GLM contrast: stim vs non-stim
     mask = nib.load(mask_path)
     print("mask shape: ", mask.shape)
+
+    # === get order for face/scene trials
+    face_order, scene_order = sort_trials_by_categories(subID, phase_dict[phase])
+    print("face/scene length: ", len(face_order), len(scene_order))
+    cates_order = {"face": face_order, "scene": scene_order}
 
     # ===== load ready BOLD for each trial 
     print(f"Loading preprocessed BOLDs for {phase} operation...")
@@ -235,13 +244,12 @@ def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tm
         cate_bolds = {i: cate_bolds[i] for i in sorted(cate_bolds.keys())}
         all_bolds[cateID] = cate_bolds
 
-        bolds_arr.append(np.stack( [ cate_bolds[i] for i in sorted(cate_bolds.keys()) ] ))
+        # bolds_arr.append(np.stack( [ cate_bolds[i] for i in sorted(cate_bolds.keys()) ] ))
+        # *** order by subcategories rather than trial number
+        bolds_arr.append(np.stack( [cate_bolds[i] for i in cates_order[cateID]] ))
 
     bolds_arr = np.vstack(bolds_arr)
     print("bolds shape: ", bolds_arr.shape)
-    # print(f"category check:")
-    # print("face: ", (bolds_arr[:60, :] == np.vstack(all_bolds["face"].values())).all() )
-    # print("scene: ", (bolds_arr[60:, :] == np.vstack(all_bolds["scene"].values())).all() )
 
     # apply mask on BOLD
     masked_bolds_arr = []
@@ -255,11 +263,12 @@ def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tm
     if weight_source == "LSA":
         # weights generated from GLM: target trial vs every other trial
         weights_dir = os.path.join(data_dir, f"sub-{subID}", "localizer_item_level")
-    elif weight_source == "LSS":
-        # weights generated from GLM: target trial vs combination of all other trials
-        weights_dir = os.path.join(data_dir, f"sub-{subID}", "localizer_LSS_lvl1")
+    # *** weighting is done only on LSA, not LSS ***
+    # elif weight_source == "LSS":
+    #     # weights generated from GLM: target trial vs combination of all other trials
+    #     weights_dir = os.path.join(data_dir, f"sub-{subID}", "localizer_LSS_lvl1")
     else:
-        raise ValueError("Weight source must be LSA or LSS")
+        raise ValueError("Weight source must be LSA")
     
     all_weights = {}
     weights_arr= []
@@ -279,13 +288,12 @@ def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tm
         cate_weights = {i: cate_weights[i] for i in sorted(cate_weights.keys())}
         all_weights[cateID] = cate_weights
 
-        weights_arr.append(np.stack( [ cate_weights[i] for i in sorted(cate_weights.keys()) ] ))
+        # weights_arr.append(np.stack( [ cate_weights[i] for i in sorted(cate_weights.keys()) ] ))
+        # *** order by subcategories rather than trial number
+        weights_arr.append(np.stack( [cate_weights[i] for i in cates_order[cateID]] ))
     
     weights_arr = np.vstack(weights_arr)
     print("weights shape: ", weights_arr.shape)
-    # print(f"category check:")
-    # print("face: ", (weights_arr[:60, :] == np.vstack(all_weights["face"].values())).all() )
-    # print("scene: ", (weights_arr[60:, :] == np.vstack(all_weights["scene"].values())).all() )
 
     # apply mask on BOLD
     masked_weights_arr = []
@@ -296,10 +304,11 @@ def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tm
 
     # ===== multiply
     item_repress = np.multiply(masked_bolds_arr, masked_weights_arr)
+    # item_repress = masked_bolds_arr
     print("item_repres shape: ", item_repress.shape)
 
     # ===== select MDS with best ncomp
-    out_fname = os.path.join(results_dir, "MDS", f"sub-{subID}_{phase}_{weight_source}_{stats_test}_{expt_tag}_mdss")
+    out_fname = os.path.join(results_dir, "MDS", f"sub-{subID}_{phase}_{stats_test}_{expt_tag}mdss")
     _ = select_MDS(item_repress, save=True, out_fname=out_fname)
 
 
@@ -340,8 +349,9 @@ def vis_mds(mds, labels):
 
 
 if __name__ == "__main__":
-
-    # item_level_RSA()
+    
+    for subID in ["003", "004"]:
+        item_level_RSA(subID)
     # run_MDS()
     # f, s = sort_trials_by_categories()
     # print(f)
