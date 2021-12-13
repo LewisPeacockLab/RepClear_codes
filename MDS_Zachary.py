@@ -8,7 +8,7 @@ import nibabel as nib
 import pandas as pd
 import seaborn as sns
 import scipy
-from scipy.stats import f_oneway, ttest_ind
+from scipy.stats import f_oneway, ttest_ind, pearsonr
 from statsmodels.stats.multicomp import pairwise_tukeyhsd
 import warnings
 import sys
