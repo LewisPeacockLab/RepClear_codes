@@ -607,18 +607,12 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
         print("item LSS pre shape: ", item_LSS_pre.shape)
         print("item LSS post shape: ", item_LSS_post.shape)
 
+    #now that everything is loaded in as needed for a pre vs. post comparison in the representations
+    #the next chunk of this code is linking the image ID, so that we can easily search a table to find which trial in the pre and post correspond to the same image
+    #Then we are running a corrcoef on the two voxel series, so that a value of 1 would be complete similarity and 0 would be complete dissimilarity
+    #After this, the items will be sorted based on what operation was done on that item (or the nonoperated condition) so that we can quantify the overall changes to the items from the operations
 
-    # I will need to add the code here to use the sorting of the trials, to both organize the data... drop the novel from the post (or if study is phase2, drop the unoperated from the phase1)
-    # I will also need to set up the correlation BETWEEN these phases, so pre vs. post and not a pair-wise comparison within the phase 
-
-    #so the code below here would basically look at what is the phase1 and phase2, have the data sorted so that we know what item each trial is associated with
-        #then I would loop over the pairs and collect the RSA between pre and post, and then likely save that into a dictionary or a dataframe
-
-        #the way this would look is that the r=np.corrcoef(x,y), where x is the 1-D activity (BOLD or LSS) of the pre, and y is the 1-D activity of the post
-        #the output when then be saved into its corresponding label in a dictionary: e.g., {'image_ID_100': r}
-
-        #additionally it may help to also segment by the operation on that item since we also have that information available when sorting, all we have to do is look at the operation column to see
-            #so I may just sort them into separate dictionary or dataframes
+    #we should be able to use this same backbone to link the representations during pre-localizer to the study session 
 
 
     #the way the data is currently sorted is by the index:
@@ -710,7 +704,7 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
     dict_file.close()    
 
     #now need to write code to create a figure for LSS and a figure for LSA, and then save both
-    
+
 
 
 if __name__ == "__main__":
