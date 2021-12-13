@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.manifold import MDS
 import nibabel as nib
+import pandas as pd
 
 
 # global consts
@@ -30,10 +31,12 @@ if workspace == 'work':
     data_dir = '/work/06873/zbretton/frontera/fmriprep/'
     event_dir = '/work/06873/zbretton/frontera/events/'
     results_dir = '/work/06873/zbretton/model_fitting_results/'
+
 elif workspace == 'scratch':
     data_dir = '/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/'
     event_dir = '/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/'
     results_dir = '/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/model_fitting_results/'
+    param_dir =  '/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/subject_designs'    
 
 
 def sort_trials_by_categories(subID="002", phase=2):
@@ -55,8 +58,8 @@ def sort_trials_by_categories(subID="002", phase=2):
     tim_df = tim_df[tim_df["phase"]==phase]
     tim_df = tim_df.sort_values(by=["category", "subcategory", "trial_id"])
     
-    scene_order = tim_df[tim_df["category"]==1]["trial_id"]
-    face_order = tim_df[tim_df["category"]==2]["trial_id"]
+    scene_order = tim_df[tim_df["category"]==1][["trial_id","image_id"]]
+    face_order = tim_df[tim_df["category"]==2][["trial_id","image_id"]]
 
     return face_order, scene_order
 
@@ -314,7 +317,7 @@ def vis_mds(mds, labels):
     # ac.set_title("")
     # plt.savefig("")
 
-def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="LSS", stats_test="tmap"):
+def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BOTH", stats_test="tmap"):
     """
     Load ready BOLD for each trial & weights from LSA or load in LSS, 
     take RSA across phases
@@ -347,7 +350,7 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="LS
     all_bolds_1 = {}  # {cateID: {trialID: bold}}
     bolds_arr_1 = []  # sample x vox
     for cateID in sub_cates.keys():
-        cate_bolds_fnames_1 = glob.glob(f"{bold_dir}/*{phase1}*{cateID}*")
+        cate_bolds_fnames_1 = glob.glob(f"{bold_dir_1}/*{phase1}*{cateID}*")
         cate_bolds_1 = {}
         
         for fname in cate_bolds_fnames_1:
@@ -369,20 +372,21 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="LS
     all_bolds_2 = {}  # {cateID: {trialID: bold}}
     bolds_arr_2 = []  # sample x vox
     for cateID in sub_cates.keys():
-        cate_bolds_fnames_2 = glob.glob(f"{bold_dir}/*{phase2}*{cateID}*")
+        cate_bolds_fnames_2 = glob.glob(f"{bold_dir_2}/*{phase2}*{cateID}*")
         cate_bolds_2 = {}
-        
-        for fname in cate_bolds_fnames_2:
-            trialID = fname.split("/")[-1].split("_")[-2]  # "trial1"
-            trialID = int(trialID[5:])
-            cate_bolds_2[trialID] = nib.load(fname).get_fdata()  #.flatten()
-        cate_bolds_2 = {i: cate_bolds_2[i] for i in sorted(cate_bolds_2.keys())}
-        all_bolds_2[cateID] = cate_bolds_2
+        try:
+            for fname in cate_bolds_fnames_2:
+                trialID = fname.split("/")[-1].split("_")[-2]  # "trial1"
+                trialID = int(trialID[5:])
+                cate_bolds_2[trialID] = nib.load(fname).get_fdata()  #.flatten()
+            cate_bolds_2 = {i: cate_bolds_2[i] for i in sorted(cate_bolds_2.keys())}
+            all_bolds_2[cateID] = cate_bolds_2
 
-        bolds_arr_2.append(np.stack( [ cate_bolds_2[i] for i in sorted(cate_bolds_2.keys()) ] ))
-
+            bolds_arr_2.append(np.stack( [ cate_bolds_2[i] for i in sorted(cate_bolds_2.keys()) ] ))
+        except:
+            print('no %s trials' % cateID)
     bolds_arr_2 = np.vstack(bolds_arr_2)
-    print("bolds for phase 2 - shape: ", bolds_arr_2.shape)    
+    print("bolds for phase 2 - shape: ", bolds_arr_2.shape)
 
     #when comparing pre vs. post, the pre scene have 120 trials, while post has 180 (which are the 120 we saw before plus 60 novel images)
 
@@ -408,15 +412,21 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="LS
             weights_dir_1 = os.path.join(data_dir, f"sub-{subID}", "localizer_item_level")
         elif weight_source == "LSS":
             weights_dir_1 = os.path.join(data_dir, f"sub-{subID}", "localizer_LSS_lvl1")
+        elif weight_source == 'BOTH':
+            weights_dir_1 = os.path.join(data_dir, f"sub-{subID}", "localizer_item_level")
+            LSS_dir_1 = os.path.join(data_dir, f"sub-{subID}", "localizer_LSS_lvl1")
         else:
-            raise ValueError("Weight source must be LSA or LSS")
+            raise ValueError("Weight source must be LSA, LSS or BOTH")
     if phase2 == 'post':
         if weight_source == "LSA":
             weights_dir_2 = os.path.join(data_dir, f"sub-{subID}", "localizer_item_level")
         elif weight_source == "LSS":
             weights_dir_2 = os.path.join(data_dir, f"sub-{subID}", "post_localizer_LSS_lvl1")
+        elif weight_source == 'BOTH':
+            weights_dir_2 = os.path.join(data_dir, f"sub-{subID}", "localizer_item_level")
+            LSS_dir_2 = os.path.join(data_dir, f"sub-{subID}", "post_localizer_LSS_lvl1")
         else:
-            raise ValueError("Weight source must be LSA or LSS")
+            raise ValueError("Weight source must be LSA, LSS or BOTH")
     
     all_weights = {}
     all_weights_1 = {}
@@ -427,20 +437,20 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="LS
 
     for cateID in sub_cates.keys():
         if weight_source=='LSA':
-            cate_weights_fnames = glob.glob(f"{weights_dir_1}/{cateID}*full*{stats_test}*")
-            print(cateID, len(cate_weights_fnames))
-            cate_weights = {}
+            #only one set of weights since we are using the pre-weights (template weights) to weight any study or post data
+            cate_weights_fnames_1 = glob.glob(f"{weights_dir_1}/{cateID}*full*{stats_test}*")
+            print(cateID, len(cate_weights_fnames_1))
+            cate_weights_1 = {}
 
-            for fname in cate_weights_fnames:
+            for fname in cate_weights_fnames_1:
                 trialID = fname.split("/")[-1].split("_")[1]  # "trial1"
                 trialID = int(trialID[5:])
-                cate_weights[trialID] = nib.load(fname).get_fdata()
-            cate_weights = {i: cate_weights[i] for i in sorted(cate_weights.keys())}
-            all_weights[cateID] = cate_weights
-
-        weights_arr.append(np.stack( [ cate_weights[i] for i in sorted(cate_weights.keys()) ] ))    
+                cate_weights_1[trialID] = nib.load(fname).get_fdata()
+            cate_weights_1 = {i: cate_weights_1[i] for i in sorted(cate_weights_1.keys())}
+            all_weights_1[cateID] = cate_weights_1  
 
         elif weight_source=='LSS':
+            #here we are using the weights loading to load in the LSS results
             cate_weights_fnames_1 = glob.glob(f"{weights_dir_1}/{cateID}*{stats_test}*")            
             cate_weights_fnames_2 = glob.glob(f"{weights_dir_2}/{cateID}*{stats_test}*")
             print(cateID, len(cate_weights_fnames_1),len(cate_weights_fnames_2))
@@ -466,6 +476,35 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="LS
 
             weights_arr_1.append(np.stack( [ cate_weights_1[i] for i in sorted(cate_weights_1.keys()) ] ))
             weights_arr_2.append(np.stack( [ cate_weights_2[i] for i in sorted(cate_weights_2.keys()) ] ))
+
+        elif weight_source=='BOTH':
+            #in this combined condition we are going to both load the pre and post LSS data along with the LSA weights
+            #this will allow us to do both comparisons within one script and then just export all the information we need
+            cate_weights_fnames_1 = glob.glob(f"{weights_dir_1}/{cateID}*full*{stats_test}*")
+            print(cateID, len(cate_weights_fnames_1))
+            cate_weights_1 = {}
+
+            for fname in cate_weights_fnames_1:
+                trialID = fname.split("/")[-1].split("_")[1]  # "trial1"
+                trialID = int(trialID[5:])
+                cate_weights_1[trialID] = nib.load(fname).get_fdata()
+            cate_weights_1 = {i: cate_weights_1[i] for i in sorted(cate_weights_1.keys())}
+            all_weights_1[cateID] = cate_weights_1
+
+            cate_weights_fnames_@ = glob.glob(f"{weights_dir_2}/{cateID}*full*{stats_test}*")
+            print(cateID, len(cate_weights_fnames_2))
+            cate_weights_2 = {}
+
+            for fname in cate_weights_fnames_2:
+                trialID = fname.split("/")[-1].split("_")[1]  # "trial1"
+                trialID = int(trialID[5:])
+                cate_weights_2[trialID] = nib.load(fname).get_fdata()
+            cate_weights_2 = {i: cate_weights_2[i] for i in sorted(cate_weights_2.keys())}
+            all_weights_2[cateID] = cate_weights_2            
+
+        weights_arr_1.append(np.stack( [ cate_weights_1[i] for i in sorted(cate_weights_1.keys()) ] ))    
+        weights_arr_2.append(np.stack( [ cate_weights_2[i] for i in sorted(cate_weights_2.keys()) ] ))              
+
 
     if weight_source=='LSA':
         weights_arr = np.vstack(weights_arr)
@@ -515,6 +554,11 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="LS
         #additionally it may help to also segment by the operation on that item since we also have that information available when sorting, all we have to do is look at the operation column to see
             #so I may just sort them into separate dictionary or dataframes
 
+    if phase1=='pre':
+        _,pre_scene_order=sort_trials_by_categories(subID=subID,phase=2)
+
+
+
     # ===== perform the correlation 
     corr_matrix=np.corrcoef(item_repress)
     out_name=os.path.join(results_dir,"RSM",f"sub-{subID}_{phase}_{weight_source}_{stats_test}_rsm")
@@ -524,7 +568,6 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="LS
 
 if __name__ == "__main__":
     item_level_RSA()
-
 
     # item vs cateogory average
     # within category MDS
