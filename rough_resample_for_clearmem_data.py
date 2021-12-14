@@ -30,13 +30,15 @@ header=target.header
 subIDs=['002','004','011','015','018','021','023','027','034','036','042','044','045','055','061','069','077','079']
 
 for subID in subIDs:
+    print('starting sub-%s now...' % subID)
+
     bold_path=os.path.join(data_path,'sub-%s' % subID,'func/')
 
     localizer_files=find('*localizer*MNI*bold.nii.gz',bold_path)
 
     localizer_files.sort()
     for file in localizer_files:
-
+        print('%s being resampled...' % file)
         source=nimg.load_img(file)
 
         string_split=file.split("_")
@@ -49,4 +51,8 @@ for subID in subIDs:
 
         source.uncache()
 
+        print('file is done, saved as: %s' % new_name)
+
         del source, resamp, resamp_final, new_name
+    print('sub-%s is now complete!' % subID)
+    print('===============================================================')
