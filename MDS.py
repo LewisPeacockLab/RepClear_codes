@@ -165,7 +165,7 @@ def run_MDS(subID="002", task="preremoval", space="T1w", mask_ROIS=["VVS"], ):
         all_images = get_images(i)
 
         out_fname = os.path.join(results_dir, "MDS", f"sub-{subID}_{task}_stim_mdss")
-        select_MDS(all_images, save=True, out_fname=out_fname)
+        mdss = select_MDS(all_images, save=True, out_fname=out_fname)
 
     elif data_source == "bold":
         from classification_replicate import get_preprocessed_data, get_shifted_labels
@@ -189,10 +189,12 @@ def run_MDS(subID="002", task="preremoval", space="T1w", mask_ROIS=["VVS"], ):
 
         # MDS
         out_fname = os.path.join(results_dir, "MDS", f"sub-{subID}_{task}_bold_vtc_mdss")
-        select_MDS(avg_trial_bolds, save=True, out_fname=out_fname)
+        mdss = select_MDS(avg_trial_bolds, save=True, out_fname=out_fname)
+
+    return mdss
 
 
-def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tmap"):
+def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tmap", dim_red="MDS"):
     """
     Load ready BOLD for each trial & weights from LSA/LSS, 
     multiply, select MDS with best ncomp, save 
@@ -207,10 +209,10 @@ def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tm
 
     # sub_cates.pop("face")
     # expt_tag = "scene"
-    # expt_tag = "nonweighted_"
-    # expt_tag = ""
+    # expt_tag = "nonweighted"
+    expt_tag = ""
 
-    print(f"Running item level RSA & MDS for sub{subID}, {phase}, {stats_test}, {expt_tag}...")
+    print(f"\nRunning item level RSA & MDS for sub{subID}, {phase}, {stats_test}, {expt_tag}...")
 
     # ===== load mask for BOLD
     mask_path = os.path.join(data_dir, "group_MNI_thresholded_VTC_mask.nii.gz")  # voxels chosen with GLM contrast: stim vs non-stim
@@ -218,6 +220,7 @@ def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tm
     print("mask shape: ", mask.shape)
 
     # === get order for face/scene trials
+    # ["female", "male"], ["manmade", "natural"]
     face_order, scene_order = sort_trials_by_categories(subID, phase_dict[phase])
     print("face/scene length: ", len(face_order), len(scene_order))
     cates_order = {"face": face_order, "scene": scene_order}
@@ -308,50 +311,113 @@ def item_level_RSA(subID="002", phase="pre", weight_source="LSA", stats_test="tm
     print("item_repres shape: ", item_repress.shape)
 
     # ===== select MDS with best ncomp
-    out_fname = os.path.join(results_dir, "MDS", f"sub-{subID}_{phase}_{stats_test}_{expt_tag}mdss")
-    _ = select_MDS(item_repress, save=True, out_fname=out_fname)
+    if dim_red == "MDS":
+        out_fname = os.path.join(results_dir, "MDS", f"sub-{subID}_{phase}_{stats_test}_{expt_tag}mdss")
+        _ = select_MDS(item_repress, save=True, out_fname=out_fname)
+    elif dim_red == "HC":
+        from hierarchical_clustering import hierarchical_clustering
+        from hierarchical_clustering import plot_dendrogram
 
+        # make labels
+        seps = [0, 30, 60, 120, 180]
+        subcates = ["female", "male", "manmade", "natural"]
+        labels = []
+        for subi, sub in enumerate(subcates):
+            s, e = seps[subi], seps[subi+1]
+            labels += [sub for _ in range(e-s)]
+        labels = np.array(labels)
 
-def vis_mds(mds, labels):
+        out_fname = os.path.join(results_dir, "MDS", f"sub-{subID}_{phase}_{stats_test}_{expt_tag}_hc")
+        hc = hierarchical_clustering(item_repress, save=True, out_fname=out_fname)
+
+        fig_fname = os.path.join(results_dir, "MDS", "figs", f"sub-{subID}_{phase}_{expt_tag}_hc")
+        plot_dendrogram(hc, labels, save=True, tag=f"sub{subID} {expt_tag}", out_fname=fig_fname)
+    
+
+def vis_mds(mds, labels, plot_centers=True, save=False, tag="", out_fname=""):
     """
     example function demonstrating how to visualize mds results.
 
     Input: 
     mds: fitted sklearn mds object
     labels: group labels for each sample within mds embedding
+    tag: string to add to plot titles (e.g. subID, condition, etc)
     """
+    import seaborn as sns
+    sns.set(style = 'white', context='notebook', rc={"lines.linewidth": 2.5})
+    
+    labels = np.array(labels)
+    # fix label order 
+    label_set = ["female", "male", "manmade", "natural"]
+    label_centers = [15, 45, 90, 150]
 
     embs = mds.embedding_
-    assert len(embs) == len(labels), f"length of labels ({len(labels)}) do not match length of embedding ({len(embs)})"
+    assert len(embs) == len(labels), \
+    f"length of labels ({len(labels)}) do not match length of embedding ({len(embs)})"
 
     # ===== RDM: internally computed RDM by sklearn 
-    fig, ax = plt.subplots(1,1)
+    fig, ax = plt.subplots(1,1, figsize=(7,7))
     ax.imshow(mds.dissimilarity_matrix_, cmap="GnBu")
     im = ax.imshow(mds.dissimilarity_matrix_, cmap="GnBu")
     plt.colorbar(im)
     
-    # ax.set_title("")
-    # plt.savefig("")
+    # plot category boundaries
+    label_num = np.zeros(len(labels))  # make labels numbers 
+    for labi, lab in enumerate(label_set):
+        label_num[labels==lab] += labi+1
+
+    binsize = np.histogram(label_num, 4)[0]
+    edges = np.cumsum(binsize)[:-1]
+    
+    ax.vlines(edges, 0, len(labels)-1, color="k")
+    ax.hlines(edges, 0, len(labels)-1, color="k")
+    ax.set_xticks(label_centers)
+    ax.set_yticks(label_centers)
+    ax.set_xticklabels(label_set)   #, rotation=20)
+    ax.set_yticklabels(label_set)
+
+    title = "RDM"
+    if tag != "":
+        title += ": " + tag
+    ax.set_title(title)
+    
+    if save: 
+        out_dir = "./model_fitting_results/MDS/figs/"
+        plt.savefig(f"{out_dir}{out_fname}_RDM")
+        print("Saved to", f"{out_dir}{out_fname}_RDM")
 
     # ===== MDS scatter
-    fig, ax = plt.subplots(1,1)
-    # fix the label order 
-    label_set = ["male", "female", "manamde", "natural"]
-    for subcateID in label_set:
+    fig, ax = plt.subplots(1,1, figsize=(7,5))
+    centers = []
+    for subi, subcateID in enumerate(label_set):
         inds = np.where(labels == subcateID)[0]
         ax.scatter(embs[inds, 0], embs[inds, 1], label=subcateID)
+        centers.append(embs[inds, :].mean(axis=0))
+        
+    if plot_centers:
+        for subi, (subcateID, (x, y)) in enumerate(zip(label_set, centers)):
+            ax.scatter(x, y, marker="^", color=f"C{subi}", label=f"{subcateID} center", s=200, )  #
+        
     plt.legend()
+    
+    title = "MDS"
+    if tag != "":
+        title += ": " + tag
+    ax.set_title(title)
 
-    # ax.set_title("")
-    # plt.savefig("")
+    if save: 
+        out_dir = "./model_fitting_results/MDS/figs/"
+        plt.savefig(f"{out_dir}{out_fname}_MDS")
+        print("Saved to", f"{out_dir}{out_fname}_MDS")
+
 
 
 
 
 if __name__ == "__main__":
     
-    for subID in ["003", "004"]:
-        item_level_RSA(subID)
+    for subID in ["002", "003", "004"]:
+        item_level_RSA(subID, dim_red="HC")
     # run_MDS()
     # f, s = sort_trials_by_categories()
     # print(f)
