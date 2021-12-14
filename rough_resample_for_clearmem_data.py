@@ -7,7 +7,9 @@ import nibabel as nib
 import numpy as np
 from nilearn import image as nimg
 from nilearn import plotting as nplot
+from joblib import Parallel, delayed
 
+subIDs=['002','004','011','015','018','021','023','027','034','036','042','044','045','055','061','069','077','079']
 
 def find(pattern, path): #find the pattern we're looking for
     result = []
@@ -17,19 +19,16 @@ def find(pattern, path): #find the pattern we're looking for
                 result.append(os.path.join(root, name))
         return result
 
-data_path='/work/06873/zbretton/lonestar/clearmem2/fmriprep'
-reference_path='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/sub-002/func/sub-002_task-preremoval_run-1_space-MNI152NLin2009cAsym_boldref.nii.gz' #using this file as the reference to scale to
+def resample_to_repclear(subID):
+    data_path='/work/06873/zbretton/lonestar/clearmem2/fmriprep'
+    reference_path='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/sub-002/func/sub-002_task-preremoval_run-1_space-MNI152NLin2009cAsym_boldref.nii.gz' #using this file as the reference to scale to
 
-target=nimg.load_img(reference_path)
+    target=nimg.load_img(reference_path)
 
-affine=target.affine
-shape=target.shape
-header=target.header
+    affine=target.affine
+    shape=target.shape
+    header=target.header
 
-
-subIDs=['002','004','011','015','018','021','023','027','034','036','042','044','045','055','061','069','077','079']
-
-for subID in subIDs:
     print('starting sub-%s now...' % subID)
 
     bold_path=os.path.join(data_path,'sub-%s' % subID,'func/')
@@ -56,3 +55,5 @@ for subID in subIDs:
         del source, resamp, resamp_final, new_name
     print('sub-%s is now complete!' % subID)
     print('===============================================================')
+
+Parallel(n_jobs=len(subIDs))(delayed(resample_to_repclear)(i) for i in subIDs)
