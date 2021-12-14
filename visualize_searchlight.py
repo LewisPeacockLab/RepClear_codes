@@ -52,6 +52,6 @@ for subID in subIDs:
 
     for operation in operations:
         img = nib.load(os.path.join(searchlight_dir,'Sub-%s_SL_%s_result.nii.gz' % (subID,operation)))
-        plotting.plot_glass_brain(img,threshold=0.7,colorbar=True,cmap='Reds',plot_abs=False,output_file=(os.path.join(searchlight_dir,'%s_glass_brain.pdf' % operation)))
+        plotting.plot_glass_brain(img,threshold=0.65,colorbar=True,cmap='Reds',plot_abs=False,output_file=(os.path.join(searchlight_dir,'%s_glass_brain.pdf' % operation)))
 
         plotting.plot_glass_brain(img,colorbar=True,cmap='twilight',vmin=0.5,plot_abs=False,output_file=(os.path.join(searchlight_dir,'%s_glass_brain_full.pdf' % operation)))

@@ -681,6 +681,8 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
     LSS_df['maintain']=np.array(list(LSS_maintain_dict.values()))
     LSS_df['replace']=np.array(list(LSS_replace_dict.values()))
     LSS_df['suppress']=np.array(list(LSS_suppress_dict.values()))
+    LSS_df.to_csv(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSS_fidelity.csv'))
+
 
     #plot and save the figures of the data
     fig=sns.barplot(data=LSS_df)
@@ -707,6 +709,7 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
     LSA_df['maintain']=np.array(list(LSA_maintain_dict.values()))
     LSA_df['replace']=np.array(list(LSA_replace_dict.values()))
     LSA_df['suppress']=np.array(list(LSA_suppress_dict.values()))
+    LSA_df.to_csv(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSA_fidelity.csv'))
 
     #plot and save the figures of the data
     fig=sns.barplot(data=LSA_df)
