@@ -169,8 +169,6 @@ def LSS_Category(subID):
 
             '''compute and save the contrasts'''
             for contrast in contrasts:
-                z_map = model.compute_contrast(contrasts[contrast],output_type='z_score')
-                nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_zmap.nii.gz'))
                 t_map = model.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
                 nib.save(t_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_tmap.nii.gz'))  
                 file_data = model.generate_report(contrasts[contrast])
