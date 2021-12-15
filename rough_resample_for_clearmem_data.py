@@ -21,7 +21,7 @@ def find(pattern, path): #find the pattern we're looking for
 
 def resample_to_repclear(subID):
     data_path='/scratch1/06873/zbretton/clearmem'
-    reference_path='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/sub-002/func/sub-002_task-study-1_space-MNI152NLin2009cAsym_boldref.nii.gz' #using this file as the reference to scale to
+    reference_path='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/sub-002/func/sub-002_task-study_run-1_space-MNI152NLin2009cAsym_boldref.nii.gz' #using this file as the reference to scale to
 
     target=nimg.load_img(reference_path)
 
