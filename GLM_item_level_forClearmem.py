@@ -15,6 +15,8 @@ from joblib import Parallel, delayed
 subs=['61','69','77']
 brain_flag='MNI'
 
+#code for the item level weighting for faces and scenes
+
 
 def mkdir(path,local=False):
     if not os.path.exists(path):
@@ -45,7 +47,7 @@ def find(pattern, path): #find the pattern we're looking for
 
 
 #level 1 GLM
-def category_RSA(subID):
+def item_level_1(subID):
     print('Running sub-0%s...' %subID)
     #define the subject
     sub = ('sub-0%s' % subID)
@@ -61,18 +63,23 @@ def category_RSA(subID):
     
     if brain_flag=='MNI':
         pattern = '*MNI*'
-        pattern2= '*MNI152NLin2009cAsym*preproc_resized*'
+        pattern2= '*MNI152NLin2009cAsym*preproc*resized*'
         brain_mask_path = fnmatch.filter(wholebrain_mask_path,pattern)
         localizer_files = fnmatch.filter(localizer_files,pattern2)
-        
+
     brain_mask_path.sort()
     localizer_files.sort()
+    face_mask_path=os.path.join('/scratch1/06873/zbretton/clearmem/group_model/group_category_lvl2/','group_face_%s_mask.nii.gz' % brain_flag)
+    scene_mask_path=os.path.join('/scratch1/06873/zbretton/clearmem/group_model/group_category_lvl2/','group_scene_%s_mask.nii.gz' % brain_flag)    
+    face_mask=nib.load(face_mask_path)   
+    scene_mask=nib.load(scene_mask_path)
     vtc_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_%s_VTC_mask.nii.gz' % brain_flag)
         
-    vtc_mask=nib.load(vtc_mask_path)   
+    vtc_mask=nib.load(vtc_mask_path)       
+    
+    #load in category mask that was created from the first GLM  
 
     img=concat_imgs(localizer_files,memory='/scratch1/06873/zbretton/nilearn_cache')
-      
     #to be used to filter the data
     #First we are removing the confounds
     #get all the folders within the bold path
@@ -110,86 +117,82 @@ def category_RSA(subID):
     run4=np.full(run4_length,4)
     run5=np.full(run5_length,5)    
 
-    run_list=np.concatenate((run1,run2,run3,run4,run5))
+    run_list=np.concatenate((run1,run2,run3,run4,run5))    
     #clean data ahead of the GLM
     img_clean=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore',mask_img=vtc_mask)
     del img
     '''load in the denoised bold data and events file'''
-    events = pd.read_csv('/scratch1/06873/zbretton/clearmem/localizer_events.csv',sep=',')      
+    events = pd.read_csv('/scratch1/06873/zbretton/clearmem/localizer_events_item_sampled.csv',sep=',')
+    #now will need to create a loop where I iterate over the face & scene indexes
+    #I then relabel that trial of the face or scene as "face_trial#" or "scene_trial#" and then label rest and all other trials as "other"
+    #I can either do this in one loop, or two consecutive
 
     #this has too much info so we need to only take the important columns
-    events=events[['onset','duration','trial_type']]  
+    events=events[['onset','duration','trial_type']]
 
-    '''initialize and fit the GLM'''
-    model = FirstLevelModel(t_r=1,hrf_model='glover',
+    '''initialize the GLM with vtc mask'''
+    model = FirstLevelModel(t_r=0.46,hrf_model='glover',
                             drift_model=None,high_pass=None,mask_img=vtc_mask,signal_scaling=False,
-                            smoothing_fwhm=8,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch1/06873/zbretton/nilearn_cache',memory_level=1)
+                            smoothing_fwhm=8,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch1/06873/zbretton/nilearn_cache',memory_level=1)   
 
-    model.fit(run_imgs=img_clean,events=events,confounds=localizer_confounds)
+    #I want to ensure that "trial" is the # of face (e.g., first instance of "face" is trial=1, second is trial=2...)
+    # face_trials=events.trial_type.value_counts().face
+    # scene_trials=events.trial_type.value_counts().scene
+    #so this will give us a sense of total trials for these two conditions
+        #next step is to then get the index of these conditions, and then use the trial# to iterate through the indexes properly
+
+    temp_events=events.copy() #copy the original events list, this list is set up where each "trial_type" is the image ID, so we dont need trial sorting
+
+    # face_index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'face'] #this will find the nth occurance of a desired value in the list
+    # scene_index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'scene']#this will find the nth occurance of a desired value in the list    
+    # for trial in (range(len(face_index))):
+    #     #this is a rough idea how I will create a temporary new version of the events file to use for the LSS
+    #     temp_events.loc[face_index[trial],'trial_type']=('face_trial%s' % (trial+1))
+    # for trial in (range(len(scene_index))):    
+    #     temp_events.loc[scene_index[trial],'trial_type']=('scene_trial%s' % (trial+1))
+
+    #using this loop to make sure that I am only modeling the first trial, since that would line up with my repclear pipeline
+    for image_id in np.unique(events['trial_type'].values):
+        img_indx=np.where(temp_events['trial_type']==image_id)[0]
+        temp_events['trial_type'][img_indx[1:]]=0
+
+
+    model.fit(run_imgs=img_clean,events=temp_events,confounds=localizer_confounds)
 
     '''grab the number of regressors in the model'''
     n_columns = model.design_matrices_[0].shape[-1]
 
+    #since the columns are not sorted as expected, I will need to located the index of the current trial to place the contrast properly
+
     '''define the contrasts - the order of trial types is stored in model.design_matrices_[0].columns
        pad_contrast() adds 0s to the end of a vector in the case that other regressors are modeled, but not included in the primary contrasts'''
-       #order is: face, fruit, rest, scene 
-    contrasts = {'faces':             pad_contrast([2,-1,0,-1],  n_columns),
-                 'scenes':               pad_contrast([-1,-1,0,2],  n_columns),
-                 'fruit':              pad_contrast([-1,2,0,-1], n_columns),
-                 'stimuli':             pad_contrast([1,1,-3,1], n_columns)}
+       #order is: trial1...trialN
+    #bascially create an array the length of all the items
+    contrasts={}
+    for image_id in np.unique(events['trial_type'].values):
+        if image_id==0:
+            print()
+        else:
+            item_contrast=np.full(np.unique(events['trial_type'].values).size,-1) #start with an array of 0's
+            item_contrast[0]=0
+            item_contrast[model.design_matrices_[0].columns[:55]==image_id]=53 #find all the indices of image_id and set to 54
+
+            contrasts[image_id] = pad_contrast(item_contrast,  n_columns)
 
     '''point to and if necessary create the output folder'''
-    out_folder = os.path.join(container_path,sub,'localizer_lvl1')
+    out_folder = os.path.join(container_path,sub,'localizer_item_level')
     if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
+
+    #as of now it is labeling the trial estimates by the trial number, which is helpful since I can look at their individual design matricies to see which stim that is
+    #but another way could be to load in the list for that sub right here, grab the number or name of that stim from the trial index and use that to save the name
 
     '''compute and save the contrasts'''
     for contrast in contrasts:
         z_map = model.compute_contrast(contrasts[contrast],output_type='z_score')
-        nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_zmap.nii.gz'))
+        nib.save(z_map,os.path.join(out_folder,f'item{contrast}_{brain_flag}_zmap.nii.gz'))
         t_map = model.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
-        nib.save(t_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_tmap.nii.gz'))  
+        nib.save(t_map,os.path.join(out_folder,f'item{contrast}_{brain_flag}_tmap.nii.gz'))  
         file_data = model.generate_report(contrasts[contrast])
-        file_data.save_as_html(os.path.join(out_folder,f"{contrast}_{brain_flag}_report.html"))
-        del z_map, t_map,file_data
+        file_data.save_as_html(os.path.join(out_folder,f"item{contrast}_{brain_flag}_report.html")) 
 
-Parallel(n_jobs=len(subs))(delayed(category_RSA)(i) for i in subs)
-
-####################################
-#level 2 GLM
-contrasts = ['faces','scenes','fruit','stimuli']
-
-def item_RSA_level2(contrast):
-    subs=['sub-061','sub-069','sub-077']
-    container_path='/scratch1/06873/zbretton/clearmem/'    
-    '''point to the save directory'''
-    out_dir = os.path.join(container_path,'group_model','group_category_lvl2')
-    if not os.path.exists(out_dir):os.makedirs(out_dir,exist_ok=True)
-    '''load in the subject maps'''
-    maps = [nib.load(os.path.join(container_path,sub,'localizer_lvl1',f'{contrast}_{brain_flag}_tmap.nii.gz')) for sub in subs]
-
-    '''a simple group mean design'''
-    design_matrix = pd.DataFrame([1] * len(maps), columns=['intercept'])
-    
-    '''initialize and fit the GLM'''
-    second_level_model = SecondLevelModel(smoothing_fwhm=None,
-                                          mask_img='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_MNI_VTC_mask.nii.gz',
-                                          verbose=2,n_jobs=-1)
-    second_level_model = second_level_model.fit(maps, design_matrix=design_matrix)
-    t_map = second_level_model.compute_contrast(second_level_stat_type='t',output_type='stat')
-
-    '''save the group map'''
-    nib.save(t_map, os.path.join(out_dir,f'group_{contrast}_{brain_flag}_tmap.nii.gz'))
-    #now I want to treshold this to focus on the important clusters:
-    thresholded_map, _ = threshold_stats_img(
-        t_map,
-        alpha=0.05,
-        height_control=None,
-        cluster_threshold=0
-        )
-    file_data = second_level_model.generate_report(contrasts='intercept',alpha=0.05,height_control=None,cluster_threshold=0)
-    file_data.save_as_html(os.path.join(out_dir,f"group+{contrast}_{brain_flag}_report.html"))     
-    #use this threshold to look at the second-level results
-    nib.save(thresholded_map, os.path.join(out_dir,f'group+{contrast}_{brain_flag}_thresholded_tmap.nii.gz'))
-    del thresholded_map, t_map, second_level_model, maps
-
-Parallel(n_jobs=len(contrasts))(delayed(item_RSA_level2)(i) for i in contrasts)
+Parallel(n_jobs=len(subs))(delayed(item_level_1)(i) for i in subs)
