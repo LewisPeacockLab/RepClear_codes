@@ -9,7 +9,7 @@ from nilearn import image as nimg
 from nilearn import plotting as nplot
 from joblib import Parallel, delayed
 
-subIDs=['002','004','011','015','018','021','023','027','034','036','042','044','045','055','061','069','077','079']
+subIDs=['004','006','011','015','027','034','036','042','044','045','061','069','077','079']
 
 def find(pattern, path): #find the pattern we're looking for
     result = []
@@ -20,8 +20,8 @@ def find(pattern, path): #find the pattern we're looking for
         return result
 
 def resample_to_repclear(subID):
-    data_path='/work/06873/zbretton/lonestar/clearmem2/fmriprep'
-    reference_path='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/sub-002/func/sub-002_task-preremoval_run-1_space-MNI152NLin2009cAsym_boldref.nii.gz' #using this file as the reference to scale to
+    data_path='/scratch1/06873/zbretton/clearmem'
+    reference_path='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/sub-002/func/sub-002_task-study-1_space-MNI152NLin2009cAsym_boldref.nii.gz' #using this file as the reference to scale to
 
     target=nimg.load_img(reference_path)
 
@@ -33,7 +33,7 @@ def resample_to_repclear(subID):
 
     bold_path=os.path.join(data_path,'sub-%s' % subID,'func/')
 
-    localizer_files=find('*localizer*MNI*bold.nii.gz',bold_path)
+    localizer_files=find('*study*MNI*bold.nii.gz',bold_path)
 
     localizer_files.sort()
     for file in localizer_files:
