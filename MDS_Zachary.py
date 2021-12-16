@@ -20,7 +20,9 @@ if not sys.warnoptions:
 
 # global consts
 subIDs = ['002', '003', '004']
+subIDs_c = ['061','069','077']
 phases = ['rest', 'preremoval', 'study', 'postremoval']
+
 runs = np.arange(6) + 1  
 spaces = {'T1w': 'T1w', 
             'MNI': 'MNI152NLin2009cAsym'}
@@ -46,7 +48,9 @@ elif workspace == 'scratch':
     data_dir = '/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/'
     event_dir = '/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/'
     results_dir = '/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/model_fitting_results/'
-    param_dir =  '/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/subject_designs'    
+    param_dir =  '/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/subject_designs'
+    data_dir_c = '/scratch1/06873/zbretton/clearmem/'
+    results_dir = '/scratch1/06873/zbretton/clearmem/model_fitting_results'    
 
 
 def sort_trials_by_categories(subID="002", phase=2):
@@ -291,6 +295,20 @@ def prepare_plot(subID):
     data=np.load(os.path.join(data_path,'sub-%s_pre_LSS_tmap_mdss.npz' % subID),allow_pickle=True)
     mds=data['mdss'][1]
     return mds,labels
+
+def prepare_plot_clearmem(subID):
+    data_path='/scratch1/06873/zbretton/clearmem/model_fitting_results/MDS'
+    label_names=['faces','scenes']
+    labels=['' for i in range(36)]
+    for i in range(36):
+        if (i < 18):
+            labels[i]=label_names[0]
+        elif (i>=18):
+            labels[i]=label_names[1]
+    labels=np.array(labels)
+    data=np.load(os.path.join(data_path,'sub-%s_LSS_mdss.npz' % subID),allow_pickle=True)
+    mds=data['mdss'][1]
+    return mds,labels    
 
 def vis_mds(mds, labels):
     """
@@ -773,6 +791,90 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
 
     print("Subject is done... saving everything")
     print("===============================================================================")
+
+def LSS_clearmem(subID="061", phase="pre", weight_source="LSS", stats_test="tmap"):
+    """
+    Load ready BOLD for each trial & weights from LSA/LSS, 
+    multiply, select MDS with best ncomp, save 
+
+    Input: 
+    subID: 3 digit string. e.g. "002"
+    phase: "pre" / "post". for loading item_represenation
+    weight_source: "LSA" / "LSS". 
+    stats_test: "tmap" / "zmap"
+    """
+    def apply_mask(mask=None,target=None):
+        coor = np.where(mask == 1)
+        values = target[coor]
+        if values.ndim > 1:
+            values = np.transpose(values) #swap axes to get feature X sample
+        return values
+
+    # ===== load mask for BOLD
+    mask_path = os.path.join(data_dir, "group_MNI_VTC_mask.nii.gz")
+    mask = nib.load(mask_path)
+    print("mask shape: ", mask.shape)
+
+    # ===== load ready BOLD for each trial 
+    print(f"Loading preprocessed BOLDs for localizer...")
+    bold_dir = os.path.join(data_dir_c, f"sub-{subID}", "localizer_LSS_lvl1")
+
+    all_bolds = {}  # {cateID: {trialID: bold}}
+    bolds_arr = []  # sample x vox
+    cate_bolds_fnames = glob.glob(f"{bold_dir}/image*{stats_test}*")
+    cate_bolds_f = {}
+    cate_bolds_s = {}
+    
+    for fname in cate_bolds_fnames:
+        trialID = fname.split("/")[-1].split("_")[-3]  # "trial1"
+        trialID = int(trialID[5:])
+        if (trialID<=18):
+            cate_bolds_f[trialID] = nib.load(fname).get_fdata()  #.flatten()                
+            cateID='face'
+            all_bolds[cateID]= cate_bolds_f
+        elif (trialID>=37):
+            cate_bolds_s[trialID] = nib.load(fname).get_fdata()  #.flatten()
+            cateID='scene'
+            all_bolds[cateID] = cate_bolds_s
+        else:  
+            continue
+
+
+
+    bolds_arr.append(np.stack( [ cate_bolds_f[i] for i in sorted(cate_bolds_f.keys()) ] ))
+    bolds_arr.append(np.stack( [ cate_bolds_s[i] for i in sorted(cate_bolds_s.keys()) ] ))
+
+
+    bolds_arr = np.vstack(bolds_arr)
+    print("bolds shape: ", bolds_arr.shape)
+    # print(f"category check:")
+    # print("face: ", (bolds_arr[:60, :] == np.vstack(all_bolds["face"].values())).all() )
+    # print("scene: ", (bolds_arr[60:, :] == np.vstack(all_bolds["scene"].values())).all() )
+
+    # apply mask on BOLD
+    masked_bolds_arr = []
+    for bold in bolds_arr:
+        masked_bolds_arr.append(apply_mask(mask=mask.get_fdata(), target=bold).flatten())
+    masked_bolds_arr = np.vstack(masked_bolds_arr)
+    print("masked bold arr shape: ", masked_bolds_arr.shape)
+
+
+    # ===== multiply
+    item_repress = masked_bolds_arr
+    print("item_repres shape: ", item_repress.shape)
+
+
+    # ===== select MDS with best ncomp
+    out_fname = os.path.join(results_dir, "MDS", f"sub-{subID}_{weight_source}_mdss")
+    if not os.path.exists(os.path.join(results_dir, "MDS")): os.makedirs(os.path.join(results_dir, "MDS"),exist_ok=True)
+    _ = select_MDS(item_repress, save=True, out_fname=out_fname)
+
+    # ===== perform the correlation 
+    corr_matrix=np.corrcoef(item_repress)
+    out_name=os.path.join(results_dir,"RSM",f"sub-{subID}_{weight_source}_rsm")
+    if not os.path.exists(os.path.join(results_dir, "RSM")): os.makedirs(os.path.join(results_dir, "RSM"),exist_ok=True)    
+    np.save(out_name,corr_matrix)
+
 
 
 if __name__ == "__main__":

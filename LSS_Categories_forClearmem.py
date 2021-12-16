@@ -1,9 +1,10 @@
 import nibabel as nib
 nib.openers.Opener.default_compresslevel = 6
-from nilearn.image import mean_img, get_data, threshold_img, new_img_like, clean_img
+from nilearn.image import mean_img, get_data, threshold_img, new_img_like, clean_img, concat_imgs
 from nilearn.glm.first_level import FirstLevelModel
 #from nilearn import plotting
 from nilearn.glm.second_level import SecondLevelModel
+from nilearn.glm import threshold_stats_img
 import os
 import fnmatch
 import numpy as np
