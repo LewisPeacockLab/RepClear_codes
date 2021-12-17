@@ -1,4 +1,7 @@
+import warnings
 import sys
+if not sys.warnoptions:
+    warnings.simplefilter("ignore")
 import os
 import glob
 
@@ -32,7 +35,7 @@ stim_labels = {0: "Rest",
 
 op_labels = {1: "maintain",
              2: "replace",
-             3: "supress"
+             3: "suppress"
             }
 
 workspace = 'scratch'
@@ -89,7 +92,9 @@ def get_preprocessed_data(projID, subID, task, space, mask_path, runs=np.arange(
 
     # ===== generate output name & load existing
     out_fname = f"sub-{subID}_{space}_{task}_{data_tag}_masked_cleaned.npy"
-    out_path = os.path.join(data_dir, f"sub-{subID}", "func", out_fname)
+    out_dir = os.path.join(data_dir, f"sub-{subID}", "func", "masked_cleaned")
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, out_fname)
     if os.path.exists(out_path):
         print(f"Loading from existing {out_path}")
         return np.load(out_path)
@@ -124,11 +129,11 @@ def get_preprocessed_data(projID, subID, task, space, mask_path, runs=np.arange(
         masked = apply_mask(mask=mask.get_data(), target=bold.get_data())
         # *** clean: confound length in time; transpose signal to (time x vox) for cleaning & model fitting ***
         cleaned_bolds[runi] = clean(masked.T, confounds=confound, t_r=1, detrend=False, standardize='zscore')
-        print("claened shape: ", cleaned_bolds[runi].shape)
+        print("cleaned shape: ", cleaned_bolds[runi].shape)
 
     # put together
     # ROI: time x vox
-    preproc_data = np.hstack(cleaned_bolds)
+    preproc_data = np.vstack(cleaned_bolds)
     print("processed data shape: ", preproc_data.shape)
     print("*** Done with preprocessing!")
 
@@ -138,6 +143,7 @@ def get_preprocessed_data(projID, subID, task, space, mask_path, runs=np.arange(
         np.save(f"{out_path}", preproc_data)
 
     return preproc_data
+
 
 def get_shifted_labels(projID, task, shift_size_TR, rest_tag=0):
     # load labels, & add hemodynamic shift to all vars
@@ -150,7 +156,7 @@ def get_shifted_labels(projID, task, shift_size_TR, rest_tag=0):
         shifted = pd.concat([shift, label_df])
         return shifted[:len(label_df)]  # trim time points outside of scanning time
 
-    print(f"\n***** Loading labels or {task} with {shift_size_TR} shift...")
+    print(f"\n***** Loading labels for {task} with {shift_size_TR} shift...")
 
     if projID == "repclear":
         event_path = os.path.join(param_dir, f'{task}_events.csv')
@@ -179,7 +185,7 @@ def subsample(projID, full_data, label_df, include_iti=False):
     # proj diff in stim_on & condition
     if projID == "repclear": 
         stim_on = label_df["stim_present"]
-        op_filer = condition != 0
+        op_filter = condition != 0
     elif projID == "clearmem":
         stim_on = label_df["presentation"]
         op_filter = (condition == 1) | (condition == 2) | (condition == 4)
@@ -205,13 +211,13 @@ def subsample(projID, full_data, label_df, include_iti=False):
     return X, Y, subID_list
 
 
-def classification():
+def cross_exp_classification():
     # consts
     clearmem_subIDs = ["004", "006", "011", "015", "027",
                        "034", "036", "042", "044", "045",
-                       "050", "061", "069", "077", "079",
+                    #    "050", "061", "069", "077", "079",
                        ]
-    repclear_subIDs = subIDs
+    repclear_subIDs = ["002", "003", "004"]
     mask_path = os.path.join(repclear_dir, "group_MNI_GM_mask.nii.gz")
     clearmem_shift_size_TR = 10
     repclear_shift_size_TR = 5
@@ -219,7 +225,7 @@ def classification():
     task = "study"
     space = "MNI"
     rest_tag = 0
-    include_iti = False
+    include_iti = True
 
     # ===== load clearmem data & labels
     # load training data: cleaned & masked
@@ -228,56 +234,83 @@ def classification():
     clearmem_label_df = []
     for subID in clearmem_subIDs:
         # bold
-        X_train.append(get_preprocessed_data("clearmem", subID, task, space, mask_path, runs=np.arange(6)+1, save=False))
+        X_train.append(get_preprocessed_data("clearmem", subID, task, space, mask_path, runs=np.arange(6)+1, save=True))
+        print(X_train[-1].shape)
 
         # labels
-        sub_label_df = get_shifted_labels(task, clearmem_shift_size_TR, rest_tag)
-        sub_label_df["subID"] = np.aray([subID for _ in range(len(sub_label_df))])
+        sub_label_df = get_shifted_labels("clearmem", task, clearmem_shift_size_TR, rest_tag)
+        sub_label_df["subID"] = np.array([subID for _ in range(len(sub_label_df))])
         clearmem_label_df.append(sub_label_df)
+        print(clearmem_label_df[-1].shape)
 
-    X_train = np.hstack(X_train)
+    X_train = np.vstack(X_train)
     clearmem_label_df = pd.concat(clearmem_label_df)
 
-    print(f"BOLD shape: {X_train.shape}")
+    print(f"\nX_train shape: {X_train.shape}")
     print(f"Category label shape: {clearmem_label_df.shape}")
 
     # subsample clearmem data
     #    to match repclear operations
     #    to balance operation counts
     X_train, y_train, train_subID_list = subsample("clearmem", X_train, clearmem_label_df, include_iti=include_iti)
+    print("\nShape after subsample: \n"
+          f"X_train: {X_train.shape}, y_train: {y_train.shape}, train_subID_list: {train_subID_list.shape}")
 
     # ===== load repclear data & labels
     X_test = []
     repclear_label_df = []
     for subID in repclear_subIDs:
-        X_test = get_preprocessed_data("repclear", subID, task, space, mask_path, runs=np.arange(3)+1, save=False)
+        X_test.append(get_preprocessed_data("repclear", subID, task, space, mask_path, runs=np.arange(3)+1, save=True))
+        print(X_test[-1].shape)
 
-        sub_label_df = get_shifted_labels(task, repclear_shift_size_TR, rest_tag)
-        sub_label_df["subID"] = np.aray([subID for _ in range(len(sub_label_df))])
+        sub_label_df = get_shifted_labels("repclear", task, repclear_shift_size_TR, rest_tag)
+        sub_label_df["subID"] = np.array([subID for _ in range(len(sub_label_df))])
         repclear_label_df.append(sub_label_df)
+        print(repclear_label_df[-1].shape)
 
-    X_test = np.hstack(X_test)
+    X_test = np.vstack(X_test)
     repclear_label_df = pd.concat(repclear_label_df)
 
     # subsample
     X_test, y_test, test_subID_list = subsample("repclear", X_test, repclear_label_df, include_iti=include_iti)
+    print("\nShape after subsample: \n"
+          f"X_test: {X_test.shape}, y_test: {y_test.shape}, test_subID_list: {test_subID_list.shape}")
 
     # ===== train: put them here for now
+    print("\nFeature selection...")
     # feature selection
     fpr = SelectFpr(f_classif, alpha=0.01).fit(X_train, y_train)
     X_train_sub = fpr.transform(X_train)
     X_test_sub = fpr.transform(X_test)
+    print(f"Shapes after feature selection: X_train_sub: {X_train_sub.shape}, X_test_sub: {X_test_sub.shape}")
 
-    lr = LogisticRegression(penalty='l2', solver='liblinear', C=1)
+    print("\nTraining model...")
+    print(f"Data shapes: X_train_sub: {X_train_sub.shape}, y_train: {y_train.shape}")
+    lr = LogisticRegression(penalty='l2', solver='liblinear', C=1, n_jobs=32, verbose=5)
     lr.fit(X_train_sub, y_train)
 
+    # parameters ={'C':[0.01,0.1,1,10,100,1000]}
+    # logo = LeaveOneGroupOut()
+    # gscv = GridSearchCV(
+    #     LogisticRegression(penalty='l2', solver='liblinear'), 
+    #     parameters,
+    #     cv=logo, return_train_score=True, verbose=5, n_jobs=8)
+    # gscv.fit(X_train_sub, y_train, groups=train_subID_list)
+    # lr = gscv
+
+    # lr = np.load('/scratch1/07365/sguo19/model_fitting_results/operation_clf/cross_expt_lr.npz', allow_pickle=True)["lr"][0]
+
     # test
+    print("Testing model accuracy...")
     scores = []
     auc_scores = []
     cms = []
     for test_subID in repclear_subIDs:
-        X_test_sub_data = X_test_sub[test_subID_list == subID]
-        y_test_sub_data = y_test[test_subID_list == subID]
+        print(f"Testing sub{test_subID}...")
+        X_test_sub_data = X_test_sub[test_subID_list == test_subID]
+        y_test_sub_data = y_test[test_subID_list == test_subID]
+        print(X_test_sub_data)
+        print(y_test_sub_data)
 
         score = lr.score(X_test_sub_data, y_test_sub_data)
         auc_score = roc_auc_score(y_test_sub_data, lr.predict_proba(X_test_sub_data), multi_class='ovr')
@@ -287,6 +320,11 @@ def classification():
         true_counts = np.asarray([np.sum(y_test_sub_data == i) for i in op_labels.keys()])
         cm = confusion_matrix(y_test_sub_data, preds, labels=list(op_labels.keys())) / true_counts[:,None] * 100
 
+        print(f"\nSub{test_subID} result: \n"
+        f"score: {score}, auc score: {auc_score}\n"
+        f"confution matrix:\n"
+        f"{cm}")
+
         scores.append(score)
         auc_scores.append(auc_score)
         cms.append(cm)
@@ -295,15 +333,18 @@ def classification():
     auc_scores = np.asarray(auc_scores)
     cms = np.stack(cms)
     
-     
     print(f"\nClassifier score: \n"
         f"scores: {scores.mean()} +/- {scores.std()}\n"
         f"auc scores: {auc_scores.mean()} +/- {auc_scores.std()}\n"
-        f"best Cs: {best_Cs}\n"
         f"average confution matrix:\n"
         f"{cms.mean(axis=0)}")
 
 
     # save
-    out_path = os.path.join(results_dir, "operation_dir", f"cross_expt_lr")
+    out_path = os.path.join(results_dir, "operation_clf", f"cross_expt_lr_include-ITI")
+    print(f"Saving results to {out_path}...")
     np.savez_compressed(out_path, lr=lr, scores=scores, auc_scores=auc_scores, cms=cms)
+
+
+if __name__ == "__main__":
+    classification()
