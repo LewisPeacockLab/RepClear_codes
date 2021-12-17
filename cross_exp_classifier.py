@@ -198,17 +198,20 @@ def subsample(projID, full_data, label_df, include_iti=False):
 
     final_filter = op_filter & stim_on_filter
     X = full_data[final_filter,:]
-    Y = condition[final_filter].values
-    subID_list = label_df["subID"][final_filter].values
+    Y_all_df = label_df[final_filter]   #condition[final_filter].values
+    # subID_list = label_df["subID"][final_filter].values
 
     # make sure labels are the same
     if projID == "clearmem":
-        Y[Y==4] = 3
+        conds = Y_all_df["condition"]
+        conds[conds==4] = 3
+        Y_all_df["condition"] = conds
 
     print("Category counts after subsampling:")
-    print(f"maintain: {sum(Y==1)}, replace: {sum(Y==2)}, suppress: {sum(Y==3)}")
+    for opi, op in op_labels.items():
+        print(f"op: {sum(Y_all_df["condition"]==opi)}")
 
-    return X, Y, subID_list
+    return X, Y_all_df
 
 
 def cross_exp_classification():
@@ -252,7 +255,9 @@ def cross_exp_classification():
     # subsample clearmem data
     #    to match repclear operations
     #    to balance operation counts
-    X_train, y_train, train_subID_list = subsample("clearmem", X_train, clearmem_label_df, include_iti=include_iti)
+    X_train, y_train_df = subsample("clearmem", X_train, clearmem_label_df, include_iti=include_iti)
+    y_train = y_train_df["condition"].values
+    train_subID_list = y_train_df["subID"]
     print("\nShape after subsample: \n"
           f"X_train: {X_train.shape}, y_train: {y_train.shape}, train_subID_list: {train_subID_list.shape}")
 
@@ -272,7 +277,9 @@ def cross_exp_classification():
     repclear_label_df = pd.concat(repclear_label_df)
 
     # subsample
-    X_test, y_test, test_subID_list = subsample("repclear", X_test, repclear_label_df, include_iti=include_iti)
+    X_test, y_test_df = subsample("repclear", X_test, repclear_label_df, include_iti=include_iti)
+    y_test = y_test_df["condition"]
+    test_subID_list = y_test_df["subID"]
     print("\nShape after subsample: \n"
           f"X_test: {X_test.shape}, y_test: {y_test.shape}, test_subID_list: {test_subID_list.shape}")
 
@@ -347,4 +354,4 @@ def cross_exp_classification():
 
 
 if __name__ == "__main__":
-    classification()
+    cross_exp_classification()
