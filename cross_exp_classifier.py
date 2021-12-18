@@ -209,7 +209,8 @@ def subsample(projID, full_data, label_df, include_iti=False):
 
     print("Category counts after subsampling:")
     for opi, op in op_labels.items():
-        print(f"op: {sum(Y_all_df["condition"]==opi)}")
+        op_bools = Y_all_df["condition"] == opi
+        print(f"{op}: {sum(op_bools)}")
 
     return X, Y_all_df
 
