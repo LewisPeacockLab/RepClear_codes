@@ -701,6 +701,12 @@ def item_RSA_compare(subID="002", phase1="pre", phase2='post', weight_source="BO
     LSS_df['suppress']=np.array(list(LSS_suppress_dict.values()))
     LSS_df.to_csv(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSS_fidelity.csv'))
 
+    pd.DataFrame(LSS_maintain_dict,index=[0]).to_csv(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSS_maintain_fidelity.csv'))
+    pd.DataFrame(LSS_replace_dict,index=[0]).to_csv(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSS_replace_fidelity.csv'))
+    pd.DataFrame(LSS_suppress_dict,index=[0]).to_csv(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSS_suppress_fidelity.csv'))
+    pd.DataFrame(LSS_unoperated_dict,index=[0]).to_csv(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes",'LSS_unoperated_fidelity.csv'))
+
+
 
     #plot and save the figures of the data
     fig=sns.barplot(data=LSS_df)
