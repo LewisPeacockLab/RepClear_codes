@@ -29,9 +29,11 @@ descs = ['brain_mask', 'preproc_bold']
 ROIs = ['VVS', 'PHG', 'FG']
 shift_sizes_TR = [5, 6]
 
+# *** clearmem labels
 stim_labels = {0: "Rest",
-                1: "Scenes",
-                2: "Faces"}
+                1: "Face", 
+                2: "Fruit", 
+                3: "Scene"}
 
 op_labels = {1: "maintain",
              2: "replace",
@@ -51,7 +53,7 @@ elif workspace == 'scratch':
     results_dir = '/scratch1/07365/sguo19/model_fitting_results/'
 
 
-def get_preprocessed_data(projID, subID, task, space, mask_path, runs=np.arange(6)+1, save=False):
+def get_preprocessed_data(projID, subID, task, space, mask_path, data_tag="group-GM", runs=np.arange(6)+1, save=False):
     """
     Generic data loading & cleaning for both repclear & clearmem
     Inputs:
@@ -88,7 +90,7 @@ def get_preprocessed_data(projID, subID, task, space, mask_path, runs=np.arange(
         data_dir = clearmem_dir
         desc = "preproc_resized_bold"
 
-    data_tag = "group-GM"
+    
 
     # ===== generate output name & load existing
     out_fname = f"sub-{subID}_{space}_{task}_{data_tag}_masked_cleaned.npy"
@@ -103,10 +105,18 @@ def get_preprocessed_data(projID, subID, task, space, mask_path, runs=np.arange(
     # load bold
     print("Loading BOLD data...")
     fname_template = f"sub-{subID}_task-{task}_run-{{}}_space-{spaces[space]}_desc-{{}}.nii.gz"
-    bold_fnames = [fname_template.format(i, desc) for i in runs]
-    bold_paths = [os.path.join(data_dir, f"sub-{subID}", "func", fname) for fname in bold_fnames]
-    # shape: ((x/y/z) x time)
-    bolds = [nib.load(p) for p in bold_paths]
+    try: 
+        bold_fnames = [fname_template.format(i, desc) for i in runs]
+        bold_paths = [os.path.join(data_dir, f"sub-{subID}", "func", fname) for fname in bold_fnames]
+        # shape: ((x/y/z) x time)
+        bolds = [nib.load(p) for p in bold_paths]
+    except:
+        print("No resized data. Using original voxel size for clearmem...")
+        desc = "preproc_bold"
+        bold_fnames = [fname_template.format(i, desc) for i in runs]
+        bold_paths = [os.path.join(data_dir, f"sub-{subID}", "func", fname) for fname in bold_fnames]
+        # shape: ((x/y/z) x time)
+        bolds = [nib.load(p) for p in bold_paths]
 
     # load mask
     print("Loading mask...")
@@ -152,7 +162,7 @@ def get_shifted_labels(projID, task, shift_size_TR, rest_tag=0):
         # Shift 2D df labels by given TRs with paddings of tag
         # Input label_df must be time x nvars
         nvars = len(label_df.loc[0])
-        shift = pd.DataFrame(np.zeros((TR_shift_size, nvars))+tag, columns=label_df.columns)
+        shift = pd.DataFrame((np.zeros((TR_shift_size, nvars))+tag).astype(int), columns=label_df.columns)
         shifted = pd.concat([shift, label_df])
         return shifted[:len(label_df)]  # trim time points outside of scanning time
 
@@ -170,47 +180,82 @@ def get_shifted_labels(projID, task, shift_size_TR, rest_tag=0):
     return shifted_df
 
 
-def subsample(projID, full_data, label_df, include_iti=False):
+def subsample(projID, full_data, label_df, include_iti=False, task="study", include_rest=False):
     print(f"\n***** Subsampling data points with include_iti {include_iti}...")
 
-    # "condition": 
-    # repclear: 1. maintain, 2. replace_category, 3. suppress
-    # clearmem: 1 - maintain, 2 - replace_category, 4 - suppress   # ignore: 0 - rest, 3 - replace_subcategory, 5 - clear
-    # "presentation / stim_present":
-    # repclear: 1 - stim, 2 - operation, 3 - ITI
-    # clearmem: 1 - stim, 2 - operation, 0 - ITI/rest
+    if task == "study":
+        if include_rest: 
+            print("\n***WARNING: does not support include_rest == True for opeation decoding yet***\n")
+        # "condition": 
+        # repclear: 1. maintain, 2. replace_category, 3. suppress
+        # clearmem: 1 - maintain, 2 - replace_category, 4 - suppress   # ignore: 0 - rest, 3 - replace_subcategory, 5 - clear
+        # "presentation / stim_present":
+        # repclear: 1 - stim, 2 - operation, 3 - ITI
+        # clearmem: 1 - stim, 2 - operation, 0 - ITI/rest
+        condition = label_df["condition"]
 
-    condition = label_df["condition"]
+        # proj diff in stim_on & condition
+        if projID == "repclear": 
+            stim_on = label_df["stim_present"]
+            op_filter = condition != 0
+        elif projID == "clearmem":
+            stim_on = label_df["presentation"]
+            op_filter = (condition == 1) | (condition == 2) | (condition == 4)
 
-    # proj diff in stim_on & condition
-    if projID == "repclear": 
-        stim_on = label_df["stim_present"]
-        op_filter = condition != 0
-    elif projID == "clearmem":
-        stim_on = label_df["presentation"]
-        op_filter = (condition == 1) | (condition == 2) | (condition == 4)
+        # whether to include ITIs
+        if include_iti:
+            stim_on_filter = stim_on != 1  # exclude stim pres
+        else:
+            stim_on_filter = stim_on == 2  # include only operation
 
-    # whether to include ITIs
-    if include_iti:
-        stim_on_filter = stim_on != 1  # exclude stim pres
-    else:
-        stim_on_filter = stim_on == 2  # include only operation
+        final_filter = op_filter & stim_on_filter
+        X = full_data[final_filter,:]
+        Y_all_df = label_df[final_filter]   #condition[final_filter].values
+        # subID_list = label_df["subID"][final_filter].values
 
-    final_filter = op_filter & stim_on_filter
-    X = full_data[final_filter,:]
-    Y_all_df = label_df[final_filter]   #condition[final_filter].values
-    # subID_list = label_df["subID"][final_filter].values
+        # make sure labels are the same
+        if projID == "clearmem":
+            conds = Y_all_df["condition"]
+            conds[conds==4] = 3
+            Y_all_df["condition"] = conds
 
-    # make sure labels are the same
-    if projID == "clearmem":
-        conds = Y_all_df["condition"]
-        conds[conds==4] = 3
-        Y_all_df["condition"] = conds
+        print("Category counts after subsampling:")
+        for opi, op in op_labels.items():
+            op_bools = Y_all_df["condition"] == opi
+            print(f"{op}: {sum(op_bools)}")
 
-    print("Category counts after subsampling:")
-    for opi, op in op_labels.items():
-        op_bools = Y_all_df["condition"] == opi
-        print(f"{op}: {sum(op_bools)}")
+    elif task == "localizer":
+        assert projID == "clearmem", "Use classification_replicate.subsample_by_runs for repclear cate data loading"
+        # cateory: 0 - rest, 1 - face, 2 - fruit, 3 - scene
+        category = label_df["category"]
+        stim_on = label_df["stimulus"]
+
+        cate_filter = category != 0
+        stim_on_filter = stim_on == 1
+        rest_filter = np.array([False for _ in range(len(label_df))])  # place holder
+
+        if include_rest:
+            run = label_df["run"]
+            runs = sorted(set(run))
+            runs.remove(0)
+            rest_inds = []
+            # for each run, subsample to same number of categories
+            for runi in runs:
+                cate_n = sum((run == runi) & (category == 1) & (stim_on == 1))
+                run_rest_inds = np.where((run == runi) & (category == 0))[0]
+                chosen_inds = np.random.choice(run_rest_inds, cate_n, replace=False)
+                rest_inds.append(sorted(chosen_inds))
+            rest_inds = np.concatenate(rest_inds).astype(int)
+            rest_filter[rest_inds] = True
+
+        final_filter = (cate_filter & stim_on_filter) | rest_filter
+        X = full_data[final_filter, :]
+        Y_all_df = label_df[final_filter]
+
+        print("Category counts after subsampling:")
+        for catei, cate in stim_labels.items():
+            cate_bools = Y_all_df["category"] == catei
+            print(f"{cate}: {sum(cate_bools)}")
 
     return X, Y_all_df
 

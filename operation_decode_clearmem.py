@@ -32,9 +32,11 @@ descs = ['brain_mask', 'preproc_bold']
 ROIs = ['VVS', 'PHG', 'FG']
 shift_sizes_TR = [5, 6]
 
+# *** clearmem labels
 stim_labels = {0: "Rest",
-                1: "Scenes",
-                2: "Faces"}
+                1: "Face", 
+                2: "Fruit", 
+                3: "Scene"}
 
 op_labels = {1: "maintain",
              2: "replace",
@@ -54,29 +56,28 @@ elif workspace == 'scratch':
     results_dir = '/scratch1/07365/sguo19/model_fitting_results/'
 
 
-
-def clearmem_op_classification(subID="006"):
+def clearmem_cate_classification(subID="006"):
     # subs with study phase VTC mask: 006, 036, 077, 079
-    shift_size_TR = 10
-
-    task = "study"
+    task = "localizer"
+    n_runs = 5
     space = "MNI"
+    shift_size_TR = 10
     rest_tag = 0
-    include_iti = False
+    include_rest = True
     v = True
 
     # ===== load sub data & labels
-    mask_path = os.path.join(repclear_dir, "group_MNI_GM_mask.nii.gz")
-    full_data = get_preprocessed_data("clearmem", subID, task, space, mask_path, runs=np.arange(6)+1, save=True)
+    mask_path = os.path.join(clearmem_dir, f"sub-{subID}", "new_mask", f"LOC_VTC_{task}_{space}_mask.nii.gz")
+    full_data = get_preprocessed_data("clearmem", subID, task, space, mask_path, data_tag="", runs=np.arange(n_runs)+1, save=True)
     print("BOLD shape: ", full_data.shape)
 
     # label
     label_df = get_shifted_labels("clearmem", task, shift_size_TR, rest_tag)
-    print("Labels shape: ", full_data.shape)
+    print("Labels shape: ", label_df.shape)
 
     # subsample
-    X, Y_df = subsample("clearmem", full_data, label_df, include_iti=include_iti)
-    Y = Y_df["condition"].values
+    X, Y_df = subsample("clearmem", full_data, label_df, task="localizer", include_rest=include_rest,)
+    Y = Y_df["category"].values
     run_ls = Y_df["run"].values
     print(f"\nShape after subsample: X: {X.shape}, Y: {Y.shape}")
 
@@ -86,11 +87,7 @@ def clearmem_op_classification(subID="006"):
     auc_scores = []
     cms = []
     models = []
-
-    # decode results
-    evids = []
-    probs = []
-    decode_dfs = []
+    fprs = []
 
     print("\nTraining classifier...")
     logo = LeaveOneGroupOut()
@@ -98,7 +95,6 @@ def clearmem_op_classification(subID="006"):
         X_train, X_test = X[train_inds], X[test_inds]
         y_train, y_test = Y[train_inds], Y[test_inds]
         train_groups = run_ls[train_inds]
-        decode_df = Y_df.iloc[test_inds]
 
         print(f"\nXval iter {i}, train size {X_train.shape}, test size {X_test.shape} (run {run_ls[test_inds[0]]})")
 
@@ -123,21 +119,15 @@ def clearmem_op_classification(subID="006"):
         auc_score = roc_auc_score(y_test, model.predict_proba(X_test_sub), multi_class='ovr')
         preds = model.predict(X_test_sub)
         # confusion matrix
-        true_counts = np.asarray([np.sum(y_test == i) for i in op_labels.keys()])
-        cm = confusion_matrix(y_test, preds, labels=list(op_labels.keys())) / true_counts[:,None] * 100
-
-        # decode metrics
-        evid = (1. / (1. + np.exp(-model.decision_function(X_test_sub))))
-        prob = model.predict_proba(X_test_sub)
+        true_counts = np.asarray([np.sum(y_test == i) for i in stim_labels.keys()])
+        cm = confusion_matrix(y_test, preds, labels=list(stim_labels.keys())) / true_counts[:,None] * 100
 
         # save
         models.append(model)
+        fprs.append(fpr)
         scores.append(score)
         auc_scores.append(auc_score)
         cms.append(cm)
-        evids.append(evid)
-        probs.append(prob)
-        decode_dfs.append(decode_df)
 
         if v: print(f"\nIter {i} score: \n"
             f"score: {score}, auc score: {auc_score}\n"
@@ -147,9 +137,6 @@ def clearmem_op_classification(subID="006"):
     scores = np.asarray(scores)
     auc_scores = np.asarray(auc_scores)
     cms = np.stack(cms)
-    evids = np.stack(evids)  # xval x sample x class
-    probs = np.stack(probs)  # xval x sample x class
-    decode_dfs = pd.concat(decode_dfs)  # all samples
 
     print(f"\nClassifier score: \n"
         f"scores: {scores.mean()} +/- {scores.std()}\n"
@@ -158,81 +145,96 @@ def clearmem_op_classification(subID="006"):
         f"{cms.mean(axis=0)}")
 
     # save
-    out_path = os.path.join(results_dir, "operation_clf", f"sub-{subID}_clearmem_gscv.npz")
+    out_path = os.path.join(results_dir, "category_clf", f"sub-{subID}_clearmem_gscv.npz")
     print(f"Saving results to {out_path}...")
-    np.savez_compressed(out_path, models=models, scores=scores, auc_scores=auc_scores, cms=cms, evids=evids, probs=probs, decode_dfs=decode_dfs)
+    np.savez_compressed(out_path, models=models, fprs=fprs, scores=scores, auc_scores=auc_scores, cms=cms)
 
-def clearmem_op_decode(subID="006"):
-    target_ops = [1,2,3]
+
+def organize_decode_results(data, df):
+    """
+    Make data (xval x TR x class) ==> (xval x trial x TR x class)
+    df: design matrix df to organize trials
+
+    Return
+    trial_df: original df organized into one trial per row, consistent with trial dim of returned data
+    """
+    trial_ls = list(set(df["trial"]))
+    # make df of trial per row
+    trial_df = []
+    for tid, tdf in df.groupby(["trial"]):
+        trial_df.append(tdf.iloc[0])    
+    trial_df = np.vstack(trial_df)
+    trial_df = pd.DataFrame(trial_df, columns=df.columns)
+
+    # get trial data
+    data_out = []
+    for ti in trial_df["trial"]:
+        trial_inds = np.where(df["trial"] == ti)[0]
+
+        # add 5 TR before stim pres
+        bf_trial_inds = np.arange(trial_inds[0]-5, trial_inds[0])
+        trial_inds = np.r_[bf_trial_inds, trial_inds]
+
+        trial_data = data[:, trial_inds, :]
+        data_out.append(trial_data)
+    # TODO: figure out way to stack without same dim
+    data_out = np.stack(data_out, axis=1)
+
+    return data_out, trial_df
+
+
+def clearmem_study_decode(subID="006"):
+    # subs with study phase VTC mask: 006, 036, 077, 079
+    task = "study"
+    n_runs = 6
+    space = "MNI"
+    shift_size_TR = 10
+    rest_tag = 0
+    # include_rest = True
+    # v = True
+
+    # === load model
+    file_path = os.path.join(results_dir, "category_clf", f"sub-{subID}_clearmem_gscv.npz")
+    f = np.load(file_path, allow_pickle=True)
+    models, fprs = f["models"], f["fprs"]
     
-    # load stored data
-    file_fname = os.path.join(results_dir, "operation_clf", f"sub-{subID}_clearmem_gscv.npz")
-    f = np.load(file_fname, allow_pickle=True)
-    df, evids, probs = f["decode_dfs"], f["evids"], f["probs"]
+    # === load study data
+    mask_path = os.path.join(clearmem_dir, f"sub-{subID}", "new_mask", f"LOC_VTC_{task}_{space}_mask.nii.gz")
+    full_data = get_preprocessed_data("clearmem", subID, task, space, mask_path, data_tag="", runs=np.arange(6)+1, save=True)
+    print("BOLD shape: ", full_data.shape)
+    
+    # === decode every TR
+    evids = []
+    probs = []
+    for runi, (run_model, run_fpr) in enumerate(zip(models, fprs)):
+        data_sub = run_fpr.transform(full_data)
+        # decode metrics
+        evid = (1. / (1. + np.exp(-run_model.decision_function(data_sub))))
+        prob = run_model.predict_proba(data_sub)
 
-    # make df
-    design_path = os.path.join(clearmem_dir, "study_volume_design_matrix.csv")
-    design_df = pd.read_csv(design_path)
-    df = pd.DataFrame(df[:,:-1].astype(int), columns=design_df.columns)
+        evids.append(evid)
+        probs.append(prob)
 
-    # create df of trial per row
-    run_trial_df = []
-    for runi, rdf in df.groupby(["run"]):
-        for tid, tdf in rdf.groupby(["trial"]):
-            run_trial_df.append(tdf.iloc[0])
-    run_trial_df = np.vstack(run_trial_df)
-    run_trial_df = pd.DataFrame(run_trial_df, columns=df.columns) 
+    evids = np.stack(evids)  # xval x TR x class
+    probs = np.stack(probs)  # xval x TR x class
 
-    # put together
-    all_op_trialIDs = {}
-    all_op_evids = {}
-    all_op_probs = {}
-    for runi, run_df in run_trial_df.groupby(["run"]):
-        # === get trialIDs for each (N-1, N)
-        run_op_trialIDs = {}
-        for x in target_ops:
-            for y in target_ops:
-                run_op_trialIDs[f"{x}-{y}"] = []
+    # === organize into (xval x trial x TR x class)
+    # load df
+    label_df = get_shifted_labels("clearmem", task, shift_size_TR, rest_tag)
+    print("Labels shape: ", label_df.shape)
+    evids, trial_df = organize_decode_results(evids, label_df)
+    probs, _ = organize_decode_results(probs, label_df)
 
-        for i in range(1, len(run_df)):
-            prev = run_df.iloc[i-1]["condition"]
-            curr = run_df.iloc[i]["condition"]
-            
-            # if (prev not in target_ops) or (curr not in target_ops):
-            #     continue
-            run_op_trialIDs[f"{prev}-{curr}"].append(i)
-            
-        for k, v in run_op_trialIDs.items():
-            run_op_trialIDs[k] = np.array(v)
-
-        # === put measures in
-        run_evids = evids[runi-1]
-        run_probs = probs[runi-1]
-
-        run_op_evids = {}
-        run_op_probs = {}
-        for opk, opIDs in run_op_trialIDs.items():
-            # FIXME: save into trial x TR x class
-            run_op_evids[opk] = run_evids[opIDs]
-            run_op_probs[opk] = run_probs[opIDs]  # trial x class
-
-        # === store
-        all_op_trialIDs[runi] = run_op_trialIDs
-        all_op_evids[runi] = run_op_evids
-        all_op_probs[runi] = run_op_probs
-
-    # save file to plot offline
-    out_fname = f"sub-{subID}_clearmem_decode_groups.pkl"
-    out_path = os.path.join(results_dir, "operation_clf", out_fname)
-    print(f"Saving to {out_path}...")
-    out_dict = dict(trialIDs=all_op_trialIDs, evids=all_op_evids, probs=all_op_probs)
-    with open(out_path, "wb") as f:
-        pickle.dump(out_dict, f)
+    # === save file (can ignore df; no organizing needed, all done later in organizer)
+    out_fname = os.path.join(results_dir, "category_clf", f"sub-{subID}_decode")
+    print(f"Saving to {out_fname}...")
+    np.savez_compressed(evids=evids, probs=probs, trial_df=trial_df)
+    
 
 if __name__ == "__main__":
     subID = "006"
-    # clearmem_op_classification(subID)
-    clearmem_op_decode(subID)
+    clearmem_cate_classification(subID)
+    clearmem_study_decode(subID)
 
 
 
