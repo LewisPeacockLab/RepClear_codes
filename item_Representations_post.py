@@ -60,14 +60,12 @@ def find(pattern, path): #find the pattern we're looking for
 
 
 #level 1 GLM
-for num in range(len(subs)):
+def item_representation_post(subID):
 
-    sub_num=subs[num]
-
-    print('Running sub-0%s...' %sub_num)
+    print('Running sub-0%s...' %subID)
     #define the subject
-    sub = ('sub-0%s' % sub_num)
-    container_path='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
+    sub = ('sub-0%s' % subID)
+    container_path='/scratch/06873/zbretton/fmriprep'
   
     bold_path=os.path.join(container_path,sub,'func/')
     os.chdir(bold_path)
@@ -86,8 +84,8 @@ for num in range(len(subs)):
         localizer_files = fnmatch.filter(localizer_files,pattern2)
         
     localizer_files.sort()
-    scene_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_model/group_category_lvl2/','group_scene_%s_mask.nii.gz' % brain_flag)    
-    scene_mask=nib.load(scene_mask_path)
+    mask_path=os.path.join('/scratch/06873/zbretton/fmriprep/group_model/group_category_lvl2/','group_scene_%s_mask.nii.gz' % brain_flag)    
+    mask=nib.load(mask_path)
     
     #load in category mask that was created from the first GLM  
 
@@ -137,9 +135,9 @@ for num in range(len(subs)):
 
     run_list=np.concatenate((run1,run2,run3,run4,run5,run6))    
     #clean data ahead of the GLM
-    img_clean_scene=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore',mask_img=scene_mask,confounds=localizer_confounds)
+    img_clean=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore',mask_img=mask,confounds=localizer_confounds)
     '''load in the denoised bold data and events file'''
-    events = pd.read_csv('/scratch1/06873/zbretton/repclear_dataset/BIDS/task-postremoval_events.tsv',sep='\t')
+    events = pd.read_csv('/work/06873/zbretton/ls6/repclear_dataset/BIDS/task-postremoval_events.tsv',sep='\t')
     #I then relabel that trial of the face or scene as "face_trial#" or "scene_trial#" and then label rest and all other trials as "other"
     #I can either do this in one loop, or two consecutive
 
@@ -174,7 +172,7 @@ for num in range(len(subs)):
         trial_pattern=np.mean(img_clean_scene.get_fdata()[:,:,:,(onset):(onset+2)],axis=3) #this is getting the 2 TRs for that trial's onset and then taking the average of it across the 4th dimension (time)
         
 
-        output_name = os.path.join(out_folder, ('Sub-0%s_post_scene_trial%s_result.nii.gz' % (sub_num,(trial+1))))
+        output_name = os.path.join(out_folder, ('Sub-0%s_post_scene_trial%s_result.nii.gz' % (subID,(trial+1))))
         trial_pattern = trial_pattern.astype('double')  # Convert the output into a precision format that can be used by other applications
         trial_pattern[np.isnan(trial_pattern)] = 0  # Exchange nans with zero to ensure compatibility with other applications
         trial_pattern_nii = nib.Nifti1Image(trial_pattern, affine_mat)  # create the volume image
@@ -184,4 +182,6 @@ for num in range(len(subs)):
 
         del trial_pattern, trial_pattern_nii, affine_mat, onset, out_folder, output_name, hdr
     print('subject finished')
+
+Parallel(n_jobs=len(subs))(delayed(item_representation_study)(i) for i in subs)    
         

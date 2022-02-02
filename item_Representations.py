@@ -180,7 +180,7 @@ def item_representation(subID):
         trial_pattern=np.mean(img_clean.get_fdata()[:,:,:,(onset):(onset+2)],axis=3) #this is getting the 2 TRs for that trial's onset and then taking the average of it across the 4th dimension (time)
         
 
-        output_name = os.path.join(out_folder, ('Sub-0%s_pre_face_trial%s_result.nii.gz' % (sub_num,(trial+1))))
+        output_name = os.path.join(out_folder, ('Sub-0%s_pre_face_trial%s_result.nii.gz' % (subID,(trial+1))))
         trial_pattern = trial_pattern.astype('double')  # Convert the output into a precision format that can be used by other applications
         trial_pattern[np.isnan(trial_pattern)] = 0  # Exchange nans with zero to ensure compatibility with other applications
         trial_pattern_nii = nib.Nifti1Image(trial_pattern, affine_mat)  # create the volume image
@@ -210,7 +210,7 @@ def item_representation(subID):
         trial_pattern=np.mean(img_clean.get_fdata()[:,:,:,(onset):(onset+2)],axis=3) #this is getting the 2 TRs for that trial's onset and then taking the average of it across the 4th dimension (time)
         
 
-        output_name = os.path.join(out_folder, ('Sub-0%s_pre_scene_trial%s_result.nii.gz' % (sub_num,(trial+1))))
+        output_name = os.path.join(out_folder, ('Sub-0%s_pre_scene_trial%s_result.nii.gz' % (subID,(trial+1))))
         trial_pattern = trial_pattern.astype('double')  # Convert the output into a precision format that can be used by other applications
         trial_pattern[np.isnan(trial_pattern)] = 0  # Exchange nans with zero to ensure compatibility with other applications
         trial_pattern_nii = nib.Nifti1Image(trial_pattern, affine_mat)  # create the volume image
