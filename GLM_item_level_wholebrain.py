@@ -177,7 +177,7 @@ for num in range(len(subs)):
                             smoothing_fwhm=8,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch/06873/zbretton/nilearn_cache',memory_level=1)
     
     '''initialize the scene GLM'''
-    model_face = FirstLevelModel(t_r=1,hrf_model='glover',
+    model_scene = FirstLevelModel(t_r=1,hrf_model='glover',
                             drift_model=None,high_pass=None,mask_img=vtc_mask,signal_scaling=False,
                             smoothing_fwhm=8,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch/06873/zbretton/nilearn_cache',memory_level=1)    
 
@@ -264,13 +264,13 @@ for num in range(len(subs)):
 
 
         if trial<30:
-            item_contrast[0][model_face.design_matrices_[0].columns.get_loc('scene_trial%s' % (trial+1))]=(scene_trials-1) #now find our trial of interest and set it equal to the sum of the rest of the contrasts
+            item_contrast[0][model_scene.design_matrices_[0].columns.get_loc('scene_trial%s' % (trial+1))]=(scene_trials-1) #now find our trial of interest and set it equal to the sum of the rest of the contrasts
         elif (trial>=30) & (trial<60):
-            item_contrast[1][model_face.design_matrices_[1].columns.get_loc('scene_trial%s' % (trial+1))]=(scene_trials-1) #now find our trial of interest and set it equal to the sum of the rest of the contrasts
+            item_contrast[1][model_scene.design_matrices_[1].columns.get_loc('scene_trial%s' % (trial+1))]=(scene_trials-1) #now find our trial of interest and set it equal to the sum of the rest of the contrasts
         elif (trial>=60) & (trial<90):
-            item_contrast[2][model_face.design_matrices_[2].columns.get_loc('scene_trial%s' % (trial+1))]=(scene_trials-1) #now find our trial of interest and set it equal to the sum of the rest of the contrasts
+            item_contrast[2][model_scene.design_matrices_[2].columns.get_loc('scene_trial%s' % (trial+1))]=(scene_trials-1) #now find our trial of interest and set it equal to the sum of the rest of the contrasts
         elif (trial>=90):
-            item_contrast[3][model_face.design_matrices_[3].columns.get_loc('scene_trial%s' % (trial+1))]=(scene_trials-1) #now find our trial of interest and set it equal to the sum of the rest of the contrasts
+            item_contrast[3][model_scene.design_matrices_[3].columns.get_loc('scene_trial%s' % (trial+1))]=(scene_trials-1) #now find our trial of interest and set it equal to the sum of the rest of the contrasts
 
         contrasts = {'scene_trial%s' % (trial+1): item_contrast}
 
@@ -283,11 +283,11 @@ for num in range(len(subs)):
 
         '''compute and save the contrasts'''
         for contrast in contrasts:
-            z_map = model.compute_contrast(contrasts[contrast],output_type='z_score')
+            z_map = model_scene.compute_contrast(contrasts[contrast],output_type='z_score')
             nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_full_zmap.nii.gz'))
-            t_map = model.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
+            t_map = model_scene.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
             nib.save(t_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_full_tmap.nii.gz'))  
-            file_data = model.generate_report(contrasts[contrast])
+            file_data = model_scene.generate_report(contrasts[contrast])
             file_data.save_as_html(os.path.join(out_folder,f"{contrast}_{brain_flag}_full_report.html"))
         #make sure to clear the item constrast to make sure we dont carry it over in to the next trial     
         del item_contrast

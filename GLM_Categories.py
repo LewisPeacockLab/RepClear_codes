@@ -75,7 +75,7 @@ for num in range(len(subs)):
     localizer_files.sort()
     vtc_mask_path=os.path.join('/scratch/06873/zbretton/fmriprep/group_%s_VTC_mask.nii.gz' % brain_flag)
     
-        
+    #load the group VTC mask
     vtc_mask=nib.load(vtc_mask_path)   
 
     #img=nib.concat_images(localizer_files,axis=3)
@@ -87,6 +87,7 @@ for num in range(len(subs)):
     localizer_run5=load_img(localizer_files[4])
     localizer_run6=load_img(localizer_files[5]) 
 
+    #create list of all nifti files
     img=[localizer_run1,localizer_run2,localizer_run3,localizer_run4,localizer_run5,localizer_run6]
 
     #if we did want to clean the data before having it go into the GLM, I can clean it here:
@@ -97,10 +98,6 @@ for num in range(len(subs)):
     # img[4]=clean_img(img[4],t_r=1,detrend=False,standardize='zscore')
     # img[5]=clean_img(img[5],t_r=1,detrend=False,standardize='zscore')
 
-    #to be used to filter the data
-    #First we are removing the confounds
-    #get all the folders within the bold path
-    #confound_folders=[x[0] for x in os.walk(bold_path)]
     localizer_confounds_1=find('*preremoval*1*confounds*.tsv',bold_path)
     localizer_confounds_2=find('*preremoval*2*confounds*.tsv',bold_path)
     localizer_confounds_3=find('*preremoval*3*confounds*.tsv',bold_path)
@@ -123,7 +120,8 @@ for num in range(len(subs)):
     confound_run5=confound_cleaner(confound_run5)
     confound_run6=confound_cleaner(confound_run6)   
     
-    #localizer_confounds=pd.concat([confound_run1,confound_run2,confound_run3,confound_run4,confound_run5,confound_run6], ignore_index=False)  
+    #confounds are all cleaned and organized
+
     localizer_confounds=[confound_run1,confound_run2,confound_run3,confound_run4,confound_run5,confound_run6]
 
     #get run list so I can clean the data across each of the runs
@@ -144,7 +142,8 @@ for num in range(len(subs)):
     run_list=np.concatenate((run1,run2,run3,run4,run5,run6))    
 #####    #clean data ahead of the GLM - this was wrong!
 #####    img_clean=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore')
-    '''load in the denoised bold data and events file'''
+    
+    #load in the events file
     events = pd.read_csv('/work/06873/zbretton/ls6/repclear_dataset/BIDS/task-preremoval_events.tsv',sep='\t')     
     #this is some code that will split up this tsv into separate dicts per run   
     events_dict={g:d for g, d in events.groupby('run')}
