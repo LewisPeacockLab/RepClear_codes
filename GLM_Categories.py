@@ -1,6 +1,6 @@
 import nibabel as nib
 nib.openers.Opener.default_compresslevel = 6
-from nilearn.image import mean_img, get_data, threshold_img, new_img_like, clean_img
+from nilearn.image import mean_img, get_data, threshold_img, new_img_like, clean_img, load_img
 from nilearn.glm.first_level import FirstLevelModel
 #from nilearn import plotting
 from nilearn.glm.second_level import SecondLevelModel
@@ -50,7 +50,7 @@ for num in range(len(subs)):
     print('Running sub-0%s...' %sub_num)
     #define the subject
     sub = ('sub-0%s' % sub_num)
-    container_path='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
+    container_path='/scratch/06873/zbretton/fmriprep'
   
     bold_path=os.path.join(container_path,sub,'func/')
     os.chdir(bold_path)
@@ -73,21 +73,30 @@ for num in range(len(subs)):
         
     brain_mask_path.sort()
     localizer_files.sort()
-    vtc_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_%s_VTC_mask.nii.gz' % brain_flag)
+    vtc_mask_path=os.path.join('/scratch/06873/zbretton/fmriprep/group_%s_VTC_mask.nii.gz' % brain_flag)
     
         
     vtc_mask=nib.load(vtc_mask_path)   
 
-    img=nib.concat_images(localizer_files,axis=3)
+    #img=nib.concat_images(localizer_files,axis=3)
 
-    # localizer_run1=nib.load(localizer_files[0])
-    # localizer_run2=nib.load(localizer_files[1])
-    # localizer_run3=nib.load(localizer_files[2])
-    # localizer_run4=nib.load(localizer_files[3])
-    # localizer_run5=nib.load(localizer_files[4])
-    # localizer_run6=nib.load(localizer_files[5]) 
+    localizer_run1=load_img(localizer_files[0])
+    localizer_run2=load_img(localizer_files[1])
+    localizer_run3=load_img(localizer_files[2])
+    localizer_run4=load_img(localizer_files[3])
+    localizer_run5=load_img(localizer_files[4])
+    localizer_run6=load_img(localizer_files[5]) 
 
-      
+    img=[localizer_run1,localizer_run2,localizer_run3,localizer_run4,localizer_run5,localizer_run6]
+
+    #if we did want to clean the data before having it go into the GLM, I can clean it here:
+    # img[0]=clean_img(img[0],t_r=1,detrend=False,standardize='zscore')
+    # img[1]=clean_img(img[1],t_r=1,detrend=False,standardize='zscore')
+    # img[2]=clean_img(img[2],t_r=1,detrend=False,standardize='zscore')
+    # img[3]=clean_img(img[3],t_r=1,detrend=False,standardize='zscore')
+    # img[4]=clean_img(img[4],t_r=1,detrend=False,standardize='zscore')
+    # img[5]=clean_img(img[5],t_r=1,detrend=False,standardize='zscore')
+
     #to be used to filter the data
     #First we are removing the confounds
     #get all the folders within the bold path
@@ -114,15 +123,16 @@ for num in range(len(subs)):
     confound_run5=confound_cleaner(confound_run5)
     confound_run6=confound_cleaner(confound_run6)   
     
-    localizer_confounds=pd.concat([confound_run1,confound_run2,confound_run3,confound_run4,confound_run5,confound_run6], ignore_index=False)  
+    #localizer_confounds=pd.concat([confound_run1,confound_run2,confound_run3,confound_run4,confound_run5,confound_run6], ignore_index=False)  
+    localizer_confounds=[confound_run1,confound_run2,confound_run3,confound_run4,confound_run5,confound_run6]
 
     #get run list so I can clean the data across each of the runs
-    run1_length=int((img.get_fdata().shape[3])/6)
-    run2_length=int((img.get_fdata().shape[3])/6)
-    run3_length=int((img.get_fdata().shape[3])/6)
-    run4_length=int((img.get_fdata().shape[3])/6)
-    run5_length=int((img.get_fdata().shape[3])/6)
-    run6_length=int((img.get_fdata().shape[3])/6)
+    run1_length=int((img[0].get_fdata().shape[3]))
+    run2_length=int((img[1].get_fdata().shape[3]))
+    run3_length=int((img[2].get_fdata().shape[3]))
+    run4_length=int((img[3].get_fdata().shape[3]))
+    run5_length=int((img[4].get_fdata().shape[3]))
+    run6_length=int((img[5].get_fdata().shape[3]))
 
     run1=np.full(run1_length,1)
     run2=np.full(run2_length,2)
@@ -132,27 +142,62 @@ for num in range(len(subs)):
     run6=np.full(run6_length,6)    
 
     run_list=np.concatenate((run1,run2,run3,run4,run5,run6))    
-    #clean data ahead of the GLM
-    img_clean=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore')
+#####    #clean data ahead of the GLM - this was wrong!
+#####    img_clean=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore')
     '''load in the denoised bold data and events file'''
-    events = pd.read_csv('/scratch1/06873/zbretton/repclear_dataset/BIDS/task-preremoval_events.tsv',sep='\t')        
+    events = pd.read_csv('/work/06873/zbretton/ls6/repclear_dataset/BIDS/task-preremoval_events.tsv',sep='\t')     
+    #this is some code that will split up this tsv into separate dicts per run   
+    events_dict={g:d for g, d in events.groupby('run')}
 
-    '''initialize and fit the GLM'''
-    model = FirstLevelModel(t_r=1,hrf_model='glover',
+    #this original events file is concatenated via the run times, so need to "normalize" each events file to the start of the run
+    # this is done by taking the first value from the onset column and subtracting that from every other onset time
+    events_1=pd.DataFrame.from_dict(events_dict[1])
+    events_2=pd.DataFrame.from_dict(events_dict[2])
+    events_3=pd.DataFrame.from_dict(events_dict[3])
+    events_4=pd.DataFrame.from_dict(events_dict[4])
+    events_5=pd.DataFrame.from_dict(events_dict[5])
+    events_6=pd.DataFrame.from_dict(events_dict[6])
+
+    #this only needs to occur to events 2+ since events 1 is already pegged to the start
+    events_2['onset'] -= events_2['onset'].iat[0]  
+    events_3['onset'] -= events_3['onset'].iat[0]  
+    events_4['onset'] -= events_4['onset'].iat[0]  
+    events_5['onset'] -= events_5['onset'].iat[0]  
+    events_6['onset'] -= events_6['onset'].iat[0]  
+
+    #removing rest as a modeled condition
+    events_1=events_1[events_1['trial_type']=='face']
+    events_2=events_2[events_2['trial_type']=='face']
+    events_3=events_3[events_3['trial_type']=='scene']
+    events_4=events_4[events_4['trial_type']=='scene']
+    events_5=events_5[events_5['trial_type']=='scene']
+    events_6=events_6[events_6['trial_type']=='scene']
+
+    events_list=[events_1,events_2,events_3,events_4,events_5,events_6]      
+
+    '''initialize and fit the GLMs'''
+    #the first levels need to be split by stimulus type since they are basically two unique situations 
+    model_face = FirstLevelModel(t_r=1,hrf_model='glover',
                             drift_model=None,high_pass=None,mask_img=vtc_mask,signal_scaling=False,
-                            smoothing_fwhm=8,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch1/06873/zbretton/nilearn_cache',memory_level=1)
+                            smoothing_fwhm=8,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch/06873/zbretton/nilearn_cache',memory_level=1)
 
-    model.fit(run_imgs=img_clean,events=events,confounds=localizer_confounds)
+    model_face.fit(run_imgs=img[:2],events=events_list[:2],confounds=localizer_confounds[:2])
+
+    model_scene = FirstLevelModel(t_r=1,hrf_model='glover',
+                            drift_model=None,high_pass=None,mask_img=vtc_mask,signal_scaling=False,
+                            smoothing_fwhm=8,noise_model='ar1',n_jobs=1,verbose=2,memory='/scratch/06873/zbretton/nilearn_cache',memory_level=1)
+
+    model_scene.fit(run_imgs=img[2:],events=events_list[2:],confounds=localizer_confounds[2:])    
 
     '''grab the number of regressors in the model'''
-    n_columns = model.design_matrices_[0].shape[-1]
+    n_columns = model_face.design_matrices_[0].shape[-1]
+    #this is the same for both conditions
 
     '''define the contrasts - the order of trial types is stored in model.design_matrices_[0].columns
        pad_contrast() adds 0s to the end of a vector in the case that other regressors are modeled, but not included in the primary contrasts'''
-       #order is: faces, rest, scenes 
-    contrasts = {'faces':             pad_contrast([2,-1,-1],  n_columns),
-                 'scenes':               pad_contrast([-1,-1,2],  n_columns),
-                 'stimuli':              pad_contrast([1,-2,1], n_columns)}
+
+
+    contrasts = {'stimuli':pad_contrast([1],n_columns)}
 
     '''point to and if necessary create the output folder'''
     out_folder = os.path.join(container_path,sub,'preremoval_lvl1')
@@ -160,17 +205,24 @@ for num in range(len(subs)):
 
     '''compute and save the contrasts'''
     for contrast in contrasts:
-        z_map = model.compute_contrast(contrasts[contrast],output_type='z_score')
-        nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_zmap.nii.gz'))
-        t_map = model.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
-        nib.save(t_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_tmap.nii.gz'))  
-        file_data = model.generate_report(contrasts[contrast])
-        file_data.save_as_html(os.path.join(out_folder,f"{contrast}_{brain_flag}_report.html"))      
+        z_map_f = model_face.compute_contrast(contrasts[contrast],output_type='z_score')
+        nib.save(z_map_f,os.path.join(out_folder,f'face_{contrast}_{brain_flag}_zmap.nii.gz'))
+        t_map_f = model_face.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
+        nib.save(t_map_f,os.path.join(out_folder,f'face_{contrast}_{brain_flag}_tmap.nii.gz'))  
+        file_data_f = model_face.generate_report(contrasts[contrast])
+        file_data_f.save_as_html(os.path.join(out_folder,f"face_{contrast}_{brain_flag}_report.html"))      
+
+        z_map_s = model_scene.compute_contrast(contrasts[contrast],output_type='z_score')
+        nib.save(z_map_s,os.path.join(out_folder,f'scene_{contrast}_{brain_flag}_zmap.nii.gz'))
+        t_map_s = model_scene.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
+        nib.save(t_map_s,os.path.join(out_folder,f'scene_{contrast}_{brain_flag}_tmap.nii.gz'))  
+        file_data_s = model_scene.generate_report(contrasts[contrast])
+        file_data_s.save_as_html(os.path.join(out_folder,f"scene_{contrast}_{brain_flag}_report.html"))         
 
 ####################################
 #level 2 GLM
 subs=['sub-002','sub-003','sub-004']
-contrasts = ['faces','scenes','stimuli']
+contrasts = ['face','scene']
 
 '''point to the save directory'''
 out_dir = os.path.join(container_path,'group_model','group_category_lvl2')
@@ -178,20 +230,20 @@ if not os.path.exists(out_dir):os.makedirs(out_dir,exist_ok=True)
 
 for contrast in contrasts:
     '''load in the subject maps'''
-    maps = [nib.load(os.path.join(container_path,sub,'preremoval_lvl1',f'{contrast}_{brain_flag}_tmap.nii.gz')) for sub in subs]
+    maps = [nib.load(os.path.join(container_path,sub,'preremoval_lvl1',f'{contrast}_stimuli_{brain_flag}_zmap.nii.gz')) for sub in subs]
 
     '''a simple group mean design'''
     design_matrix = pd.DataFrame([1] * len(maps), columns=['intercept'])
     
     '''initialize and fit the GLM'''
     second_level_model = SecondLevelModel(smoothing_fwhm=None,
-                                          mask_img='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_MNI_VTC_mask.nii.gz',
+                                          mask_img='/scratch/06873/zbretton/fmriprep/group_MNI_VTC_mask.nii.gz',
                                           verbose=2,n_jobs=-1)
     second_level_model = second_level_model.fit(maps, design_matrix=design_matrix)
     t_map = second_level_model.compute_contrast(second_level_stat_type='t',output_type='stat')
 
     '''save the group map'''
-    nib.save(t_map, os.path.join(out_dir,f'group_{contrast}_{brain_flag}_tmap.nii.gz'))
+    nib.save(t_map, os.path.join(out_dir,f'group_{contrast}_{brain_flag}_zmap.nii.gz'))
     #now I want to treshold this to focus on the important clusters:
     thresholded_map, _ = threshold_stats_img(
         t_map,
@@ -202,5 +254,5 @@ for contrast in contrasts:
     file_data = second_level_model.generate_report(contrasts='intercept',alpha=0.05,height_control=None,cluster_threshold=0)
     file_data.save_as_html(os.path.join(out_dir,f"group+{contrast}_{brain_flag}_report.html"))     
     #use this threshold to look at the second-level results
-    nib.save(thresholded_map, os.path.join(out_dir,f'group+{contrast}_{brain_flag}_thresholded_tmap.nii.gz'))
+    nib.save(thresholded_map, os.path.join(out_dir,f'group+{contrast}_{brain_flag}_thresholded_zmap.nii.gz'))
     del thresholded_map, t_map, second_level_model, maps
