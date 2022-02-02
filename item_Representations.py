@@ -24,6 +24,8 @@ from nilearn.signal import clean
 from scipy import stats
 from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score
+from joblib import Parallel, delayed
+
 
 subs=['02','03','04']
 brain_flag='MNI'
@@ -60,13 +62,11 @@ def find(pattern, path): #find the pattern we're looking for
 
 
 #level 1 GLM
-for num in range(len(subs)):
+def item_representation(subID):
 
-    sub_num=subs[num]
-
-    print('Running sub-0%s...' %sub_num)
+    print('Running sub-0%s...' %subID)
     #define the subject
-    sub = ('sub-0%s' % sub_num)
+    sub = ('sub-0%s' % subID)
     container_path='/scratch/06873/zbretton/fmriprep'
   
     bold_path=os.path.join(container_path,sub,'func/')
@@ -221,3 +221,5 @@ for num in range(len(subs)):
         del trial_pattern, trial_pattern_nii, affine_mat, onset, out_folder, output_name, hdr
     print('subject finished')
         
+
+Parallel(n_jobs=len(subs))(delayed(item_representation)(i) for i in subs)

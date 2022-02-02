@@ -9,6 +9,8 @@ import os
 import fnmatch
 import numpy as np
 import pandas as pd
+from joblib import Parallel, delayed
+
 
 subs=['02','03','04']
 brain_flag='MNI'
@@ -45,13 +47,10 @@ def find(pattern, path): #find the pattern we're looking for
 
 
 #LSA
-for num in range(len(subs)):
-
-    sub_num=subs[num]
-
-    print('Running sub-0%s...' %sub_num)
+def GLM_item_level(subID):
+    print('Running sub-0%s...' %subID)
     #define the subject
-    sub = ('sub-0%s' % sub_num)
+    sub = ('sub-0%s' % subID)
     container_path='/scratch/06873/zbretton/fmriprep'
   
     bold_path=os.path.join(container_path,sub,'func/')
@@ -240,7 +239,7 @@ for num in range(len(subs)):
             nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_full_zmap.nii.gz'))
             t_map = model_face.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
             nib.save(t_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_full_tmap.nii.gz'))  
-            file_data = model_face.generate_report(contrasts[contrast])
+            file_data = model_face.generate_report(contrasts)
             file_data.save_as_html(os.path.join(out_folder,f"{contrast}_{brain_flag}_full_report.html")) 
 
         del item_contrast
@@ -257,10 +256,10 @@ for num in range(len(subs)):
            #order is: trial1...trialN
 
         item_contrast=[np.full(n_columns,0),np.full(n_columns,0),np.full(n_columns,0),np.full(n_columns,0)] #start with an array of 0's
-        item_contrast[0][model_scene.design_matrices_[0].columns.str.match('scene_trial')]=-1 #find all the indices of face_trial and set to -1
-        item_contrast[1][model_scene.design_matrices_[1].columns.str.match('scene_trial')]=-1 #find all the indices of face_trial and set to -1
-        item_contrast[2][model_scene.design_matrices_[2].columns.str.match('scene_trial')]=-1 #find all the indices of face_trial and set to -1
-        item_contrast[3][model_scene.design_matrices_[3].columns.str.match('scene_trial')]=-1 #find all the indices of face_trial and set to -1
+        item_contrast[0][model_scene.design_matrices_[0].columns.str.match('scene_trial')]=-1 #find all the indices of scene_trial and set to -1
+        item_contrast[1][model_scene.design_matrices_[1].columns.str.match('scene_trial')]=-1 #find all the indices of scene_trial and set to -1
+        item_contrast[2][model_scene.design_matrices_[2].columns.str.match('scene_trial')]=-1 #find all the indices of scene_trial and set to -1
+        item_contrast[3][model_scene.design_matrices_[3].columns.str.match('scene_trial')]=-1 #find all the indices of scene_trial and set to -1
 
 
         if trial<30:
@@ -276,7 +275,7 @@ for num in range(len(subs)):
 
         '''point to and if necessary create the output folder'''
         out_folder = os.path.join(container_path,sub,'preremoval_item_level')
-        if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
+        if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True) 
 
         #as of now it is labeling the trial estimates by the trial number, which is helpful since I can look at their individual design matricies to see which stim that is
         #but another way could be to load in the list for that sub right here, grab the number or name of that stim from the trial index and use that to save the name
@@ -287,7 +286,11 @@ for num in range(len(subs)):
             nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_full_zmap.nii.gz'))
             t_map = model_scene.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
             nib.save(t_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_full_tmap.nii.gz'))  
-            file_data = model_scene.generate_report(contrasts[contrast])
+            file_data = model_scene.generate_report(contrasts)
             file_data.save_as_html(os.path.join(out_folder,f"{contrast}_{brain_flag}_full_report.html"))
         #make sure to clear the item constrast to make sure we dont carry it over in to the next trial     
         del item_contrast
+
+Parallel(n_jobs=len(subs))(delayed(GLM_item_level)(i) for i in subs)
+
+
