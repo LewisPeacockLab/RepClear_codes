@@ -49,7 +49,15 @@ def apply_mask(mask=None,target=None):
     values = target[coor]
     if values.ndim > 1:
         values = np.transpose(values) #swap axes to get feature X sample
-    return values        
+    return values   
+
+def find(pattern, path): #find the pattern we're looking for
+    result = []
+    for root, dirs, files in os.walk(path):
+        for name in files:
+            if fnmatch.fnmatch(name, pattern):
+                result.append(os.path.join(root, name))
+        return result         
 
 
 container_path='/scratch/06873/zbretton/fmriprep'
@@ -439,19 +447,64 @@ for subID in subs:
 
 
     unweighted_pre_only=np.corrcoef(masked_bolds_arr_1)
+    temp_df=pd.DataFrame(data=unweighted_pre_only)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes",'unweighted_pre_only_RSA.csv'))
+    del temp_df
+
     unweighted_pre_study_comp=np.corrcoef(non_weight_pre_comp,non_weight_study_comp)
+    temp_df=pd.DataFrame(data=unweighted_pre_study_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes",'unweighted_pre_study_RSA.csv'))
+    del temp_df
+
     unweighted_pre_post_comp=np.corrcoef(non_weight_pre_comp,non_weight_post_comp)
+    temp_df=pd.DataFrame(data=unweighted_pre_post_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes",'unweighted_pre_post_RSA.csv'))
+    del temp_df
+
     unweighted_study_post_comp=np.corrcoef(non_weight_study_comp,non_weight_post_comp)
+    temp_df=pd.DataFrame(data=unweighted_study_post_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes",'unweighted_study_post_RSA.csv'))
+    del temp_df    
 
     category_pre_only=np.corrcoef(cate_repress_pre)
+    temp_df=pd.DataFrame(data=category_pre_only)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes",'scene_weight_pre_only_RSA.csv'))
+    del temp_df  
+
     category_pre_study_comp=np.corrcoef(category_weight_pre_comp,category_weight_study_comp)
+    temp_df=pd.DataFrame(data=category_pre_study_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes",'scene_weight_pre_study_RSA.csv'))
+    del temp_df  
+
     category_pre_post_comp=np.corrcoef(category_weight_pre_comp,category_weight_post_comp)
+    temp_df=pd.DataFrame(data=category_pre_post_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes",'scene_weight_pre_post_RSA.csv'))
+    del temp_df  
+
     category_study_post_comp=np.corrcoef(category_weight_study_comp,category_weight_post_comp)    
+    temp_df=pd.DataFrame(data=category_study_post_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes",'scene_weight_study_post_RSA.csv'))
+    del temp_df     
 
     item_pre_only=np.corrcoef(item_repress_pre)
+    temp_df=pd.DataFrame(data=item_pre_only)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes",'item_weight_pre_only_RSA.csv'))
+    del temp_df  
+
     item_pre_study_comp=np.corrcoef(item_repress_pre_comp,item_repress_study_comp)
+    temp_df=pd.DataFrame(data=item_pre_study_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes",'item_weight_pre_study_RSA.csv'))
+    del temp_df  
+
     item_pre_post_comp=np.corrcoef(item_repress_pre_comp,item_repress_post_comp)
+    temp_df=pd.DataFrame(data=item_pre_post_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes",'item_weight_pre_post_RSA.csv'))
+    del temp_df 
+
     item_study_post_comp=np.corrcoef(item_repress_study_comp,item_repress_post_comp)
+    temp_df=pd.DataFrame(data=item_study_post_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes",'item_weight_study_post_RSA.csv'))
+    del temp_df     
 
     #now lets plot all of these and save:
     if not os.path.exists(os.path.join(container_path,"sub-0%s" % subID,"RSA")): os.makedirs(os.path.join(container_path,"sub-0%s" % subID,"RSA"),exist_ok=True)
@@ -574,7 +627,7 @@ for subID in subs:
     plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"RSA",'item_weighted_pre_vs_study.png'))
     plt.clf()                         
 
-    fig=sns.heatmap(item_pre_study_comp)
+    fig=sns.heatmap(item_pre_post_comp)
     fig.set_xlabel('Total Trial #')
     fig.set_ylabel('Total Trial #')
     fig.set_title('RSA - Item weighted - Prelocalizer vs. Post')    
@@ -805,3 +858,112 @@ for subID in subs:
 
     print("Subject is done... saving everything")
     print("===============================================================================")    
+
+#now I want to take the subject level "fidelity" results and look at it on a group level - I will also want to quantify the off diagonal of the RSA to random pairs
+group_item_weighted_pre_post=pd.DataFrame()
+group_item_weighted_study_post=pd.DataFrame()
+group_item_weighted_pre_study=pd.DataFrame()
+
+group_cate_weighted_pre_post=pd.DataFrame()
+group_cate_weighted_study_post=pd.DataFrame()
+group_cate_weighted_pre_study=pd.DataFrame()
+
+group_unweighted_pre_post=pd.DataFrame()
+group_unweighted_study_post=pd.DataFrame()
+group_unweighted_pre_study=pd.DataFrame()
+
+for subID in subs:
+    data_path=os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes")
+
+    item_pre_post=find('item*pre*post*',data_path)
+    group_item_weighted_pre_post=group_item_weighted_pre_post.append(pd.read_csv(item_pre_post[0],usecols=[1,2,3]),ignore_index=True)
+
+    item_study_post=find('item*study*post*',data_path)
+    group_item_weighted_study_post=group_item_weighted_study_post.append(pd.read_csv(item_study_post[0],usecols=[1,2,3]),ignore_index=True)
+
+    item_pre_study=find('item*pre*study*',data_path)
+    group_item_weighted_pre_study=group_item_weighted_pre_study.append(pd.read_csv(item_pre_study[0],usecols=[1,2,3]),ignore_index=True)
+
+    cate_pre_post=find('scene*pre*post*',data_path)
+    group_cate_weighted_pre_post=group_cate_weighted_pre_post.append(pd.read_csv(cate_pre_post[0],usecols=[1,2,3]),ignore_index=True)
+
+    cate_study_post=find('scene*study*post*',data_path)
+    group_cate_weighted_study_post=group_cate_weighted_study_post.append(pd.read_csv(cate_study_post[0],usecols=[1,2,3]),ignore_index=True)
+
+    cate_pre_study=find('scene*pre*study*',data_path)
+    group_cate_weighted_pre_study=group_cate_weighted_pre_study.append(pd.read_csv(cate_study_post[0],usecols=[1,2,3]),ignore_index=True)
+
+    un_pre_post=find('unweighted*pre*post*',data_path)
+    group_unweighted_pre_post=group_unweighted_pre_post.append(pd.read_csv(un_pre_post[0],usecols=[1,2,3]),ignore_index=True)
+
+    un_study_post=find('unweighted*study*post*',data_path)
+    group_unweighted_study_post=group_unweighted_study_post.append(pd.read_csv(un_study_post[0],usecols=[1,2,3]),ignore_index=True)
+
+    un_pre_study=find('unweighted*pre*study*',data_path)
+    group_unweighted_pre_study=group_unweighted_pre_study.append(pd.read_csv(un_pre_study[0],usecols=[1,2,3]),ignore_index=True)
+
+
+if not os.path.exists(os.path.join(container_path,"group_model","Representational_Changes")): os.makedirs(os.path.join(container_path,"group_model","Representational_Changes"),exist_ok=True)
+#plot and save the figures of the data - Pre vs Post
+fig=sns.barplot(data=group_item_weighted_pre_post)
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity')
+fig.set_title('Item Weighted (Group Level) - Pre vs. Post')
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes",'Group_Item_Weighted_pre_post_summary.png'))
+plt.clf() 
+
+fig=sns.barplot(data=group_item_weighted_study_post)
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity')
+fig.set_title('Item Weighted (Group Level) - Study vs. Post')
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes",'Group_Item_Weighted_study_post_summary.png'))
+plt.clf() 
+
+fig=sns.barplot(data=group_item_weighted_pre_study)
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity')
+fig.set_title('Item Weighted (Group Level) - Pre vs. Study')
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes",'Group_Item_Weighted_pre_study_summary.png'))
+plt.clf() 
+
+fig=sns.barplot(data=group_cate_weighted_pre_post)
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity')
+fig.set_title('Scene Weighted (Group Level) - Pre vs. Post')
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes",'Group_Scene_Weighted_pre_post_summary.png'))
+plt.clf() 
+
+fig=sns.barplot(data=group_cate_weighted_study_post)
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity')
+fig.set_title('Scene Weighted (Group Level) - Study vs. Post')
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes",'Group_Scene_Weighted_study_post_summary.png'))
+plt.clf() 
+
+fig=sns.barplot(data=group_cate_weighted_pre_study)
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity')
+fig.set_title('Scene Weighted (Group Level) - Pre vs. Study')
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes",'Group_Scene_Weighted_pre_study_summary.png'))
+plt.clf() 
+
+fig=sns.barplot(data=group_unweighted_pre_post)
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity')
+fig.set_title('Unweighted (Group Level) - Pre vs. Post')
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes",'Group_Unweighted_pre_post_summary.png'))
+plt.clf() 
+
+fig=sns.barplot(data=group_unweighted_study_post)
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity')
+fig.set_title('Unweighted (Group Level) - Study vs. Post')
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes",'Group_Unweighted_study_post_summary.png'))
+plt.clf() 
+
+fig=sns.barplot(data=group_unweighted_pre_study)
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity')
+fig.set_title('Unweighted (Group Level) - Pre vs. study')
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes",'Group_Unweighted_pre_study_summary.png'))
+plt.clf() 
