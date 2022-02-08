@@ -24,6 +24,8 @@ from nilearn.signal import clean
 from scipy import stats
 from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score
+from joblib import Parallel, delayed
+
 
 subs=['02','03','04']
 brain_flag='MNI'
@@ -72,7 +74,7 @@ def item_representation_post(subID):
   
     #set up the path to the files and then moved into that directory
 
-    localizer_files=find('*preremoval*bold*.nii.gz',bold_path)
+    localizer_files=find('*postremoval*bold*.nii.gz',bold_path)
     
     if brain_flag=='MNI':
         pattern = '*MNI*'
@@ -84,7 +86,7 @@ def item_representation_post(subID):
         localizer_files = fnmatch.filter(localizer_files,pattern2)
         
     localizer_files.sort()
-    mask_path=os.path.join('/scratch/06873/zbretton/fmriprep/group_model/group_category_lvl2/','group_scene_%s_mask.nii.gz' % brain_flag)    
+    mask_path=os.path.join('/scratch/06873/zbretton/fmriprep/group_MNI_VTC_mask.nii.gz')
     mask=nib.load(mask_path)
     
     #load in category mask that was created from the first GLM  
@@ -94,12 +96,12 @@ def item_representation_post(subID):
     #First we are removing the confounds
     #get all the folders within the bold path
     #confound_folders=[x[0] for x in os.walk(bold_path)]
-    localizer_confounds_1=find('*preremoval*1*confounds*.tsv',bold_path)
-    localizer_confounds_2=find('*preremoval*2*confounds*.tsv',bold_path)
-    localizer_confounds_3=find('*preremoval*3*confounds*.tsv',bold_path)
-    localizer_confounds_4=find('*preremoval*4*confounds*.tsv',bold_path)
-    localizer_confounds_5=find('*preremoval*5*confounds*.tsv',bold_path)
-    localizer_confounds_6=find('*preremoval*6*confounds*.tsv',bold_path)
+    localizer_confounds_1=find('*postremoval*1*confounds*.tsv',bold_path)
+    localizer_confounds_2=find('*postremoval*2*confounds*.tsv',bold_path)
+    localizer_confounds_3=find('*postremoval*3*confounds*.tsv',bold_path)
+    localizer_confounds_4=find('*postremoval*4*confounds*.tsv',bold_path)
+    localizer_confounds_5=find('*postremoval*5*confounds*.tsv',bold_path)
+    localizer_confounds_6=find('*postremoval*6*confounds*.tsv',bold_path)
 
     
     confound_run1 = pd.read_csv(localizer_confounds_1[0],sep='\t')
@@ -135,16 +137,16 @@ def item_representation_post(subID):
 
     run_list=np.concatenate((run1,run2,run3,run4,run5,run6))    
     #clean data ahead of the GLM
-    img_clean=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore',mask_img=mask,confounds=localizer_confounds)
+    img_clean_scene=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore',mask_img=mask,confounds=localizer_confounds)
     '''load in the denoised bold data and events file'''
     events = pd.read_csv('/work/06873/zbretton/ls6/repclear_dataset/BIDS/task-postremoval_events.tsv',sep='\t')
     #I then relabel that trial of the face or scene as "face_trial#" or "scene_trial#" and then label rest and all other trials as "other"
     #I can either do this in one loop, or two consecutive
 
-    #I want to ensure that "trial" is the # of face (e.g., first instance of "face" is trial=1, second is trial=2...)
+    #I want to ensure that "trial" is the # of scene (e.g., first instance of "scene" is trial=1, second is trial=2...)
     scene_trials=events.trial_type.value_counts().scene
-    #so this will give us a sense of total trials for these two conditions
-        #next step is to then get the index of these conditions, and then use the trial# to iterate through the indexes properly
+    #so this will give us a sense of total trials for the condition
+        #next step is to then get the index of the conditions, and then use the trial# to iterate through the indexes properly
 
     temp_events=events.copy() #copy the original events list, so that we can convert the "faces" and "scenes" to include the trial # (which corresponds to a unique image)
     scene_index=[i for i, n in enumerate(temp_events['trial_type']) if n == 'scene']#this will find the nth occurance of a desired value in the list    
@@ -183,5 +185,5 @@ def item_representation_post(subID):
         del trial_pattern, trial_pattern_nii, affine_mat, onset, out_folder, output_name, hdr
     print('subject finished')
 
-Parallel(n_jobs=len(subs))(delayed(item_representation_study)(i) for i in subs)    
+Parallel(n_jobs=len(subs))(delayed(item_representation_post)(i) for i in subs)    
         

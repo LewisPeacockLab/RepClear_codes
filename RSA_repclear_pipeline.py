@@ -111,10 +111,18 @@ for subID in subs:
 
     #lets pull out the study data here:
     tim_df2 = pd.read_csv(tim_path)
-    tim_df2 = tim_df2[tim_df2["phase"]==3] #phase 2 is pre-localizer
+    tim_df2 = tim_df2[tim_df2["phase"]==3] #phase 3 is study
     tim_df2 = tim_df2.sort_values(by=["category", "subcategory", "trial_id"])
     
     study_scene_order = tim_df2[tim_df2["category"]==1][["trial_id","image_id","condition"]]
+
+    #lets pull out the postlocalizer data here:
+    tim_df3 = pd.read_csv(tim_path)
+    tim_df3 = tim_df3[tim_df3["phase"]==4] #phase 4 is post-localizer
+    tim_df3 = tim_df3.sort_values(by=["category", "subcategory", "trial_id"])
+
+    post_scene_order = tim_df3[tim_df3["category"]==1][["trial_id","image_id","condition"]]
+
 
     print(f"Running RSA for sub{subID}...")
 
