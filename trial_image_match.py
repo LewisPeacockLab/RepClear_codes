@@ -8,18 +8,24 @@ import scipy.io
 def make_tim_file():
     # ===== paths & consts
     # pre assigned image number file
-    img_path = "./params/manual_pre_assign_image_v3.csv" 
+    img_path = "/Users/zb3663/Desktop/repclear_preprocessed/manual_pre_assign_image_v3.csv" 
     # BOX path for .mat files
-    data_dir = "/Users/sunaguo/Box/LewPeaLabBox/STUDY/RepClear/v2_fmri"
+    data_dir = "/Users/zb3663/Desktop/repclear_preprocessed/Behavioral"
     # output directory
-    out_dir = "./param"
+    out_dir = "/Users/zb3663/Desktop/repclear_preprocessed/params"
 
     # consts
     projID = "repclear"
-    subIDs_dict = {"202110291": "004", 
+    subIDs_dict = {"202202061":'008',
+                "202202231":'009',
+                "202201261":'010',
+                "202201262":'005',
+                "202201301":'006',
+                "202202022":'007',
+                "202110291": "004", 
                 "202110221": "003", 
                 "202110211": "002"}
-    subIDs = ["202110291", "202110221", "202110211"]  # projID_subID
+    subIDs = ["202202061","202202231","202201261","202201262","202201301","202202022","202110291","202110221","202110211"]  # projID_subID
     fname = "dataMat_repclear_fmri_study_s_{}_run01.mat"
     phases = {1: "pre-exposure", 
             2: "pre-localizer", 
@@ -43,13 +49,18 @@ def make_tim_file():
             print(trial_df.shape)
             # for storage
             phase_df = pd.DataFrame(columns=["phase", "trial_id", "image_id", "image_name", "category", "subcategory", 
-                                "condition", "familiarity_mean", "familiarity_se"])
+                                "old_novel","condition", "familiarity_mean", "familiarity_se"])
             
             # get ready data
             phase_df["phase"] = trial_df["phase"]
             phase_df["image_id"] = trial_df["image_id"]
             phase_df["category"] = trial_df["category"]
             phase_df["subcategory"] = trial_df["subcategory"]
+
+            if ((phase == 1)|(phase == 3)):
+                phase_df["old_novel"] = np.zeros(len(phase_df)).astype(int)                
+            else:
+                phase_df["old_novel"] = trial_df["old_novel"]
             
             if phase == 1:  # no condition in phase 1
                 phase_df["condition"] = (np.zeros(len(phase_df)) - 1).astype(int)

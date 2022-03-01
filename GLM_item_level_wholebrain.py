@@ -12,8 +12,8 @@ import pandas as pd
 from joblib import Parallel, delayed
 
 
-subs=['02','03','04']
-brain_flag='MNI'
+subs=['02','03','04','05','06','07','08','09','10']
+brain_flag='T1w'
 
 #code for the item level weighting for faces and scenes
 
@@ -51,7 +51,7 @@ def GLM_item_level(subID):
     print('Running sub-0%s...' %subID)
     #define the subject
     sub = ('sub-0%s' % subID)
-    container_path='/scratch/06873/zbretton/fmriprep'
+    container_path='/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
   
     bold_path=os.path.join(container_path,sub,'func/')
     os.chdir(bold_path)
@@ -74,7 +74,14 @@ def GLM_item_level(subID):
         
     brain_mask_path.sort()
     localizer_files.sort()
-    vtc_mask_path=os.path.join('/scratch/06873/zbretton/fmriprep/group_%s_VTC_mask.nii.gz' % brain_flag)
+
+    if brain_flag=='MNI':
+
+        vtc_mask_path=os.path.join('/scratch/06873/zbretton/fmriprep/group_%s_VTC_mask.nii.gz' % brain_flag)
+
+    else:
+        vtc_mask_path=os.path.join('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_preremoval_%s_mask.nii.gz' % brain_flag)
+
 
     vtc_mask=nib.load(vtc_mask_path)   
 
@@ -183,6 +190,9 @@ def GLM_item_level(subID):
     #I want to ensure that "trial" is the # of face (e.g., first instance of "face" is trial=1, second is trial=2...)
     face_trials=events.trial_type.value_counts().face
     scene_trials=events.trial_type.value_counts().scene
+
+    #create background image for reports:
+    mean_img_ = mean_img(img)
     #so this will give us a sense of total trials for these two conditions
         #next step is to then get the index of these conditions, and then use the trial# to iterate through the indexes properly
 
@@ -227,9 +237,12 @@ def GLM_item_level(subID):
         contrasts = {'face_trial%s' % (trial+1): item_contrast}
 
         '''point to and if necessary create the output folder'''
-        out_folder = os.path.join(container_path,sub,'preremoval_item_level')
-        if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
-
+        if brain_flag=='MNI':
+            out_folder = os.path.join(container_path,sub,'preremoval_item_level')
+            if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
+        else:
+            out_folder = os.path.join(container_path,sub,'preremoval_item_level_T1w')
+            if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
         #as of now it is labeling the trial estimates by the trial number, which is helpful since I can look at their individual design matricies to see which stim that is
         #but another way could be to load in the list for that sub right here, grab the number or name of that stim from the trial index and use that to save the name
 
@@ -239,7 +252,7 @@ def GLM_item_level(subID):
             nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_full_zmap.nii.gz'))
             t_map = model_face.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
             nib.save(t_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_full_tmap.nii.gz'))  
-            file_data = model_face.generate_report(contrasts)
+            file_data = model_face.generate_report(contrasts,bg_img=mean_img_)
             file_data.save_as_html(os.path.join(out_folder,f"{contrast}_{brain_flag}_full_report.html")) 
 
         del item_contrast
@@ -274,8 +287,12 @@ def GLM_item_level(subID):
         contrasts = {'scene_trial%s' % (trial+1): item_contrast}
 
         '''point to and if necessary create the output folder'''
-        out_folder = os.path.join(container_path,sub,'preremoval_item_level')
-        if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True) 
+        if brain_flag=='MNI':
+            out_folder = os.path.join(container_path,sub,'preremoval_item_level')
+            if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
+        else:
+            out_folder = os.path.join(container_path,sub,'preremoval_item_level_T1w')
+            if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
 
         #as of now it is labeling the trial estimates by the trial number, which is helpful since I can look at their individual design matricies to see which stim that is
         #but another way could be to load in the list for that sub right here, grab the number or name of that stim from the trial index and use that to save the name
@@ -286,7 +303,7 @@ def GLM_item_level(subID):
             nib.save(z_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_full_zmap.nii.gz'))
             t_map = model_scene.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
             nib.save(t_map,os.path.join(out_folder,f'{contrast}_{brain_flag}_full_tmap.nii.gz'))  
-            file_data = model_scene.generate_report(contrasts)
+            file_data = model_scene.generate_report(contrasts,bg_img=mean_img_)
             file_data.save_as_html(os.path.join(out_folder,f"{contrast}_{brain_flag}_full_report.html"))
         #make sure to clear the item constrast to make sure we dont carry it over in to the next trial     
         del item_contrast

@@ -10,7 +10,7 @@ import fnmatch
 import numpy as np
 import pandas as pd
 
-subs=['02','03','04']
+subs=['02','03','04','05','06','07','08','09','10']
 brain_flag='MNI'
 
 
@@ -50,7 +50,7 @@ for num in range(len(subs)):
     print('Running sub-0%s...' %sub_num)
     #define the subject
     sub = ('sub-0%s' % sub_num)
-    container_path='/scratch/06873/zbretton/fmriprep'
+    container_path='/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
   
     bold_path=os.path.join(container_path,sub,'func/')
     os.chdir(bold_path)
@@ -73,10 +73,15 @@ for num in range(len(subs)):
         
     brain_mask_path.sort()
     localizer_files.sort()
-    vtc_mask_path=os.path.join('/scratch/06873/zbretton/fmriprep/group_%s_VTC_mask.nii.gz' % brain_flag)
-    
-    #load the group VTC mask
-    vtc_mask=nib.load(vtc_mask_path)   
+    if brain_flag=='MNI':
+
+        vtc_mask_path=os.path.join('/scratch/06873/zbretton/fmriprep/group_%s_VTC_mask.nii.gz' % brain_flag)
+
+    else:
+        vtc_mask_path=os.path.join('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_preremoval_%s_mask.nii.gz' % brain_flag)
+
+
+    vtc_mask=nib.load(vtc_mask_path)  
 
     #img=nib.concat_images(localizer_files,axis=3)
 
@@ -191,6 +196,8 @@ for num in range(len(subs)):
     '''grab the number of regressors in the model'''
     n_columns = model_face.design_matrices_[0].shape[-1]
     #this is the same for both conditions
+    #create background image for reports:
+    mean_img_ = mean_img(img)
 
     '''define the contrasts - the order of trial types is stored in model.design_matrices_[0].columns
        pad_contrast() adds 0s to the end of a vector in the case that other regressors are modeled, but not included in the primary contrasts'''
@@ -199,7 +206,7 @@ for num in range(len(subs)):
     contrasts = {'stimuli':pad_contrast([1],n_columns)}
 
     '''point to and if necessary create the output folder'''
-    out_folder = os.path.join(container_path,sub,'preremoval_lvl1')
+    out_folder = os.path.join(container_path,sub,'preremoval_lvl1_%s' % brain_flag)
     if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
 
     '''compute and save the contrasts'''
@@ -208,19 +215,19 @@ for num in range(len(subs)):
         nib.save(z_map_f,os.path.join(out_folder,f'face_{contrast}_{brain_flag}_zmap.nii.gz'))
         t_map_f = model_face.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
         nib.save(t_map_f,os.path.join(out_folder,f'face_{contrast}_{brain_flag}_tmap.nii.gz'))  
-        file_data_f = model_face.generate_report(contrasts[contrast])
+        file_data_f = model_face.generate_report(contrasts[contrast],bg_img=mean_img_)
         file_data_f.save_as_html(os.path.join(out_folder,f"face_{contrast}_{brain_flag}_report.html"))      
 
         z_map_s = model_scene.compute_contrast(contrasts[contrast],output_type='z_score')
         nib.save(z_map_s,os.path.join(out_folder,f'scene_{contrast}_{brain_flag}_zmap.nii.gz'))
         t_map_s = model_scene.compute_contrast(contrasts[contrast],stat_type='t',output_type='stat')
         nib.save(t_map_s,os.path.join(out_folder,f'scene_{contrast}_{brain_flag}_tmap.nii.gz'))  
-        file_data_s = model_scene.generate_report(contrasts[contrast])
+        file_data_s = model_scene.generate_report(contrasts[contrast],bg_img=mean_img_)
         file_data_s.save_as_html(os.path.join(out_folder,f"scene_{contrast}_{brain_flag}_report.html"))         
 
 ####################################
 #level 2 GLM
-subs=['sub-002','sub-003','sub-004']
+subs=['sub-002','sub-003','sub-004','sub-005','sub-006','sub-007','sub-008','sub-009','sub-010']
 contrasts = ['face','scene']
 
 '''point to the save directory'''
@@ -229,7 +236,7 @@ if not os.path.exists(out_dir):os.makedirs(out_dir,exist_ok=True)
 
 for contrast in contrasts:
     '''load in the subject maps'''
-    maps = [nib.load(os.path.join(container_path,sub,'preremoval_lvl1',f'{contrast}_stimuli_{brain_flag}_zmap.nii.gz')) for sub in subs]
+    maps = [nib.load(os.path.join(container_path,sub,'preremoval_lvl1_%s' % brain_flag,f'{contrast}_stimuli_{brain_flag}_zmap.nii.gz')) for sub in subs]
 
     '''a simple group mean design'''
     design_matrix = pd.DataFrame([1] * len(maps), columns=['intercept'])

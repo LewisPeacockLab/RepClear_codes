@@ -27,8 +27,8 @@ from sklearn.metrics import roc_auc_score
 from joblib import Parallel, delayed
 
 
-subs=['02','03','04']
-brain_flag='MNI'
+subs=['02','03','04','05','06','07','08','09','10']
+brain_flag='T1w'
 
 #code for the item level voxel activity for faces and scenes
 
@@ -66,7 +66,7 @@ def item_representation_study(subID):
     print('Running sub-0%s...' %subID)
     #define the subject
     sub = ('sub-0%s' % subID)
-    container_path='/scratch/06873/zbretton/fmriprep'
+    container_path='/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
   
     bold_path=os.path.join(container_path,sub,'func/')
     os.chdir(bold_path)
@@ -85,13 +85,30 @@ def item_representation_study(subID):
         bold_files = fnmatch.filter(bold_files,pattern2)
         
     bold_files.sort()
-    mask_path=os.path.join('/scratch/06873/zbretton/fmriprep/group_MNI_VTC_mask.nii.gz')
+    if brain_flag=='T1w':
+        mask_path=os.path.join('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_preremoval_%s_mask.nii.gz' % brain_flag)
+        
+        mask=nib.load(mask_path)    
+    else:
+        mask_path=os.path.join('/scratch/06873/zbretton/fmriprep/group_MNI_VTC_mask.nii.gz') #VTC
 
-    mask=nib.load(mask_path)   
+        mask=nib.load(mask_path) 
+    mask_flag='VTC'
     
     #load in category mask that was created from the first GLM  
+    #load data if it already exists, otherwise load it directly:
+    if os.path.exists(os.path.join(bold_path,'sub-0%s_%s_study.nii.gz' % (subID,brain_flag))):
+            
+        img=nib.load(os.path.join(bold_path,'sub-0%s_%s_study.nii.gz' % (subID,brain_flag)))
+        print('%s Concatenated Study BOLD Loaded...' % (brain_flag))
+    else:
+        img=nib.concat_images(bold_files,axis=3)
 
-    img=nib.concat_images(bold_files,axis=3)
+        output_name = os.path.join(bold_path,'sub-0%s_%s_study.nii.gz' % (subID,brain_flag))
+
+        nib.save(img, output_name)  # Save the volume  
+
+        print('%s Concatenated Study BOLD...saved' % (brain_flag))    #to be used to filter the data
     #to be used to filter the data
     #First we are removing the confounds
     #get all the folders within the bold path
@@ -125,8 +142,23 @@ def item_representation_study(subID):
     run3=np.full(run3_length,3)  
 
     run_list=np.concatenate((run1,run2,run3))    
-    #clean data ahead of the GLM
-    img_clean=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore',mask_img=mask,confounds=study_confounds)
+    #clean data ahead of slicing the data up
+    if os.path.exists(os.path.join(bold_path,'sub-0%s_%s_study_%s_cleaned.nii.gz' % (subID,brain_flag,mask_flag))):
+        
+        img_clean=nib.load(os.path.join(bold_path,'sub-0%s_%s_study_%s_cleaned.nii.gz' % (subID,brain_flag,mask_flag)))
+
+        print('%s Concatenated, Cleaned and %s Masked Study BOLD...LOADED' % (brain_flag,mask_flag))
+        del img
+    else:
+        print('Cleaning and Masking BOLD data...')
+        img_clean=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore',mask_img=mask,confounds=study_confounds)
+
+        output_name = os.path.join(bold_path,'sub-0%s_%s_study_%s_cleaned.nii.gz' % (subID,brain_flag,mask_flag))
+
+        nib.save(img_clean, output_name)  # Save the volume  
+
+        print('%s Concatenated, Cleaned and %s Masked Study BOLD...saved' % (brain_flag,mask_flag))
+        del img   
 
     '''load in the denoised bold data and events file'''
     events = pd.read_csv('/work/06873/zbretton/ls6/repclear_dataset/BIDS/task-study_events.tsv',sep='\t')
@@ -158,7 +190,7 @@ def item_representation_study(subID):
         dimsize = img_clean.header.get_zooms()
 
         '''point to and if necessary create the output folder'''
-        out_folder = os.path.join(container_path,sub,'item_representations')
+        out_folder = os.path.join(container_path,sub,'item_representations_%s' % brain_flag)
         if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
 
         

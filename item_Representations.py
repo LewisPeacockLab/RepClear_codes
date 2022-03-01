@@ -27,8 +27,8 @@ from sklearn.metrics import roc_auc_score
 from joblib import Parallel, delayed
 
 
-subs=['02','03','04']
-brain_flag='MNI'
+subs=['02','03','04','05','06','07','08','09','10']
+brain_flag='T1w' #T1w
 
 #code for the item level voxel activity for faces and scenes
 
@@ -67,7 +67,7 @@ def item_representation(subID):
     print('Running sub-0%s...' %subID)
     #define the subject
     sub = ('sub-0%s' % subID)
-    container_path='/scratch/06873/zbretton/fmriprep'
+    container_path='/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
   
     bold_path=os.path.join(container_path,sub,'func/')
     os.chdir(bold_path)
@@ -86,14 +86,33 @@ def item_representation(subID):
         localizer_files = fnmatch.filter(localizer_files,pattern2)
         
     localizer_files.sort()
-    mask_path=os.path.join('/scratch/06873/zbretton/fmriprep/group_MNI_VTC_mask.nii.gz')
 
-    mask=nib.load(mask_path)   
+    if brain_flag=='T1w':
+        mask_path=os.path.join('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_preremoval_%s_mask.nii.gz' % brain_flag)
+        
+        mask=nib.load(mask_path)    
+    else:
+        mask_path=os.path.join('/scratch/06873/zbretton/fmriprep/group_MNI_VTC_mask.nii.gz') #VTC
 
-    
-    #load in category mask that was created from the first GLM  
+        mask=nib.load(mask_path)   
 
-    img=nib.concat_images(localizer_files,axis=3)
+    mask_flag='VTC'
+    #load in category mask that was created from the first GLM (we can use this to restrict to Scene voxels if we want later)  
+
+    #load data if it already exists, otherwise load it directly:
+    if os.path.exists(os.path.join(bold_path,'sub-0%s_%s_preremoval.nii.gz' % (subID,brain_flag))):
+            
+        img=nib.load(os.path.join(bold_path,'sub-0%s_%s_preremoval.nii.gz' % (subID,brain_flag)))
+        print('%s Concatenated Localizer BOLD Loaded...' % (brain_flag))
+    else:
+        img=nib.concat_images(localizer_files,axis=3)
+
+        output_name = os.path.join(bold_path,'sub-0%s_%s_preremoval.nii.gz' % (subID,brain_flag))
+
+        nib.save(img, output_name)  # Save the volume  
+
+        print('%s Concatenated Localizer BOLD...saved' % (brain_flag))
+
     #to be used to filter the data
     #First we are removing the confounds
     #get all the folders within the bold path
@@ -138,10 +157,29 @@ def item_representation(subID):
     run6=np.full(run6_length,6)    
 
     run_list=np.concatenate((run1,run2,run3,run4,run5,run6))    
-    #clean data ahead of the GLM
-    img_clean=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore',mask_img=mask,confounds=localizer_confounds)
+
+    #clean data ahead of slicing the data up
+    if os.path.exists(os.path.join(bold_path,'sub-0%s_%s_preremoval_%s_cleaned.nii.gz' % (subID,brain_flag,mask_flag))):
+        
+        img_clean=nib.load(os.path.join(bold_path,'sub-0%s_%s_preremoval_%s_cleaned.nii.gz' % (subID,brain_flag,mask_flag)))
+
+        print('%s Concatenated, Cleaned and %s Masked Localizer BOLD...LOADED' % (brain_flag,mask_flag))
+        del img
+    else:
+        print('Cleaning and Masking BOLD data...')
+        img_clean=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore',mask_img=mask,confounds=localizer_confounds)
+
+        output_name = os.path.join(bold_path,'sub-0%s_%s_preremoval_%s_cleaned.nii.gz' % (subID,brain_flag,mask_flag))
+
+        nib.save(img_clean, output_name)  # Save the volume  
+
+        print('%s Concatenated, Cleaned and %s Masked Localizer BOLD...saved' % (brain_flag,mask_flag))
+        del img
+
+
+
     '''load in the denoised bold data and events file'''
-    events = pd.read_csv('/work/06873/zbretton/ls6/repclear_dataset/BIDS/task-preremoval_events.tsv',sep='\t')
+    events = pd.read_csv('/scratch/06873/zbretton/repclear_dataset/BIDS/task-preremoval_events.tsv',sep='\t')
     #now will need to create a loop where I iterate over the face & scene indexes
     #I then relabel that trial of the face or scene as "face_trial#" or "scene_trial#" and then label rest and all other trials as "other"
     #I can either do this in one loop, or two consecutive
@@ -173,7 +211,7 @@ def item_representation(subID):
         dimsize = img_clean.header.get_zooms()
 
         '''point to and if necessary create the output folder'''
-        out_folder = os.path.join(container_path,sub,'item_representations')
+        out_folder = os.path.join(container_path,sub,'item_representations_%s' % brain_flag)
         if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
 
         
@@ -203,7 +241,7 @@ def item_representation(subID):
         dimsize = img_clean.header.get_zooms()
 
         '''point to and if necessary create the output folder'''
-        out_folder = os.path.join(container_path,sub,'item_representations')
+        out_folder = os.path.join(container_path,sub,'item_representations_%s' % brain_flag)
         if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
 
         

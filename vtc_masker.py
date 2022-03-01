@@ -20,10 +20,10 @@ from sklearn.model_selection import PredefinedSplit, cross_validate, cross_val_p
 from sklearn.feature_selection import VarianceThreshold, f_classif, SelectKBest
 from sklearn.preprocessing import StandardScaler
 
-subs=['02','03','04']
+subs=['02','03','04','05','06','07','08','09','10']
 
 
-brain_flag='MNI'  #or MNI
+brain_flag='T1w'  #or MNI
 task_flag='preremoval' #preremoval, study, postremoval 
 
 for num in range(len(subs)):
@@ -31,7 +31,7 @@ for num in range(len(subs)):
     
     #define the subject
     sub = ('sub-0%s' % sub_num)
-    container_path='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
+    container_path='/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
     
     bold_path=os.path.join(container_path,sub,'func/')
     os.chdir(bold_path)
