@@ -302,11 +302,13 @@ for subID in subs:
     change_iw_maintain_dict={}  
     change_iw_replace_dict={}
     change_iw_suppress_dict={}
+    change_iw_preexp_dict={}
 
     #these are used to hold the fidelity changes from pre to post (unweighted)
     change_uw_maintain_dict={}  
     change_uw_replace_dict={}
-    change_uw_suppress_dict={}    
+    change_uw_suppress_dict={}   
+    change_uw_preexp_dict={} 
 
     #these are used to hold the fidelity changes from pre to post (scene-weighted)
     change_cw_maintain_dict={}  
@@ -370,10 +372,10 @@ for subID in subs:
         non_weight_pre_comp[counter]=masked_bolds_arr_1[pre_trial_num-1,:]
         non_weight_post_comp[counter]=masked_bolds_arr_3[post_trial_num-1,:]
 
-        category_weight_study_comp[counter]=cate_repress_study[trial-1,:]
-        category_weight_pre_comp[counter]=cate_repress_pre[pre_trial_num-1,:]
-        category_weight_post_comp[counter]=cate_repress_post[post_trial_num-1,:]
-
+        if brain_flag=='MNI':
+            category_weight_study_comp[counter]=cate_repress_study[trial-1,:]
+            category_weight_pre_comp[counter]=cate_repress_pre[pre_trial_num-1,:]
+            category_weight_post_comp[counter]=cate_repress_post[post_trial_num-1,:]
 
         #I am using this counter to preserve the ordering that results from the csv's sorting at the top
         #that had the trials in order but segmented by subcate, which I think is a better organization since actual trial number is not needed
@@ -394,12 +396,13 @@ for subID in subs:
         #This is to get the fidelity of the current item/trial from pre to study (unweighted)
         pre_study_trial_uw_fidelity=np.corrcoef(non_weight_pre_comp[counter,:],non_weight_study_comp[counter,:])            
 
-        #This is to get the fidelity of the current item/trial from pre to post (scene-weighted)
-        pre_post_trial_cw_fidelity=np.corrcoef(category_weight_pre_comp[counter,:],category_weight_post_comp[counter,:])
-        #This is to get the fidelity of the current item/trial from study to post (scene-weighted)
-        study_post_trial_cw_fidelity=np.corrcoef(category_weight_study_comp[counter,:],category_weight_post_comp[counter,:])        
-        #This is to get the fidelity of the current item/trial from pre to study (scene-weighted)
-        pre_study_trial_cw_fidelity=np.corrcoef(category_weight_pre_comp[counter,:],category_weight_study_comp[counter,:])  
+        if brain_flag=='MNI':
+            #This is to get the fidelity of the current item/trial from pre to post (scene-weighted)
+            pre_post_trial_cw_fidelity=np.corrcoef(category_weight_pre_comp[counter,:],category_weight_post_comp[counter,:])
+            #This is to get the fidelity of the current item/trial from study to post (scene-weighted)
+            study_post_trial_cw_fidelity=np.corrcoef(category_weight_study_comp[counter,:],category_weight_post_comp[counter,:])        
+            #This is to get the fidelity of the current item/trial from pre to study (scene-weighted)
+            pre_study_trial_cw_fidelity=np.corrcoef(category_weight_pre_comp[counter,:],category_weight_study_comp[counter,:])  
 
 
         #unoperated is being dropped for now since this loop is focused on the study stims
@@ -410,83 +413,94 @@ for subID in subs:
 
             change_iw_maintain_dict['image ID: %s' % study_image_id] = pre_post_trial_iw_fidelity[1][0]
             change_uw_maintain_dict['image ID: %s' % study_image_id] = pre_post_trial_uw_fidelity[1][0]
-            change_cw_maintain_dict['image ID: %s' % study_image_id] = pre_post_trial_cw_fidelity[1][0]
 
             modify_iw_maintain_dict['image ID: %s' % study_image_id] = study_post_trial_iw_fidelity[1][0]
             modify_uw_maintain_dict['image ID: %s' % study_image_id] = study_post_trial_uw_fidelity[1][0]
-            modify_cw_maintain_dict['image ID: %s' % study_image_id] = study_post_trial_cw_fidelity[1][0]      
+            if brain_flag=='MNI':
+                modify_cw_maintain_dict['image ID: %s' % study_image_id] = study_post_trial_cw_fidelity[1][0]  
+                change_cw_maintain_dict['image ID: %s' % study_image_id] = pre_post_trial_cw_fidelity[1][0]
+                cw_maintain_dict['image ID: %s' % study_image_id] = pre_study_trial_cw_fidelity[1][0]    
 
             iw_maintain_dict['image ID: %s' % study_image_id] = pre_study_trial_iw_fidelity[1][0]
             uw_maintain_dict['image ID: %s' % study_image_id] = pre_study_trial_uw_fidelity[1][0]
-            cw_maintain_dict['image ID: %s' % study_image_id] = pre_study_trial_cw_fidelity[1][0]    
 
         elif image_condition==2:
 
             change_iw_replace_dict['image ID: %s' % study_image_id] = pre_post_trial_iw_fidelity[1][0]
             change_uw_replace_dict['image ID: %s' % study_image_id] = pre_post_trial_uw_fidelity[1][0]
-            change_cw_replace_dict['image ID: %s' % study_image_id] = pre_post_trial_cw_fidelity[1][0]
 
             modify_iw_replace_dict['image ID: %s' % study_image_id] = study_post_trial_iw_fidelity[1][0]
             modify_uw_replace_dict['image ID: %s' % study_image_id] = study_post_trial_uw_fidelity[1][0]
-            modify_cw_replace_dict['image ID: %s' % study_image_id] = study_post_trial_cw_fidelity[1][0] 
 
             iw_replace_dict['image ID: %s' % study_image_id] = pre_study_trial_iw_fidelity[1][0]
             uw_replace_dict['image ID: %s' % study_image_id] = pre_study_trial_uw_fidelity[1][0]
-            cw_replace_dict['image ID: %s' % study_image_id] = pre_study_trial_cw_fidelity[1][0]              
+
+            if brain_flag=='MNI':
+                change_cw_replace_dict['image ID: %s' % study_image_id] = pre_post_trial_cw_fidelity[1][0]
+                modify_cw_replace_dict['image ID: %s' % study_image_id] = study_post_trial_cw_fidelity[1][0] 
+                cw_replace_dict['image ID: %s' % study_image_id] = pre_study_trial_cw_fidelity[1][0]              
+
 
         elif image_condition==3:
 
             change_iw_suppress_dict['image ID: %s' % study_image_id] = pre_post_trial_iw_fidelity[1][0]
             change_uw_suppress_dict['image ID: %s' % study_image_id] = pre_post_trial_uw_fidelity[1][0]
-            change_cw_suppress_dict['image ID: %s' % study_image_id] = pre_post_trial_cw_fidelity[1][0]
 
             modify_iw_suppress_dict['image ID: %s' % study_image_id] = study_post_trial_iw_fidelity[1][0]
             modify_uw_suppress_dict['image ID: %s' % study_image_id] = study_post_trial_uw_fidelity[1][0]
-            modify_cw_suppress_dict['image ID: %s' % study_image_id] = study_post_trial_cw_fidelity[1][0]
 
             iw_suppress_dict['image ID: %s' % study_image_id] = pre_study_trial_iw_fidelity[1][0]
             uw_suppress_dict['image ID: %s' % study_image_id] = pre_study_trial_uw_fidelity[1][0]
-            cw_suppress_dict['image ID: %s' % study_image_id] = pre_study_trial_cw_fidelity[1][0]  
-        
+            
+            if brain_flag=='MNI':
+                change_cw_suppress_dict['image ID: %s' % study_image_id] = pre_post_trial_cw_fidelity[1][0]
+                modify_cw_suppress_dict['image ID: %s' % study_image_id] = study_post_trial_cw_fidelity[1][0]
+                cw_suppress_dict['image ID: %s' % study_image_id] = pre_study_trial_cw_fidelity[1][0]  
+
+
         counter=counter+1
 
     #need to add a loop here about the unoperated items. I added "old_novel" to the sorting list
-    #so what we're looking for are the "3s" during Pre and Post. These are the items that are not operated and thus are the true "baseline"    
+    #so what we're looking for are the "3s" during Pre and Post. These are the items that are not operated and thus are the true "baseline"  
+
+    #pull out only the pre-exp (condition 0 in the pre_scene_order)
+
+    pre_exp_df=pre_scene_order[pre_scene_order['condition']==0]
+
+    #now we are setting up a pre_item_weighted array to correlate to the study one
+    item_preexp_pre_comp=np.zeros_like(item_repress_pre[:30,:])
+    item_preexp_post_comp = np.zeros_like(item_repress_pre[:30,:])    
+    non_weight_preexp_pre_comp=np.zeros_like(item_repress_pre[:30,:])
+    non_weight_preexp_post_comp=np.zeros_like(item_repress_pre[:30,:])    
+
     counter=0
-    for trial in pre_scene_order['trial_id'].values: 
+    for trial in pre_exp_df['trial_id'].values: 
 
-        #need to sort and grab the images that were pre-exposed... so old_novel==3. Then I can get the corrcoef from pre-post, and then save into a dict so I can add to the figures below
+        #need to sort and grab the images that were pre-exposed... Then I can get the corrcoef from pre-post, and then save into a dict so I can add to the figures below
 
+        pre_img_id = pre_exp_df['image_id'][pre_exp_df['trial_id']==trial].tolist()[0]
 
-
-        study_trial_index=study_scene_order.index[study_scene_order['trial_id']==trial].tolist()[0] #find the order 
-        study_image_id=study_scene_order.loc[study_trial_index,'image_id'] #this now uses the index of the dataframe to find the image_id
-        #study_trial_num=study_scene_order.loc[study_trial_index,'trial_id'] #now we used the image ID to find the proper trial in the post condition to link to
-
-        pre_trial_index=pre_scene_order.index[pre_scene_order['image_id']==study_image_id].tolist()[0] #find the index in the pre for this study trial
-        pre_trial_num = pre_scene_order.loc[pre_trial_index,'trial_id']
-
-        image_condition=pre_scene_order.loc[pre_trial_index,'condition']
-
-        post_trial_index=post_scene_order.index[post_scene_order['image_id']==study_image_id].tolist()[0]
+        post_trial_index=post_scene_order.index[post_scene_order['image_id']==pre_img_id].tolist()[0]
         post_trial_num = post_scene_order.loc[post_trial_index,'trial_id']
         #this mean we now know both the trial #, the image id and we can also grab the condition to help sort
 
         #now that I have the link between prelocalizer, study, and postlocalizer I can get that representation weighted with the item weight
-        item_repress_study_comp[counter]=np.multiply(masked_bolds_arr_2[trial-1,:], masked_weights_arr[pre_trial_num-1,:])
-        item_repress_pre_comp[counter]=item_repress_pre[pre_trial_num-1,:]
-        item_repress_post_comp[counter]=np.multiply(masked_bolds_arr_3[post_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])
+        item_preexp_pre_comp[counter]=item_repress_pre[trial-1,:]
+        item_preexp_post_comp[counter]=np.multiply(masked_bolds_arr_3[post_trial_num-1,:],masked_weights_arr[trial-1,:])
 
         #we will also want to filter the results like above for the two other iterations we want, non-weighted and category
-        non_weight_study_comp[counter]=masked_bolds_arr_2[trial-1,:]
-        non_weight_pre_comp[counter]=masked_bolds_arr_1[pre_trial_num-1,:]
-        non_weight_post_comp[counter]=masked_bolds_arr_3[post_trial_num-1,:]
+        non_weight_preexp_pre_comp[counter]=masked_bolds_arr_1[trial-1,:]
+        non_weight_preexp_post_comp[counter]=masked_bolds_arr_3[post_trial_num-1,:]
 
-        category_weight_study_comp[counter]=cate_repress_study[trial-1,:]
-        category_weight_pre_comp[counter]=cate_repress_pre[pre_trial_num-1,:]
-        category_weight_post_comp[counter]=cate_repress_post[post_trial_num-1,:]
+        #This is to get the fidelity of the current item/trial from pre to post (item_weighted)
+        pre_post_trial_iw_fidelity=np.corrcoef(item_repress_pre_comp[counter,:],item_repress_post_comp[counter,:])
+        #This is to get the fidelity of the current item/trial from pre to post (unweighted)
+        pre_post_trial_uw_fidelity=np.corrcoef(non_weight_pre_comp[counter,:],non_weight_post_comp[counter,:])        
 
+        change_iw_preexp_dict['image ID: %s' % pre_img_id] = pre_post_trial_iw_fidelity[1][0]
+        change_uw_preexp_dict['image ID: %s' % pre_img_id] = pre_post_trial_uw_fidelity[1][0]
 
+        counter=counter+1
     #now take the corrcoef of un-weighted to unweighted, then category weight to category weight, finally item to item
     #if everything I did above is correct (i have sanity checked it a couple times), then the order of the pre and the study are in the same trial order, which is in order but by subcategory
     #now I just need to get the corrcoefs, plot them and save... will add quanitification of changes back
@@ -553,6 +567,16 @@ for subID in subs:
     temp_df=pd.DataFrame(data=item_study_post_comp)
     temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'item_weight_study_post_RSA.csv'))
     del temp_df     
+
+    item_pre_post_preexp_comp=np.corrcoef(item_preexp_pre_comp,item_preexp_post_comp)
+    temp_df=pd.DataFrame(data=item_pre_post_preexp_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'preexp_item_weight_pre_post_RSA.csv'))
+    del temp_df     
+
+    unweighted_pre_post_preexp_comp=np.corrcoef(non_weight_preexp_pre_comp,non_weight_preexp_post_comp)
+    temp_df=pd.DataFrame(data=unweighted_pre_post_preexp_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'preexp_unweighted_pre_post_RSA.csv'))
+    del temp_df
 
     #now lets plot all of these and save:
     if not os.path.exists(os.path.join(container_path,"sub-0%s" % subID,"RSA_%s" % brain_flag)): os.makedirs(os.path.join(container_path,"sub-0%s" % subID,"RSA_%s" % brain_flag),exist_ok=True)
@@ -701,6 +725,32 @@ for subID in subs:
     plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"RSA_%s" % brain_flag,'item_weighted_study_vs_post.png'))
     plt.clf()     
 
+    fig=sns.heatmap(item_pre_post_preexp_comp)
+    fig.set_xlabel('Total Trial #')
+    fig.set_ylabel('Total Trial #')
+    fig.set_title('RSA - Item weighted - PreExp Prelocalizer vs. Post')    
+    fig.axhline([45])
+    fig.axhline([90])
+    fig.axhline([135])
+    fig.axvline([45])
+    fig.axvline([90])
+    fig.axvline([135])       
+    plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"RSA_%s" % brain_flag,'preexp_item_weighted_pre_vs_post.png'))
+    plt.clf() 
+
+    fig=sns.heatmap(unweighted_pre_post_preexp_comp)
+    fig.set_xlabel('Total Trial #')
+    fig.set_ylabel('Total Trial #')
+    fig.set_title('RSA - Unweighted - Prelocalizer vs. Postlocalizer') 
+    fig.axhline([45])
+    fig.axhline([90])
+    fig.axhline([135])
+    fig.axvline([45])
+    fig.axvline([90])
+    fig.axvline([135])       
+    plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"RSA_%s" % brain_flag,'preexp_unweighted_pre_vs_post.png'))
+    plt.clf() 
+
     # print('Average LSS Fidelity of unoperated items: %s | std: %s' % (np.array(list(LSS_unoperated_dict.values())).mean(),np.array(list(LSS_unoperated_dict.values())).std()))
     # print('Average LSS Fidelity of maintained items: %s | std: %s' % (np.array(list(LSS_maintain_dict.values())).mean(),np.array(list(LSS_maintain_dict.values())).std()))
     # print('Average LSS Fidelity of replaced items: %s | std: %s' % (np.array(list(LSS_replace_dict.values())).mean(),np.array(list(LSS_replace_dict.values())).std()))
@@ -718,6 +768,7 @@ for subID in subs:
     itemw_pre_df['maintain']=np.array(list(change_iw_maintain_dict.values()))
     itemw_pre_df['replace']=np.array(list(change_iw_replace_dict.values()))
     itemw_pre_df['suppress']=np.array(list(change_iw_suppress_dict.values()))
+    itemw_pre_df['preexposed']=np.array(list(change_iw_preexp_dict.values()))
     itemw_pre_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'itemweighted_pre_post_fidelity.csv'))
 
     catew_pre_df=pd.DataFrame()
@@ -730,7 +781,71 @@ for subID in subs:
     unw_pre_df['maintain']=np.array(list(change_uw_maintain_dict.values()))
     unw_pre_df['replace']=np.array(list(change_uw_replace_dict.values()))
     unw_pre_df['suppress']=np.array(list(change_uw_suppress_dict.values()))
+    unw_pre_df['preexposed']=np.array(list(change_uw_preexp_dict.values()))
     unw_pre_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'unweighted_pre_post_fidelity.csv'))    
+
+    itemw_remembered_df=pd.DataFrame()
+    itemw_forgot_df=pd.DataFrame()
+
+    for img_key in change_iw_maintain_dict.keys():
+        img_num = re.split('(\d+)', img_key) 
+        if (memory_csv['memory'][memory_csv['image_num']==img_num])==1:
+            itemw_remembered_df['maintain']=np.array(list(change_iw_maintain_dict['image ID: %s' % img_num].values()))
+        elif (memory_csv['memory'][memory_csv['image_num']==img_num])==0:
+            itemw_forgot_df['maintain']=np.array(list(change_iw_maintain_dict['image ID: %s' % img_num].values()))
+
+    for img_key in change_iw_replace_dict.keys():
+        img_num = re.split('(\d+)', img_key) 
+        if (memory_csv['memory'][memory_csv['image_num']==img_num])==1:
+            itemw_remembered_df['replace']=np.array(list(change_iw_replace_dict['image ID: %s' % img_num].values()))
+        elif (memory_csv['memory'][memory_csv['image_num']==img_num])==0:
+            itemw_forgot_df['replace']=np.array(list(change_iw_replace_dict['image ID: %s' % img_num].values()))
+
+    for img_key in change_iw_suppress_dict.keys():
+        img_num = re.split('(\d+)', img_key) 
+        if (memory_csv['memory'][memory_csv['image_num']==img_num])==1:
+            itemw_remembered_df['suppress']=np.array(list(change_iw_suppress_dict['image ID: %s' % img_num].values()))
+        elif (memory_csv['memory'][memory_csv['image_num']==img_num])==0:
+            itemw_forgot_df['suppress']=np.array(list(change_iw_suppress_dict['image ID: %s' % img_num].values()))
+
+    for img_key in change_iw_preexp_dict.keys():
+        img_num = re.split('(\d+)', img_key) 
+        if (memory_csv['memory'][memory_csv['image_num']==img_num])==1:
+            itemw_remembered_df['preexp']=np.array(list(change_iw_preexp_dict['image ID: %s' % img_num].values()))
+        elif (memory_csv['memory'][memory_csv['image_num']==img_num])==0:
+            itemw_forgot_df['preexp']=np.array(list(change_iw_preexp_dict['image ID: %s' % img_num].values()))                        
+
+    uw_remembered_df=pd.DataFrame()
+    uw_forgot_df=pd.DataFrame()
+
+    for img_key in change_uw_maintain_dict.keys():
+        img_num = re.split('(\d+)', img_key) 
+        if (memory_csv['memory'][memory_csv['image_num']==img_num])==1:
+            uw_remembered_df['maintain']=np.array(list(change_uw_maintain_dict['image ID: %s' % img_num].values()))
+        elif (memory_csv['memory'][memory_csv['image_num']==img_num])==0:
+            uw_forgot_df['maintain']=np.array(list(change_uw_maintain_dict['image ID: %s' % img_num].values()))
+
+    for img_key in change_uw_replace_dict.keys():
+        img_num = re.split('(\d+)', img_key) 
+        if (memory_csv['memory'][memory_csv['image_num']==img_num])==1:
+            uw_remembered_df['replace']=np.array(list(change_uw_replace_dict['image ID: %s' % img_num].values()))
+        elif (memory_csv['memory'][memory_csv['image_num']==img_num])==0:
+            uw_forgot_df['replace']=np.array(list(change_uw_replace_dict['image ID: %s' % img_num].values()))
+
+    for img_key in change_uw_suppress_dict.keys():
+        img_num = re.split('(\d+)', img_key) 
+        if (memory_csv['memory'][memory_csv['image_num']==img_num])==1:
+            uw_remembered_df['suppress']=np.array(list(change_uw_suppress_dict['image ID: %s' % img_num].values()))
+        elif (memory_csv['memory'][memory_csv['image_num']==img_num])==0:
+            uw_forgot_df['suppress']=np.array(list(change_uw_suppress_dict['image ID: %s' % img_num].values()))
+
+    for img_key in change_uw_preexp_dict.keys():
+        img_num = re.split('(\d+)', img_key) 
+        if (memory_csv['memory'][memory_csv['image_num']==img_num])==1:
+            uw_remembered_df['preexp']=np.array(list(change_uw_preexp_dict['image ID: %s' % img_num].values()))
+        elif (memory_csv['memory'][memory_csv['image_num']==img_num])==0:
+            uw_forgot_df['preexp']=np.array(list(change_uw_preexp_dict['image ID: %s' % img_num].values())) 
+
 
     #study vs. post changes
     itemw_study_df=pd.DataFrame()
@@ -792,6 +907,35 @@ for subID in subs:
     plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'Unweighted_pre_post_summary.png'))
     plt.clf()      
 
+
+    fig=sns.barplot(data=itemw_remembered_df)
+    fig.set_xlabel('Operations')
+    fig.set_ylabel('Fidelity')
+    fig.set_title('Item Weighted - Pre vs. Post - Remebered items only')
+    plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'Item_Weighted_remember_only_pre_post_summary.png'))
+    plt.clf()
+
+    fig=sns.barplot(data=uw_remembered_df)
+    fig.set_xlabel('Operations')
+    fig.set_ylabel('Fidelity')
+    fig.set_title('Unweighted - Pre vs. Post - Remebered items only')
+    plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'Unweighted_remember_only_pre_post_summary.png'))
+    plt.clf()
+
+    fig=sns.barplot(data=itemw_forgot_df)
+    fig.set_xlabel('Operations')
+    fig.set_ylabel('Fidelity')
+    fig.set_title('Item Weighted - Pre vs. Post - Forgot items only')
+    plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'Item_Weighted_forgot_only_pre_post_summary.png'))
+    plt.clf()
+
+    fig=sns.barplot(data=uw_forgot_df)
+    fig.set_xlabel('Operations')
+    fig.set_ylabel('Fidelity')
+    fig.set_title('Unweighted - Pre vs. Post - Forgot items only')
+    plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'Unweighted_forgot_only_pre_post_summary.png'))
+    plt.clf()    
+
     #plot and save figures of the data - Study vs Post
     fig=sns.barplot(data=itemw_study_df)
     fig.set_xlabel('Operations')
@@ -836,77 +980,6 @@ for subID in subs:
     plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'Unweighted_pre_study_summary.png'))
     plt.clf()
 
-    #quickly summarize the statistics:
-    # print('One-Way ANOVA on LSS:')
-    # print(f_oneway(LSS_df['unoperated'],LSS_df['maintain'],LSS_df['replace'],LSS_df['suppress']))
-
-    # #organize this data into dataframes (which may be the best way to handle this data):
-    # LSA_df=pd.DataFrame()
-    # LSA_df['unoperated']=np.array(list(LSA_unoperated_dict.values()))
-    # LSA_df['maintain']=np.array(list(LSA_maintain_dict.values()))
-    # LSA_df['replace']=np.array(list(LSA_replace_dict.values()))
-    # LSA_df['suppress']=np.array(list(LSA_suppress_dict.values()))
-    # LSA_df.to_csv(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes_%s" % brain_flag,'LSA_fidelity.csv'))
-
-    # #plot and save the figures of the data
-    # fig=sns.barplot(data=LSA_df)
-    # fig.set_xlabel('Operations')
-    # fig.set_ylabel('Fidelity')
-    # fig.set_title('LSA - Pre vs. Post')
-    # plt.savefig(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes_%s" % brain_flag,'LSA_fidelity_bar_summary.png'))
-    # plt.clf()
-
-    # fig=sns.violinplot(data=LSA_df,inner='point')
-    # fig.set_xlabel('Operations')
-    # fig.set_ylabel('Fidelity')
-    # fig.set_title('LSA - Pre vs. Post')    
-    # plt.savefig(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes_%s" % brain_flag,'LSA_fidelity_violin_summary.png'))
-    # plt.clf()    
-
-    # #quickly summarize the statistics:
-    # print('One-Way ANOVA on LSA:')
-    # print(f_oneway(LSA_df['unoperated'],LSA_df['maintain'],LSA_df['replace'],LSA_df['suppress']))
-
-
-    # #this is just dumping all the individual dictionaries, which is nice since each comparison is labeled with the corresponding image
-    # dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes_%s" % brain_flag,'LSS_unoperated.pkl'),"wb")
-    # pickle.dump(LSS_unoperated_dict,dict_file)
-    # dict_file.close()
-    # del dict_file
-
-    # dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes_%s" % brain_flag,'LSA_unoperated.pkl'),"wb")
-    # pickle.dump(LSA_unoperated_dict,dict_file)
-    # dict_file.close()
-    # del dict_file
-
-    # dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes_%s" % brain_flag,'LSS_Maintain.pkl'),"wb")
-    # pickle.dump(LSS_maintain_dict,dict_file)
-    # dict_file.close()
-    # del dict_file
-
-    # dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes_%s" % brain_flag,'LSA_Maintain.pkl'),"wb")
-    # pickle.dump(LSA_maintain_dict,dict_file)
-    # dict_file.close()
-    # del dict_file
-
-    # dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes_%s" % brain_flag,'LSS_Replace.pkl'),"wb")
-    # pickle.dump(LSS_replace_dict,dict_file)
-    # dict_file.close()
-    # del dict_file
-
-    # dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes_%s" % brain_flag,'LSA_Replace.pkl'),"wb")
-    # pickle.dump(LSA_replace_dict,dict_file)
-    # dict_file.close()
-    # del dict_file
-
-    # dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes_%s" % brain_flag,'LSS_Suppress.pkl'),"wb")
-    # pickle.dump(LSS_suppress_dict,dict_file)
-    # dict_file.close()
-    # del dict_file
-
-    # dict_file= open(os.path.join(data_dir,"sub-%s"  % subID,"Representational_Changes_%s" % brain_flag,'LSA_Suppress.pkl'),"wb")
-    # pickle.dump(LSA_suppress_dict,dict_file)
-    # dict_file.close()    
 
     print("Subject is done... saving everything")
     print("===============================================================================")    
@@ -928,7 +1001,7 @@ for subID in subs:
     data_path=os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag)
 
     item_pre_post=find('item*pre*post*fidelity*',data_path)
-    group_item_weighted_pre_post=group_item_weighted_pre_post.append(pd.read_csv(item_pre_post[0],usecols=[1,2,3]),ignore_index=True)
+    group_item_weighted_pre_post=group_item_weighted_pre_post.append(pd.read_csv(item_pre_post[0],usecols=[1,2,3,4]),ignore_index=True)
 
     item_study_post=find('item*study*post*fidelity*',data_path)
     group_item_weighted_study_post=group_item_weighted_study_post.append(pd.read_csv(item_study_post[0],usecols=[1,2,3]),ignore_index=True)
@@ -946,7 +1019,7 @@ for subID in subs:
     group_cate_weighted_pre_study=group_cate_weighted_pre_study.append(pd.read_csv(cate_study_post[0],usecols=[1,2,3]),ignore_index=True)
 
     un_pre_post=find('unweighted*pre*post*fidelity*',data_path)
-    group_unweighted_pre_post=group_unweighted_pre_post.append(pd.read_csv(un_pre_post[0],usecols=[1,2,3]),ignore_index=True)
+    group_unweighted_pre_post=group_unweighted_pre_post.append(pd.read_csv(un_pre_post[0],usecols=[1,2,3,4]),ignore_index=True)
 
     un_study_post=find('unweighted*study*post*fidelity*',data_path)
     group_unweighted_study_post=group_unweighted_study_post.append(pd.read_csv(un_study_post[0],usecols=[1,2,3]),ignore_index=True)

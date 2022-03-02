@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 subs=['02','03','04','05','06','07','08','09','10']
-brain_flag='MNI'
+brain_flag='T1w'
 
 
 def mkdir(path,local=False):
