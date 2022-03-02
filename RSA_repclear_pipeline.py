@@ -17,6 +17,7 @@ import glob
 import fnmatch
 import pandas as pd
 import pickle
+import re
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn.model_selection import PredefinedSplit, cross_validate, cross_val_predict, GridSearchCV, LeaveOneGroupOut
@@ -121,7 +122,10 @@ for subID in subs:
 
     # ===== load ready BOLD for each trial of prelocalizer
     print(f"Loading preprocessed BOLDs for pre-localizer...")
-    bold_dir_1 = os.path.join(container_path, f"sub-0{subID}", "item_representations_%s" % brain_flag)
+    if brain_flag=='MNI':
+        bold_dir_1 = os.path.join(container_path, f"sub-0{subID}", "item_representations")
+    else:
+        bold_dir_1 = os.path.join(container_path, f"sub-0{subID}", "item_representations_%s" % brain_flag)
 
     all_bolds_1 = {}  # {cateID: {trialID: bold}}
     bolds_arr_1 = []  # sample x vox
@@ -143,7 +147,10 @@ for subID in subs:
 
     # ===== load ready BOLD for each trial of study
     print(f"Loading preprocessed BOLDs for the study operation...")
-    bold_dir_2 = os.path.join(container_path, f"sub-0{subID}", "item_representations_%s" % brain_flag)
+    if brain_flag=='MNI':
+        bold_dir_2 = os.path.join(container_path, f"sub-0{subID}", "item_representations")
+    else:
+        bold_dir_2 = os.path.join(container_path, f"sub-0{subID}", "item_representations_%s" % brain_flag)
 
     all_bolds_2 = {}  # {cateID: {trialID: bold}}
     bolds_arr_2 = []  # sample x vox
@@ -166,7 +173,10 @@ for subID in subs:
 
     # ===== load ready BOLD for each trial of postlocalizer
     print(f"Loading preprocessed BOLDs for post-localizer...")
-    bold_dir_3 = os.path.join(container_path, f"sub-0{subID}", "item_representations_%s" % brain_flag)
+    if brain_flag=='MNI':
+        bold_dir_3 = os.path.join(container_path, f"sub-0{subID}", "item_representations")
+    else:
+        bold_dir_3 = os.path.join(container_path, f"sub-0{subID}", "item_representations_%s" % brain_flag)
 
     all_bolds_3 = {}  # {cateID: {trialID: bold}}
     bolds_arr_3 = []  # sample x vox
@@ -218,7 +228,7 @@ for subID in subs:
         cate_weights_dir = os.path.join(f'/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/sub-0{subID}','preremoval_lvl1/scene_stimuli_MNI_zmap.nii.gz')
         item_weights_dir = os.path.join(container_path, f"sub-0{subID}", "preremoval_item_level")
     else:
-        cate_weights_dir = os.path.join(f'/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/sub-0{subID}','preremoval_lvl1/scene_stimuli_T1w_zmap.nii.gz')
+        cate_weights_dir = os.path.join(f'/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/sub-0{subID}','preremoval_lvl1_%s/scene_stimuli_T1w_zmap.nii.gz' % brain_flag)
         item_weights_dir = os.path.join(container_path, f"sub-0{subID}", "preremoval_item_level_T1w")        
 
     #prelocalizer weights (category and item) get applied to study/post representations
@@ -760,7 +770,7 @@ for subID in subs:
 
     #here is where I need to add in some code to sort these dictionaries by the memory result. For each sub I have a file I can load: 'memory_and_familiar_sub-00x.csv'
     #then I just need to take the imageID, and see if the memory column is a 1 or a 0... this will allow me to split up the data better and visualize better
-    memory_csv = pd.read_csv('/work/06873/zbretton/ls6/repclear_dataset/BIDS/derivatives/fmriprep/subject_designs/memory_and_familiar_sub-0%s.csv' % subID,sep='\t')     
+    memory_csv = pd.read_csv('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/subject_designs/memory_and_familiar_sub-0%s.csv' % subID)     
 
 
     #pre vs. post changes
@@ -784,67 +794,129 @@ for subID in subs:
     unw_pre_df['preexposed']=np.array(list(change_uw_preexp_dict.values()))
     unw_pre_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'unweighted_pre_post_fidelity.csv'))    
 
-    itemw_remembered_df=pd.DataFrame()
-    itemw_forgot_df=pd.DataFrame()
+    itemw_remembered_df=pd.DataFrame(columns=['maintain','replace','suppress','preexp'],index=range(0,30))
+    itemw_forgot_df=pd.DataFrame(columns=['maintain','replace','suppress','preexp'],index=range(0,30))
 
+
+    indexer_r=0
+    indexer_f=0
     for img_key in change_iw_maintain_dict.keys():
         img_num = re.split('(\d+)', img_key) 
-        if (memory_csv['memory'][memory_csv['image_num']==img_num])==1:
-            itemw_remembered_df['maintain']=np.array(list(change_iw_maintain_dict['image ID: %s' % img_num].values()))
-        elif (memory_csv['memory'][memory_csv['image_num']==img_num])==0:
-            itemw_forgot_df['maintain']=np.array(list(change_iw_maintain_dict['image ID: %s' % img_num].values()))
+        img_num=int(img_num[1])
+        if (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==1:
+            itemw_remembered_df.loc[indexer_r]['maintain']=change_iw_maintain_dict['image ID: %s' % img_num]
+            indexer_r=indexer_r+1
+        elif (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==0:
+            itemw_forgot_df.loc[indexer_f]['maintain']=change_iw_maintain_dict['image ID: %s' % img_num]
+            indexer_f=indexer_f+1
 
+    indexer_r=0
+    indexer_f=0
     for img_key in change_iw_replace_dict.keys():
         img_num = re.split('(\d+)', img_key) 
-        if (memory_csv['memory'][memory_csv['image_num']==img_num])==1:
-            itemw_remembered_df['replace']=np.array(list(change_iw_replace_dict['image ID: %s' % img_num].values()))
-        elif (memory_csv['memory'][memory_csv['image_num']==img_num])==0:
-            itemw_forgot_df['replace']=np.array(list(change_iw_replace_dict['image ID: %s' % img_num].values()))
+        img_num=int(img_num[1])
 
+        if (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==1:
+            itemw_remembered_df.loc[indexer_r]['replace']=change_iw_replace_dict['image ID: %s' % img_num]
+            indexer_r=indexer_r+1
+
+        elif (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==0:
+            itemw_forgot_df.loc[indexer_f]['replace']=change_iw_replace_dict['image ID: %s' % img_num]
+            indexer_f=indexer_f+1
+
+    indexer_r=0
+    indexer_f=0
     for img_key in change_iw_suppress_dict.keys():
         img_num = re.split('(\d+)', img_key) 
-        if (memory_csv['memory'][memory_csv['image_num']==img_num])==1:
-            itemw_remembered_df['suppress']=np.array(list(change_iw_suppress_dict['image ID: %s' % img_num].values()))
-        elif (memory_csv['memory'][memory_csv['image_num']==img_num])==0:
-            itemw_forgot_df['suppress']=np.array(list(change_iw_suppress_dict['image ID: %s' % img_num].values()))
+        img_num=int(img_num[1])
 
+        if (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==1:
+            itemw_remembered_df.loc[indexer_r]['suppress']=change_iw_suppress_dict['image ID: %s' % img_num]
+            indexer_r=indexer_r+1
+
+        elif (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==0:
+            itemw_forgot_df.loc[indexer_f]['suppress']=change_iw_suppress_dict['image ID: %s' % img_num]
+            indexer_f=indexer_f+1
+
+    indexer_r=0
+    indexer_f=0
     for img_key in change_iw_preexp_dict.keys():
         img_num = re.split('(\d+)', img_key) 
-        if (memory_csv['memory'][memory_csv['image_num']==img_num])==1:
-            itemw_remembered_df['preexp']=np.array(list(change_iw_preexp_dict['image ID: %s' % img_num].values()))
-        elif (memory_csv['memory'][memory_csv['image_num']==img_num])==0:
-            itemw_forgot_df['preexp']=np.array(list(change_iw_preexp_dict['image ID: %s' % img_num].values()))                        
+        img_num=int(img_num[1])
 
-    uw_remembered_df=pd.DataFrame()
-    uw_forgot_df=pd.DataFrame()
+        if (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==1:
+            itemw_remembered_df.loc[indexer_r]['preexp']=change_iw_preexp_dict['image ID: %s' % img_num]
+            indexer_r=indexer_r+1
 
+        elif (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==0:
+            itemw_forgot_df.loc[indexer_f]['preexp']=change_iw_preexp_dict['image ID: %s' % img_num]
+            indexer_f=indexer_f+1                        
+
+    uw_remembered_df=pd.DataFrame(columns=['maintain','replace','suppress','preexp'],index=range(0,30))
+    uw_forgot_df=pd.DataFrame(columns=['maintain','replace','suppress','preexp'],index=range(0,30))
+
+    indexer_r=0
+    indexer_f=0
     for img_key in change_uw_maintain_dict.keys():
         img_num = re.split('(\d+)', img_key) 
-        if (memory_csv['memory'][memory_csv['image_num']==img_num])==1:
-            uw_remembered_df['maintain']=np.array(list(change_uw_maintain_dict['image ID: %s' % img_num].values()))
-        elif (memory_csv['memory'][memory_csv['image_num']==img_num])==0:
-            uw_forgot_df['maintain']=np.array(list(change_uw_maintain_dict['image ID: %s' % img_num].values()))
+        img_num=int(img_num[1])
 
+        if (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==1:
+            uw_remembered_df.loc[indexer_r]['maintain']=change_uw_maintain_dict['image ID: %s' % img_num]
+            indexer_r=indexer_r+1
+
+        elif (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==0:
+            uw_forgot_df.loc[indexer_f]['maintain']=change_uw_maintain_dict['image ID: %s' % img_num]
+            indexer_f=indexer_f+1
+
+    indexer_r=0
+    indexer_f=0
     for img_key in change_uw_replace_dict.keys():
         img_num = re.split('(\d+)', img_key) 
-        if (memory_csv['memory'][memory_csv['image_num']==img_num])==1:
-            uw_remembered_df['replace']=np.array(list(change_uw_replace_dict['image ID: %s' % img_num].values()))
-        elif (memory_csv['memory'][memory_csv['image_num']==img_num])==0:
-            uw_forgot_df['replace']=np.array(list(change_uw_replace_dict['image ID: %s' % img_num].values()))
+        img_num=int(img_num[1])
 
+        if (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==1:
+            uw_remembered_df.loc[indexer_r]['replace']=change_uw_replace_dict['image ID: %s' % img_num]
+            indexer_r=indexer_r+1
+
+        elif (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==0:
+            uw_forgot_df.loc[indexer_f]['replace']=change_uw_replace_dict['image ID: %s' % img_num]
+            indexer_f=indexer_f+1
+
+    indexer_r=0
+    indexer_f=0
     for img_key in change_uw_suppress_dict.keys():
         img_num = re.split('(\d+)', img_key) 
-        if (memory_csv['memory'][memory_csv['image_num']==img_num])==1:
-            uw_remembered_df['suppress']=np.array(list(change_uw_suppress_dict['image ID: %s' % img_num].values()))
-        elif (memory_csv['memory'][memory_csv['image_num']==img_num])==0:
-            uw_forgot_df['suppress']=np.array(list(change_uw_suppress_dict['image ID: %s' % img_num].values()))
+        img_num=int(img_num[1])
 
+        if (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==1:
+            uw_remembered_df.loc[indexer_r]['suppress']=change_uw_suppress_dict['image ID: %s' % img_num]
+            indexer_r=indexer_r+1
+
+
+        elif (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==0:
+            uw_forgot_df.loc[indexer_f]['suppress']=change_uw_suppress_dict['image ID: %s' % img_num]
+            indexer_f=indexer_f+1
+
+    indexer_r=0
+    indexer_f=0
     for img_key in change_uw_preexp_dict.keys():
         img_num = re.split('(\d+)', img_key) 
-        if (memory_csv['memory'][memory_csv['image_num']==img_num])==1:
-            uw_remembered_df['preexp']=np.array(list(change_uw_preexp_dict['image ID: %s' % img_num].values()))
-        elif (memory_csv['memory'][memory_csv['image_num']==img_num])==0:
-            uw_forgot_df['preexp']=np.array(list(change_uw_preexp_dict['image ID: %s' % img_num].values())) 
+        img_num=int(img_num[1])
+
+        if (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==1:
+            uw_remembered_df.loc[indexer_r]['preexp']=change_uw_preexp_dict['image ID: %s' % img_num]
+            indexer_r=indexer_r+1
+
+
+        elif (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==0:
+            uw_forgot_df.loc[indexer_f]['preexp']=change_uw_preexp_dict['image ID: %s' % img_num]
+            indexer_f=indexer_f+1
+
+    itemw_remembered_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'itemweighted_pre_post_remember_fidelity.csv'))
+    itemw_forgot_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'itemweighted_pre_post_forgot_fidelity.csv'))
+    uw_remembered_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'unweighted_pre_post_remember_fidelity.csv'))
+    uw_forgot_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'unweighted_pre_post_forgot_fidelity.csv'))
 
 
     #study vs. post changes
@@ -997,11 +1069,16 @@ group_unweighted_pre_post=pd.DataFrame()
 group_unweighted_study_post=pd.DataFrame()
 group_unweighted_pre_study=pd.DataFrame()
 
+group_item_remember_pre_post=pd.DataFrame()
+group_item_forgot_pre_post=pd.DataFrame()
+group_unweighted_remember_pre_post=pd.DataFrame()
+group_unweighted_forgot_pre_post=pd.DataFrame()
+
 for subID in subs:
     data_path=os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag)
 
-    item_pre_post=find('item*pre*post*fidelity*',data_path)
-    group_item_weighted_pre_post=group_item_weighted_pre_post.append(pd.read_csv(item_pre_post[0],usecols=[1,2,3,4]),ignore_index=True)
+    item_pre_post=os.path.join(data_path,'itemweighted_pre_post_fidelity.csv')
+    group_item_weighted_pre_post=group_item_weighted_pre_post.append(pd.read_csv(item_pre_post,usecols=[1,2,3,4]),ignore_index=True)
 
     item_study_post=find('item*study*post*fidelity*',data_path)
     group_item_weighted_study_post=group_item_weighted_study_post.append(pd.read_csv(item_study_post[0],usecols=[1,2,3]),ignore_index=True)
@@ -1018,8 +1095,8 @@ for subID in subs:
     cate_pre_study=find('scene*pre*study*fidelity*',data_path)
     group_cate_weighted_pre_study=group_cate_weighted_pre_study.append(pd.read_csv(cate_study_post[0],usecols=[1,2,3]),ignore_index=True)
 
-    un_pre_post=find('unweighted*pre*post*fidelity*',data_path)
-    group_unweighted_pre_post=group_unweighted_pre_post.append(pd.read_csv(un_pre_post[0],usecols=[1,2,3,4]),ignore_index=True)
+    un_pre_post=os.path.join(data_path,'unweighted_pre_post_fidelity.csv')
+    group_unweighted_pre_post=group_unweighted_pre_post.append(pd.read_csv(un_pre_post,usecols=[1,2,3,4]),ignore_index=True)
 
     un_study_post=find('unweighted*study*post*fidelity*',data_path)
     group_unweighted_study_post=group_unweighted_study_post.append(pd.read_csv(un_study_post[0],usecols=[1,2,3]),ignore_index=True)
@@ -1027,6 +1104,18 @@ for subID in subs:
     un_pre_study=find('unweighted*pre*study*fidelity*',data_path)
     group_unweighted_pre_study=group_unweighted_pre_study.append(pd.read_csv(un_pre_study[0],usecols=[1,2,3]),ignore_index=True)
 
+    #now pull the ones sorted by memory:
+    item_r_pre_post=os.path.join(data_path,'itemweighted_pre_post_remember_fidelity.csv')
+    group_item_remember_pre_post=group_item_remember_pre_post.append(pd.read_csv(item_r_pre_post,usecols=[1,2,3,4]),ignore_index=True)
+
+    item_f_pre_post=os.path.join(data_path,'itemweighted_pre_post_forgot_fidelity.csv')
+    group_item_forgot_pre_post=group_item_forgot_pre_post.append(pd.read_csv(item_f_pre_post,usecols=[1,2,3,4]),ignore_index=True)
+
+    un_r_pre_post=os.path.join(data_path,'unweighted_pre_post_remember_fidelity.csv')
+    group_unweighted_remember_pre_post=group_unweighted_remember_pre_post.append(pd.read_csv(un_r_pre_post,usecols=[1,2,3,4]),ignore_index=True)
+
+    un_f_pre_post=os.path.join(data_path,'unweighted_pre_post_forgot_fidelity.csv')
+    group_unweighted_forgot_pre_post=group_unweighted_forgot_pre_post.append(pd.read_csv(un_f_pre_post,usecols=[1,2,3,4]),ignore_index=True)
 
 if not os.path.exists(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag)): os.makedirs(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag),exist_ok=True)
 #plot and save the figures of the data - Pre vs Post
@@ -1035,6 +1124,34 @@ fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity')
 fig.set_title('Item Weighted (Group Level) - Pre vs. Post')
 plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_post_summary.png'))
+plt.clf() 
+
+fig=sns.barplot(data=group_item_remember_pre_post)
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity')
+fig.set_title('Item Weighted (Group Level) - Pre vs. Post - Only Remembered')
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_post_remembered_summary.png'))
+plt.clf() 
+
+fig=sns.barplot(data=group_item_forgot_pre_post)
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity')
+fig.set_title('Item Weighted (Group Level) - Pre vs. Post - Only Forgot')
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_post_forgot_summary.png'))
+plt.clf() 
+
+fig=sns.barplot(data=group_unweighted_remember_pre_post)
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity')
+fig.set_title('Unweighted (Group Level) - Pre vs. Post - Only Remembered')
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Unweighted_pre_post_remembered_summary.png'))
+plt.clf() 
+
+fig=sns.barplot(data=group_unweighted_forgot_pre_post)
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity')
+fig.set_title('Unweighted (Group Level) - Pre vs. Post - Only Forgot')
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Unweighted_pre_post_forgot_summary.png'))
 plt.clf() 
 
 fig=sns.barplot(data=group_item_weighted_study_post)
