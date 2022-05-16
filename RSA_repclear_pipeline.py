@@ -32,7 +32,7 @@ from sklearn.metrics import roc_auc_score
 from joblib import Parallel, delayed
 
 subs=['02','03','04','05','06','07','08','09','10']
-brain_flag='MNI'
+brain_flag='T1w'
 stim_labels = {0: "Rest",
                 1: "Scenes",
                 2: "Faces"}
@@ -89,7 +89,7 @@ for subID in subs:
     tim_df = tim_df[tim_df["phase"]==2] #phase 2 is pre-localizer
     tim_df = tim_df.sort_values(by=["category", "subcategory", "trial_id"])
     
-    pre_scene_order = tim_df[tim_df["category"]==1][["trial_id","image_id","condition"]]
+    pre_scene_order = tim_df[tim_df["category"]==1][["trial_id","image_id","condition","subcategory"]]
     pre_face_order = tim_df[tim_df["category"]==2][["trial_id","image_id","condition"]]   
 
     #lets pull out the study data here:
@@ -97,7 +97,7 @@ for subID in subs:
     tim_df2 = tim_df2[tim_df2["phase"]==3] #phase 3 is study
     tim_df2 = tim_df2.sort_values(by=["category", "subcategory", "trial_id"])
     
-    study_scene_order = tim_df2[tim_df2["category"]==1][["trial_id","image_id","condition"]]
+    study_scene_order = tim_df2[tim_df2["category"]==1][["trial_id","image_id","condition","subcategory"]]
 
     #lets pull out the postlocalizer data here:
     tim_df3 = pd.read_csv(tim_path)
@@ -356,6 +356,61 @@ for subID in subs:
     cw_suppress_dict={}      
 
     counter=0
+
+    m_counter=0
+    s_counter=0
+    r_counter=0
+
+    m_item_repress_study_comp=np.zeros_like(item_repress_pre[:30,:])
+    m_item_repress_pre_comp=np.zeros_like(item_repress_pre[:30,:])
+    r_item_repress_study_comp=np.zeros_like(item_repress_pre[:30,:])
+    r_item_repress_pre_comp=np.zeros_like(item_repress_pre[:30,:])
+    s_item_repress_study_comp=np.zeros_like(item_repress_pre[:30,:])
+    s_item_repress_pre_comp=np.zeros_like(item_repress_pre[:30,:])
+
+    for trial in study_scene_order['trial_id'].values: 
+        if trial==1: 
+            continue
+
+        study_trial_index=study_scene_order.index[study_scene_order['trial_id']==trial].tolist()[0] #find the order 
+        study_image_id=study_scene_order.loc[study_trial_index,'image_id'] #this now uses the index of the dataframe to find the image_id
+        #study_trial_num=study_scene_order.loc[study_trial_index,'trial_id'] #now we used the image ID to find the proper trial in the post condition to link to
+
+        pre_trial_index=pre_scene_order.index[pre_scene_order['image_id']==study_image_id].tolist()[0] #find the index in the pre for this study trial
+        pre_trial_num = pre_scene_order.loc[pre_trial_index,'trial_id']
+        image_condition=  pre_scene_order.loc[pre_scene_order['trial_id']==pre_trial_num-1]['condition'].values[0]
+        pre_trial_subcat = pre_scene_order.loc[pre_trial_index,'subcategory']
+
+        if image_condition==1:
+            m_item_repress_study_comp[m_counter]=np.multiply(masked_bolds_arr_2[trial-1,:], masked_weights_arr[pre_trial_num-1,:])
+            m_item_repress_pre_comp[m_counter]=item_repress_pre[pre_trial_num-1,:]
+            m_counter=m_counter+1
+        elif image_condition==2:
+            r_item_repress_study_comp[r_counter]=np.multiply(masked_bolds_arr_2[trial-1,:], masked_weights_arr[pre_trial_num-1,:])
+            r_item_repress_pre_comp[r_counter]=item_repress_pre[pre_trial_num-1,:]
+            r_counter=r_counter+1    
+        elif image_condition==3:
+            s_item_repress_study_comp[s_counter]=np.multiply(masked_bolds_arr_2[trial-1,:], masked_weights_arr[pre_trial_num-1,:])
+            s_item_repress_pre_comp[s_counter]=item_repress_pre[pre_trial_num-1,:]
+            s_counter=s_counter+1                  
+
+
+    m_item_pre_study_comp=np.corrcoef(m_item_repress_pre_comp,m_item_repress_study_comp)
+    temp_df=pd.DataFrame(data=m_item_pre_study_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'maintain_item_weight_pre_study_RSA.csv'))
+    del temp_df   
+
+    r_item_pre_study_comp=np.corrcoef(r_item_repress_pre_comp,r_item_repress_study_comp)
+    temp_df=pd.DataFrame(data=r_item_pre_study_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'replace_item_weight_pre_study_RSA.csv'))
+    del temp_df   
+
+    s_item_pre_study_comp=np.corrcoef(s_item_repress_pre_comp,s_item_repress_study_comp)
+    temp_df=pd.DataFrame(data=s_item_pre_study_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'suppress_item_weight_pre_study_RSA.csv'))
+    del temp_df             
+
+
     #this loop is limited by the smaller index, so thats the study condition (only 90 stims)
     for trial in study_scene_order['trial_id'].values: 
 

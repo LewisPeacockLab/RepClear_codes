@@ -29,7 +29,7 @@ from sklearn.feature_selection import SelectFpr, f_classif  #VarianceThreshold, 
 from sklearn.metrics import roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
 
 # global consts
-subIDs = ['002', '003', '004']
+subIDs = ['002','003','004','005','006','007','008','009','010','011','012','013','014','015','016','017','018','020','023','024','025']
 phases = ['rest', 'preremoval', 'study', 'postremoval']
 runs = np.arange(6) + 1  
 spaces = {'T1w': 'T1w', 
@@ -291,8 +291,7 @@ def random_subsample(full_data, label_df, include_rest=True):
         rest_diff = np.diff(padded_bools)  # get the pairwise diff in the array --> True for start and end indices of rest periods
         rest_intervals = rest_diff.nonzero()[0].reshape((-1,2))  # each pair is the interval of rest periods
         print("random sample rest_intervals: ", rest_intervals)
-        exit()
-
+    
         # get desired time points: can be changed to be middle/end of resting periods, or just random subsample
         # current choice: get time points in the middle of rest periods for rest samples; if 0.5, round up
         rest_inds = [np.ceil(np.average(interval)).astype(int) for interval in rest_intervals]  

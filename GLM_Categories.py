@@ -10,8 +10,8 @@ import fnmatch
 import numpy as np
 import pandas as pd
 
-subs=['02','03','04','05','06','07','08','09','10']
-brain_flag='T1w'
+subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
+brain_flag='MNI'
 
 
 def mkdir(path,local=False):
@@ -24,7 +24,7 @@ def pad_contrast(contrast_, n_columns):
     return np.hstack((contrast_, np.zeros(n_columns - len(contrast_))))
 
 def confound_cleaner(confounds):
-    COI = ['a_comp_cor_00','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
+    COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
     for _c in confounds.columns:
         if 'cosine' in _c:
             COI.append(_c)
@@ -227,7 +227,7 @@ for num in range(len(subs)):
 
 ####################################
 #level 2 GLM
-subs=['sub-002','sub-003','sub-004','sub-005','sub-006','sub-007','sub-008','sub-009','sub-010']
+subs=['sub-002','sub-003','sub-004','sub-005','sub-006','sub-007','sub-008','sub-009','sub-010','sub-011','sub-012','sub-013','sub-014','sub-015','sub-016','sub-017','sub-018','sub-020','sub-023','sub-024','sub-025','sub-026']
 contrasts = ['face','scene']
 
 '''point to the save directory'''

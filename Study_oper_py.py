@@ -29,13 +29,13 @@ from sklearn.metrics import roc_auc_score
 
 
 
-subs=['02','03','04']
+subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25']
 
 
-TR_shifts=[5,6] #5,6
-brain_flag='T1w' #MNI/T1w
+TR_shifts=[5] #5,6
+brain_flag='MNI' #MNI/T1w
 
-masks=['GM'] #wholebrain/vtc/gm
+masks=['wholebrain'] #wholebrain/vtc/gm
 #masks=['vtc']
 
 clear_data=1 #0 off / 1 on
@@ -43,7 +43,7 @@ force_clean=1 #0 off / 1 on
 
 
 def confound_cleaner(confounds):
-    COI = ['a_comp_cor_00','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
+    COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
     for _c in confounds.columns:
         if 'cosine' in _c:
             COI.append(_c)
@@ -61,7 +61,7 @@ for TR_shift in TR_shifts:
             print('Running sub-0%s...' %sub_num)
             #define the subject
             sub = ('sub-0%s' % sub_num)
-            container_path='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
+            container_path='/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
           
             bold_path=os.path.join(container_path,sub,'func/')
             os.chdir(bold_path)
@@ -80,8 +80,7 @@ for TR_shift in TR_shifts:
             bold_files=find('*study*bold*.nii.gz',bold_path)
             wholebrain_mask_path=find('*study*mask*.nii.gz',bold_path)
             anat_path=os.path.join(container_path,sub,'anat/')
-            gm_mask_path=find('*GM_mask_iso*',anat_path)
-            gm_mask=nib.load(gm_mask_path[0])
+
             
             if brain_flag=='MNI':
                 pattern = '*MNI*'
@@ -147,6 +146,8 @@ for TR_shift in TR_shifts:
                         study_run3=apply_mask(mask=(vtc_mask.get_data()),target=(study_run3.get_data()))
 
                     elif mask_flag=='GM':
+                        gm_mask_path=find('*GM_mask_iso*',anat_path)
+                        gm_mask=nib.load(gm_mask_path[0])
                         study_run1=apply_mask(mask=(gm_mask.get_data()),target=(study_run1.get_data()))
                         study_run2=apply_mask(mask=(gm_mask.get_data()),target=(study_run2.get_data()))
                         study_run3=apply_mask(mask=(gm_mask.get_data()),target=(study_run3.get_data()))
@@ -218,6 +219,8 @@ for TR_shift in TR_shifts:
                         study_run3=apply_mask(mask=(vtc_mask.get_data()),target=(study_run3.get_data()))
 
                     elif mask_flag=='GM':
+                        gm_mask_path=find('*GM_mask_iso*',anat_path)
+                        gm_mask=nib.load(gm_mask_path[0])                        
                         study_run1=apply_mask(mask=(gm_mask.get_data()),target=(study_run1.get_data()))
                         study_run2=apply_mask(mask=(gm_mask.get_data()),target=(study_run2.get_data()))
                         study_run3=apply_mask(mask=(gm_mask.get_data()),target=(study_run3.get_data()))                        
@@ -246,7 +249,7 @@ for TR_shift in TR_shifts:
             run_list=np.concatenate((run1,run2,run3)) #now combine
 
             #load regs / labels
-            params_dir='/scratch1/06873/zbretton/repclear_dataset/BIDS/params'
+            params_dir='/scratch/06873/zbretton/repclear_dataset/BIDS/params'
             #find the mat file, want to change this to fit "sub"
             param_search='study*events*.csv'
             param_file=find(param_search,params_dir)

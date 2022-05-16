@@ -26,14 +26,14 @@ from scipy import stats
 from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score
 
-subs=['02','03','04']
+subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25']
 
-TR_shifts=[5,6]
+TR_shifts=[5]
 brain_flag='T1w'
 
 #masks=['wholebrain','vtc'] #wholebrain/vtc
 #masks=['vtc'] #added: PHG and FG
-masks=['vtc','PHG','FG']
+masks=['vtc']
 
 clear_data=1 #0 off / 1 on
 force_clean=1 #0 off / 1 on
@@ -42,7 +42,7 @@ rest='on' #off
 
 
 def confound_cleaner(confounds):
-    COI = ['a_comp_cor_00','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
+    COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
     for _c in confounds.columns:
         if 'cosine' in _c:
             COI.append(_c)
@@ -58,7 +58,7 @@ for TR_shift in TR_shifts:
             print('Running sub-0%s...' %sub_num)
             #define the subject
             sub = ('sub-0%s' % sub_num)
-            container_path='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
+            container_path='/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
           
             bold_path=os.path.join(container_path,sub,'func/')
             os.chdir(bold_path)
@@ -91,16 +91,16 @@ for TR_shift in TR_shifts:
             brain_mask_path.sort()
             localizer_files.sort()
             if mask_flag=='vtc':
-                vtc_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_preremoval_%s_mask.nii.gz' % brain_flag)
+                vtc_mask_path=os.path.join('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_preremoval_%s_mask.nii.gz' % brain_flag)
                 #vtc_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/','MNI_VTC_mask.nii.gz')
                 
                 vtc_mask=nib.load(vtc_mask_path)
             elif mask_flag=='PHG':
-                PHG_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','PHG_preremoval_%s_mask.nii.gz' % brain_flag)
+                PHG_mask_path=os.path.join('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','PHG_preremoval_%s_mask.nii.gz' % brain_flag)
                 
                 PHG_mask=nib.load(PHG_mask_path)
             elif mask_flag=='FG':
-                FG_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','FG_preremoval_%s_mask.nii.gz' % brain_flag)
+                FG_mask_path=os.path.join('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','FG_preremoval_%s_mask.nii.gz' % brain_flag)
                 
                 FG_mask=nib.load(FG_mask_path)
 
@@ -348,7 +348,7 @@ for TR_shift in TR_shifts:
 
             #Categories: 1 Scenes, 2 Faces / 0 is rest
 
-            params_dir='/scratch1/06873/zbretton/repclear_dataset/BIDS/params'
+            params_dir='/scratch/06873/zbretton/repclear_dataset/BIDS/params'
             #find the mat file, want to change this to fit "sub"
             param_search='preremoval*events*.csv'
             param_file=find(param_search,params_dir)

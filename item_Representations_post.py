@@ -27,7 +27,7 @@ from sklearn.metrics import roc_auc_score
 from joblib import Parallel, delayed
 
 
-subs=['02','03','04','05','06','07','08','09','10']
+subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
 brain_flag='T1w'
 
 #code for the item level voxel activity for scenes in the post localizer
@@ -43,7 +43,7 @@ def pad_contrast(contrast_, n_columns):
     return np.hstack((contrast_, np.zeros(n_columns - len(contrast_))))
 
 def confound_cleaner(confounds):
-    COI = ['a_comp_cor_00','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
+    COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
     for _c in confounds.columns:
         if 'cosine' in _c:
             COI.append(_c)
@@ -87,11 +87,11 @@ def item_representation_post(subID):
         
     localizer_files.sort()
     if brain_flag=='T1w':
-        mask_path=os.path.join('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_preremoval_%s_mask.nii.gz' % brain_flag)
+        mask_path=os.path.join('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_postremoval_%s_mask.nii.gz' % brain_flag)
         
         mask=nib.load(mask_path)    
     else:
-        mask_path=os.path.join('/scratch/06873/zbretton/fmriprep/group_MNI_VTC_mask.nii.gz') #VTC
+        mask_path=os.path.join('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_MNI_VTC_mask.nii.gz') #VTC
 
         mask=nib.load(mask_path)   
 
@@ -218,5 +218,5 @@ def item_representation_post(subID):
         del trial_pattern, trial_pattern_nii, affine_mat, onset, out_folder, output_name, hdr
     print('subject finished')
 
-Parallel(n_jobs=len(subs))(delayed(item_representation_post)(i) for i in subs)    
+Parallel(n_jobs=4)(delayed(item_representation_post)(i) for i in subs)    
         

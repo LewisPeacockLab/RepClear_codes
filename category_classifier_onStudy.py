@@ -27,10 +27,9 @@ from scipy import stats
 from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score
 
-subs=['02','03','04']
-
+subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25']
 TR_shift=5
-brain_flag='T1w'
+brain_flag='MNI'
 
 #masks=['wholebrain','vtc'] #wholebrain/vtc
 mask_flag='vtc'
@@ -53,7 +52,7 @@ for num in range(len(subs)):
     print('Running sub-0%s...' %sub_num)
     #define the subject
     sub = ('sub-0%s' % sub_num)
-    container_path='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
+    container_path='/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
   
     bold_path=os.path.join(container_path,sub,'func/')
     os.chdir(bold_path)
@@ -87,7 +86,7 @@ for num in range(len(subs)):
     localizer_files.sort()
 
     if mask_flag=='vtc':
-        vtc_mask_path=os.path.join('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_preremoval_%s_mask.nii.gz' % brain_flag)
+        vtc_mask_path=os.path.join('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_preremoval_%s_mask.nii.gz' % brain_flag)
         
         vtc_mask=nib.load(vtc_mask_path)
     
@@ -314,7 +313,7 @@ for num in range(len(subs)):
 
     #Categories: 1 Scenes, 2 Faces 
 
-    params_dir='/scratch1/06873/zbretton/repclear_dataset/BIDS/params'
+    params_dir='/scratch/06873/zbretton/repclear_dataset/BIDS/params'
     #find the mat file, want to change this to fit "sub"
     param_search='preremoval*events*.csv'
     param_file=find(param_search,params_dir)
@@ -543,7 +542,7 @@ for num in range(len(subs)):
             np.save('sub-0%s_%s_study_%s_masked_cleaned' % (sub_num,brain_flag,mask_flag), study_bold)
             print('%s %s masked and cleaned Study data...saved' % (mask_flag,brain_flag))
 
-    params_dir='/scratch1/06873/zbretton/repclear_dataset/BIDS/params'
+    params_dir='/scratch/06873/zbretton/repclear_dataset/BIDS/params'
     #find the mat file, want to change this to fit "sub"
     param_search='study*events*.csv'
     param_file=find(param_search,params_dir)

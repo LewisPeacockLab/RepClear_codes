@@ -17,7 +17,7 @@ import fnmatch
 import pandas as pd
 import pickle
 
-subs=['02','03','04']
+subs=['02','03','04','05','06','07','08','09','10']
 
 mask_flag = 'vtc' #'vtc'/'wholebrain'/'GM'/'GM_group'/'PHG'/'FG'
 brain_flag = 'T1w'
@@ -25,7 +25,7 @@ TR_shift=5
 ses = 'localizer' #study/localizer/btwnsub
 clear_data=1
 rest='on'
-subcat='on'
+subcat='off'
 
 if ses=='study':
     ses_label='operation'
@@ -40,7 +40,7 @@ def group_cmatrix(subs):
     if ses=='btwnsub':
         print('Running...')
         #define the path
-        container_path='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
+        container_path='/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
         bold_path=container_path
         os.chdir(bold_path)
 
@@ -57,7 +57,7 @@ def group_cmatrix(subs):
             print('Running sub-0%s...' % num)
             #define the subject
             sub = ('sub-0%s' % num)
-            container_path='/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
+            container_path='/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
 
             bold_path=os.path.join(container_path,sub)
             os.chdir(bold_path)
@@ -173,7 +173,7 @@ elif ses_label=='operation':
 ax.set_yticklabels(ax.get_yticklabels(), rotation=45)
 ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
 plt.tight_layout()
-os.chdir('/scratch1/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/figs')
+os.chdir('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/figs')
 if clear_data==0:
     if subcat=='on':
         fig.savefig('%s_xvalidation_subcategory_rest_%s_%sclassifier_%s_TR%s_%s.png' % (ses,rest,ses_label,brain_flag,TR_shift,mask_flag), dpi=fig.dpi)

@@ -40,17 +40,11 @@ op_labels = {1: "maintain",
              3: "suppress"
             }
 
+clearmem_dir = '/scratch/06873/zbretton/clearmem/'
 workspace = 'scratch'
-if workspace == 'work':
-    clearmem_dir = '/work/07365/sguo19/frontera/clearmem/'
-    repclear_dir = '/work/07365/sguo19/frontera/fmriprep/'
-    param_dir = '/work/07365/sguo19/frontera/params/'
-    results_dir = '/work/07365/sguo19/model_fitting_results/'
-elif workspace == 'scratch':
-    clearmem_dir = '/scratch1/07365/sguo19/clearmem/'
-    repclear_dir = '/scratch1/07365/sguo19/fmriprep/'
-    param_dir = '/scratch1/07365/sguo19/params/'
-    results_dir = '/scratch1/07365/sguo19/model_fitting_results/'
+data_dir = '/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/'
+param_dir = '/scratch/06873/zbretton/repclear_dataset/BIDS/params/'
+results_dir = '/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/model_fitting_results/'
 
 
 def get_preprocessed_data(projID, subID, task, space, mask_path, data_tag="group-GM", runs=np.arange(6)+1, save=False):
@@ -266,7 +260,7 @@ def cross_exp_classification():
                        "034", "036", "042", "044", "045",
                     #    "050", "061", "069", "077", "079",
                        ]
-    repclear_subIDs = ["002", "003", "004"]
+    repclear_subIDs = subIDs = ['002', '003', '004','005','006','007','008','009','010']
     mask_path = os.path.join(repclear_dir, "group_MNI_GM_mask.nii.gz")
     clearmem_shift_size_TR = 10
     repclear_shift_size_TR = 5

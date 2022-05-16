@@ -27,9 +27,11 @@ from sklearn.feature_selection import SelectFpr, f_classif  #VarianceThreshold, 
 # from scipy import stats
 # from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
+from joblib import Parallel, delayed
+
 
 # global consts
-subIDs = ['002', '003', '004','005','006','007','008','009','010']
+subIDs = ['002','003','004','005','006','007','008','009','010','011','012','013','014','015','016','017','018','020','023','024','025']
 phases = ['rest', 'preremoval', 'study', 'postremoval']
 runs = np.arange(6) + 1  
 spaces = {'T1w': 'T1w', 
@@ -402,14 +404,14 @@ def fit_model(X, Y, groups, save=False, out_fname=None, v=False):
         # lr = LogisticRegressionCV(Cs=Cs, cv=5, penalty='l2', solver='liblinear')
         parameters ={'C':[0.01,0.1,1,10,100,1000]}
         gscv = GridSearchCV(
-            LogisticRegression(penalty='l2', solver='liblinear'),
+            LogisticRegression(penalty='l2', solver='lbfgs',max_iter=1000),
             parameters,
             return_train_score=True)
         gscv.fit(X_train_sub, y_train)
         best_Cs.append(gscv.best_params_['C'])
         
         # refit with full data
-        lr = LogisticRegression(penalty='l2', solver='liblinear', C=best_Cs[-1])
+        lr = LogisticRegression(penalty='l2', solver='lbfgs', C=best_Cs[-1],max_iter=1000)
         lr.fit(X_train_sub, y_train)
         # test
         score = lr.score(X_test_sub, y_test)
@@ -539,12 +541,13 @@ def classification(subID):
     
     # save results
     np.savez_compressed(results_fname, scores=scores, auc_scores=auc_scores, cms=cms,)
+    #visualization(subID)
                         # perm_scores=perm_scores, perm_auc_scores=perm_auc_scores, perm_cms=perm_cms)
 
 def visualization(subID):
     #subID = '003'
     task = 'preremoval'
-    space = 'T1w'
+    space = 'MNI'
     ROIs = ['VVS']
     model_fname = os.path.join(results_dir, f"sub-{subID}_task-{task}_space-{space}_{ROIs[0]}_lrxval.npz")
     out_fname = os.path.join(results_dir, f"sub-{subID}_task-{task}_space-{space}_{ROIs[0]}_lr.png")
@@ -593,18 +596,21 @@ def group_visualization():
     plt.savefig(out_fname)    
 
 
+Parallel(n_jobs=len(subIDs))(delayed(classification)(i) for i in subIDs)
+group_visualization()
 
-if __name__ == '__main__':
-    # add arguments
-    # import argparse
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("-sub", type=str, help="subject ID in 3 digits", default='002', choices=subIDs)
-    # parser.add_argument("-task", type=str, help="task", default="preremoval", choice=phases)
-    # parser.add_argument("-brain", type=str, help="brain space", default="T1w", choice=spaces.keys())
+
+# if __name__ == '__main__':
+#     # add arguments
+#     # import argparse
+#     # parser = argparse.ArgumentParser()
+#     # parser.add_argument("-sub", type=str, help="subject ID in 3 digits", default='002', choices=subIDs)
+#     # parser.add_argument("-task", type=str, help="task", default="preremoval", choice=phases)
+#     # parser.add_argument("-brain", type=str, help="brain space", default="T1w", choice=spaces.keys())
     
     
 
-    classification()
-    # visualization()
+#     #classification()
+#     # visualization()
 
 
