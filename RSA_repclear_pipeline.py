@@ -31,7 +31,7 @@ from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score
 from joblib import Parallel, delayed
 
-subs=['02','03','04','05','06','07','08','09','10']
+subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
 brain_flag='T1w'
 stim_labels = {0: "Rest",
                 1: "Scenes",
@@ -122,10 +122,7 @@ for subID in subs:
 
     # ===== load ready BOLD for each trial of prelocalizer
     print(f"Loading preprocessed BOLDs for pre-localizer...")
-    if brain_flag=='MNI':
-        bold_dir_1 = os.path.join(container_path, f"sub-0{subID}", "item_representations")
-    else:
-        bold_dir_1 = os.path.join(container_path, f"sub-0{subID}", "item_representations_%s" % brain_flag)
+    bold_dir_1 = os.path.join(container_path, f"sub-0{subID}", "item_representations_%s" % brain_flag)
 
     all_bolds_1 = {}  # {cateID: {trialID: bold}}
     bolds_arr_1 = []  # sample x vox
@@ -147,10 +144,7 @@ for subID in subs:
 
     # ===== load ready BOLD for each trial of study
     print(f"Loading preprocessed BOLDs for the study operation...")
-    if brain_flag=='MNI':
-        bold_dir_2 = os.path.join(container_path, f"sub-0{subID}", "item_representations")
-    else:
-        bold_dir_2 = os.path.join(container_path, f"sub-0{subID}", "item_representations_%s" % brain_flag)
+    bold_dir_2 = os.path.join(container_path, f"sub-0{subID}", "item_representations_%s" % brain_flag)
 
     all_bolds_2 = {}  # {cateID: {trialID: bold}}
     bolds_arr_2 = []  # sample x vox
@@ -173,10 +167,7 @@ for subID in subs:
 
     # ===== load ready BOLD for each trial of postlocalizer
     print(f"Loading preprocessed BOLDs for post-localizer...")
-    if brain_flag=='MNI':
-        bold_dir_3 = os.path.join(container_path, f"sub-0{subID}", "item_representations")
-    else:
-        bold_dir_3 = os.path.join(container_path, f"sub-0{subID}", "item_representations_%s" % brain_flag)
+    bold_dir_3 = os.path.join(container_path, f"sub-0{subID}", "item_representations_%s" % brain_flag)
 
     all_bolds_3 = {}  # {cateID: {trialID: bold}}
     bolds_arr_3 = []  # sample x vox
@@ -225,8 +216,8 @@ for subID in subs:
     print(f"Loading weights...")
     # prelocalizer
     if brain_flag=='MNI':
-        cate_weights_dir = os.path.join(f'/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/sub-0{subID}','preremoval_lvl1/scene_stimuli_MNI_zmap.nii.gz')
-        item_weights_dir = os.path.join(container_path, f"sub-0{subID}", "preremoval_item_level")
+        cate_weights_dir = os.path.join(f'/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/sub-0{subID}','preremoval_lvl1_%s/scene_stimuli_MNI_zmap.nii.gz' % brain_flag)
+        item_weights_dir = os.path.join(container_path, f"sub-0{subID}", "preremoval_item_level_MNI")
     else:
         cate_weights_dir = os.path.join(f'/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/sub-0{subID}','preremoval_lvl1_%s/scene_stimuli_T1w_zmap.nii.gz' % brain_flag)
         item_weights_dir = os.path.join(container_path, f"sub-0{subID}", "preremoval_item_level_T1w")        

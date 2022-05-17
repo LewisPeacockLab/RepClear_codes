@@ -8,25 +8,39 @@ import scipy.io
 def make_tim_file():
     # ===== paths & consts
     # pre assigned image number file
-    img_path = "/Users/zb3663/Desktop/repclear_preprocessed/manual_pre_assign_image_v3.csv" 
+    img_path = "/Users/zb3663/Desktop/School Files/Repclear_files/repclear_preprocessed/manual_pre_assign_image_v3.csv" 
     # BOX path for .mat files
-    data_dir = "/Users/zb3663/Desktop/repclear_preprocessed/Behavioral"
+    data_dir = "/Users/zb3663/Desktop/School Files/Repclear_files/repclear_preprocessed/Behavioral"
     # output directory
-    out_dir = "/Users/zb3663/Desktop/repclear_preprocessed/params"
+    out_dir = "/Users/zb3663/Desktop/School Files/Repclear_files/repclear_preprocessed/params"
 
     # consts
     projID = "repclear"
-    subIDs_dict = {"202202061":'008',
-                "202202231":'009',
-                "202201261":'010',
-                "202201262":'005',
-                "202201301":'006',
-                "202202022":'007',
-                "202110291": "004", 
-                "202110221": "003", 
-                "202110211": "002"}
-    subIDs = ["202202061","202202231","202201261","202201262","202201301","202202022","202110291","202110221","202110211"]  # projID_subID
-    fname = "dataMat_repclear_fmri_study_s_{}_run01.mat"
+    subIDs_dict = {"202202061" : '008',
+                "202202231" : '009',
+                "202201261" : '010',
+                "202201262" : '005',
+                "202201301" : '006',
+                "202202022" : '007',
+                "202110291" : "004", 
+                "202110221" : "003", 
+                "202110211" : "002",
+                "202202201" : "011",
+                "202202091" : "012",
+                "202202232" : "013",
+                "202202252": "014",
+                "202203021" : "015",
+                "202203241" : "016",
+                "202203061" : "017",
+                "202203301" : "018",
+                "202204101" : "020",
+                "202204221" : "022",
+                "202204251" : "023",
+                "202204271" : "024",
+                "202204291" : "025",
+                "202205081" : "026"}
+    subIDs = ["202110211","202110221","202110291","202201262","202201301","202202022","202202061","202202231","202201261","202202201","202202091","202202232","202202252","202203021","202203241","202203061","202203301","202204101","202204221","202204251","202204271","202204291","202205081"]  # projID_subID
+    fname = "dataMat_repclear_fmri_pre_exposure_s_{}_prac01.mat"
     phases = {1: "pre-exposure", 
             2: "pre-localizer", 
             3: "study", 

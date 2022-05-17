@@ -12,7 +12,7 @@ import pandas as pd
 from joblib import Parallel, delayed
 
 
-subs=['02','03','04','05','06','07','08','09','10']
+subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
 brain_flag='T1w'
 
 #code for the item level weighting for faces and scenes
@@ -28,7 +28,7 @@ def pad_contrast(contrast_, n_columns):
     return np.hstack((contrast_, np.zeros(n_columns - len(contrast_))))
 
 def confound_cleaner(confounds):
-    COI = ['a_comp_cor_00','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
+    COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
     for _c in confounds.columns:
         if 'cosine' in _c:
             COI.append(_c)
@@ -77,7 +77,7 @@ def GLM_item_level(subID):
 
     if brain_flag=='MNI':
 
-        vtc_mask_path=os.path.join('/scratch/06873/zbretton/fmriprep/group_%s_VTC_mask.nii.gz' % brain_flag)
+        vtc_mask_path=os.path.join('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_MNI_VTC_mask.nii.gz') #VTC
 
     else:
         vtc_mask_path=os.path.join('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_preremoval_%s_mask.nii.gz' % brain_flag)
@@ -238,7 +238,7 @@ def GLM_item_level(subID):
 
         '''point to and if necessary create the output folder'''
         if brain_flag=='MNI':
-            out_folder = os.path.join(container_path,sub,'preremoval_item_level')
+            out_folder = os.path.join(container_path,sub,'preremoval_item_level_MNI')
             if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
         else:
             out_folder = os.path.join(container_path,sub,'preremoval_item_level_T1w')
@@ -288,7 +288,7 @@ def GLM_item_level(subID):
 
         '''point to and if necessary create the output folder'''
         if brain_flag=='MNI':
-            out_folder = os.path.join(container_path,sub,'preremoval_item_level')
+            out_folder = os.path.join(container_path,sub,'preremoval_item_level_MNI')
             if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
         else:
             out_folder = os.path.join(container_path,sub,'preremoval_item_level_T1w')
@@ -308,6 +308,6 @@ def GLM_item_level(subID):
         #make sure to clear the item constrast to make sure we dont carry it over in to the next trial     
         del item_contrast
 
-Parallel(n_jobs=len(subs))(delayed(GLM_item_level)(i) for i in subs)
+Parallel(n_jobs=4)(delayed(GLM_item_level)(i) for i in subs)
 
 
