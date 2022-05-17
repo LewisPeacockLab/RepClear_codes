@@ -308,6 +308,6 @@ def GLM_item_level(subID):
         #make sure to clear the item constrast to make sure we dont carry it over in to the next trial     
         del item_contrast
 
-Parallel(n_jobs=4)(delayed(GLM_item_level)(i) for i in subs)
+Parallel(n_jobs=6)(delayed(GLM_item_level)(i) for i in subs)
 
 
