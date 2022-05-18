@@ -58,7 +58,7 @@ for subID in subs:
     os.chdir(bold_path)
   
     #check to see if this subject was run already or not
-    if os.path.join(container_path,sub,'preremoval_item_level_%s' % brain_flag,'scene_trial_%s_full_report.html' % brain_flag):
+    if os.path.exists(os.path.join(container_path,sub,'preremoval_item_level_%s' % brain_flag,'scene_trial120_%s_full_report.html' % brain_flag)):
         print('sub-0%s already ran! moving to the next sub' % subID)
         continue
 

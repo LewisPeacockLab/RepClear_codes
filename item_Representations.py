@@ -27,8 +27,9 @@ from sklearn.metrics import roc_auc_score
 from joblib import Parallel, delayed
 
 
-subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
-brain_flag='T1w' #T1w
+# subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
+subs=['12','13','14','15','16','17','18','20','23','24','25','26']
+brain_flag='MNI' #T1w
 
 #code for the item level voxel activity for faces and scenes
 
@@ -100,7 +101,7 @@ def item_representation(subID):
     #load in category mask that was created from the first GLM (we can use this to restrict to Scene voxels if we want later)  
 
     #load data if it already exists, otherwise load it directly:
-    if os.path.exists(os.path.join(bold_path,'sub-0%s_%s_preremoval.nii.gz' % (subID,brain_flag))):
+    if os.path.exists(os.path.join(bold_path,'sub-0%s_%s_preremovalX.nii.gz' % (subID,brain_flag))): #adding "X" to the end to force it to remake these files since they keep erroring
             
         img=nib.load(os.path.join(bold_path,'sub-0%s_%s_preremoval.nii.gz' % (subID,brain_flag)))
         print('%s Concatenated Localizer BOLD Loaded...' % (brain_flag))
@@ -159,7 +160,7 @@ def item_representation(subID):
     run_list=np.concatenate((run1,run2,run3,run4,run5,run6))    
 
     #clean data ahead of slicing the data up
-    if os.path.exists(os.path.join(bold_path,'sub-0%s_%s_preremoval_%s_cleaned.nii.gz' % (subID,brain_flag,mask_flag))):
+    if os.path.exists(os.path.join(bold_path,'sub-0%s_%s_preremoval_%s_cleanedX.nii.gz' % (subID,brain_flag,mask_flag))):
         
         img_clean=nib.load(os.path.join(bold_path,'sub-0%s_%s_preremoval_%s_cleaned.nii.gz' % (subID,brain_flag,mask_flag)))
 
@@ -260,4 +261,4 @@ def item_representation(subID):
     print('subject finished')
         
 
-Parallel(n_jobs=4)(delayed(item_representation)(i) for i in subs)
+Parallel(n_jobs=2)(delayed(item_representation)(i) for i in subs)
