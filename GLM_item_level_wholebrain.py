@@ -47,7 +47,8 @@ def find(pattern, path): #find the pattern we're looking for
 
 
 #LSA
-def GLM_item_level(subID):
+# def GLM_item_level(subID):
+for subID in subs:
     print('Running sub-0%s...' %subID)
     #define the subject
     sub = ('sub-0%s' % subID)
@@ -56,6 +57,11 @@ def GLM_item_level(subID):
     bold_path=os.path.join(container_path,sub,'func/')
     os.chdir(bold_path)
   
+    #check to see if this subject was run already or not
+    if os.path.join(container_path,sub,'preremoval_item_level_%s' % brain_flag,'scene_trial_%s_full_report.html' % brain_flag):
+        print('sub-0%s already ran! moving to the next sub' % subID)
+        continue
+
     #set up the path to the files and then moved into that directory
 
     localizer_files=find('*preremoval*bold*.nii.gz',bold_path)
@@ -175,7 +181,6 @@ def GLM_item_level(subID):
     #now will need to create a loop where I iterate over the face & scene indexes
     #I then relabel that trial of the face or scene as "face_trial#" or "scene_trial#" and then label rest and all other trials as "other"
     #I can either do this in one loop, or two consecutive
-
 
     '''initialize the face GLM'''
     model_face = FirstLevelModel(t_r=1,hrf_model='glover',
@@ -308,6 +313,6 @@ def GLM_item_level(subID):
         #make sure to clear the item constrast to make sure we dont carry it over in to the next trial     
         del item_contrast
 
-Parallel(n_jobs=6)(delayed(GLM_item_level)(i) for i in subs)
+Parallel(n_jobs=4)(delayed(GLM_item_level)(i) for i in subs)
 
 
