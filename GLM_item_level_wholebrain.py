@@ -13,7 +13,7 @@ from joblib import Parallel, delayed
 
 
 subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
-brain_flag='T1w'
+brain_flag='MNI'
 
 #code for the item level weighting for faces and scenes
 

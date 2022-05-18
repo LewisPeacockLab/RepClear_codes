@@ -32,7 +32,7 @@ from sklearn.metrics import roc_auc_score
 from joblib import Parallel, delayed
 
 subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
-brain_flag='T1w'
+brain_flag='MNI'
 stim_labels = {0: "Rest",
                 1: "Scenes",
                 2: "Faces"}
@@ -388,6 +388,7 @@ for subID in subs:
 
     m_item_pre_study_comp=np.corrcoef(m_item_repress_pre_comp,m_item_repress_study_comp)
     temp_df=pd.DataFrame(data=m_item_pre_study_comp)
+    if not os.path.exists(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag)): os.makedirs(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag),exist_ok=True)
     temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'maintain_item_weight_pre_study_RSA.csv'))
     del temp_df   
 
@@ -1165,91 +1166,91 @@ for subID in subs:
 
 if not os.path.exists(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag)): os.makedirs(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag),exist_ok=True)
 #plot and save the figures of the data - Pre vs Post
-fig=sns.barplot(data=group_item_weighted_pre_post)
+fig=sns.barplot(data=group_item_weighted_pre_post,ci=95)
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity')
 fig.set_title('Item Weighted (Group Level) - Pre vs. Post')
 plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_post_summary.png'))
 plt.clf() 
 
-fig=sns.barplot(data=group_item_remember_pre_post)
+fig=sns.barplot(data=group_item_remember_pre_post,ci=95)
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity')
 fig.set_title('Item Weighted (Group Level) - Pre vs. Post - Only Remembered')
 plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_post_remembered_summary.png'))
 plt.clf() 
 
-fig=sns.barplot(data=group_item_forgot_pre_post)
+fig=sns.barplot(data=group_item_forgot_pre_post,ci=95)
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity')
 fig.set_title('Item Weighted (Group Level) - Pre vs. Post - Only Forgot')
 plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_post_forgot_summary.png'))
 plt.clf() 
 
-fig=sns.barplot(data=group_unweighted_remember_pre_post)
+fig=sns.barplot(data=group_unweighted_remember_pre_post,ci=95)
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity')
 fig.set_title('Unweighted (Group Level) - Pre vs. Post - Only Remembered')
 plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Unweighted_pre_post_remembered_summary.png'))
 plt.clf() 
 
-fig=sns.barplot(data=group_unweighted_forgot_pre_post)
+fig=sns.barplot(data=group_unweighted_forgot_pre_post,ci=95)
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity')
 fig.set_title('Unweighted (Group Level) - Pre vs. Post - Only Forgot')
 plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Unweighted_pre_post_forgot_summary.png'))
 plt.clf() 
 
-fig=sns.barplot(data=group_item_weighted_study_post)
+fig=sns.barplot(data=group_item_weighted_study_post,ci=95)
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity')
 fig.set_title('Item Weighted (Group Level) - Study vs. Post')
 plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_study_post_summary.png'))
 plt.clf() 
 
-fig=sns.barplot(data=group_item_weighted_pre_study)
+fig=sns.barplot(data=group_item_weighted_pre_study,ci=95)
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity')
 fig.set_title('Item Weighted (Group Level) - Pre vs. Study')
 plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_study_summary.png'))
 plt.clf() 
 
-fig=sns.barplot(data=group_cate_weighted_pre_post)
+fig=sns.barplot(data=group_cate_weighted_pre_post,ci=95)
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity')
 fig.set_title('Scene Weighted (Group Level) - Pre vs. Post')
 plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Scene_Weighted_pre_post_summary.png'))
 plt.clf() 
 
-fig=sns.barplot(data=group_cate_weighted_study_post)
+fig=sns.barplot(data=group_cate_weighted_study_post,ci=95)
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity')
 fig.set_title('Scene Weighted (Group Level) - Study vs. Post')
 plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Scene_Weighted_study_post_summary.png'))
 plt.clf() 
 
-fig=sns.barplot(data=group_cate_weighted_pre_study)
+fig=sns.barplot(data=group_cate_weighted_pre_study,ci=95)
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity')
 fig.set_title('Scene Weighted (Group Level) - Pre vs. Study')
 plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Scene_Weighted_pre_study_summary.png'))
 plt.clf() 
 
-fig=sns.barplot(data=group_unweighted_pre_post)
+fig=sns.barplot(data=group_unweighted_pre_post,ci=95)
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity')
 fig.set_title('Unweighted (Group Level) - Pre vs. Post')
 plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Unweighted_pre_post_summary.png'))
 plt.clf() 
 
-fig=sns.barplot(data=group_unweighted_study_post)
+fig=sns.barplot(data=group_unweighted_study_post,ci=95)
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity')
 fig.set_title('Unweighted (Group Level) - Study vs. Post')
 plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Unweighted_study_post_summary.png'))
 plt.clf() 
 
-fig=sns.barplot(data=group_unweighted_pre_study)
+fig=sns.barplot(data=group_unweighted_pre_study,ci=95)
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity')
 fig.set_title('Unweighted (Group Level) - Pre vs. study')
