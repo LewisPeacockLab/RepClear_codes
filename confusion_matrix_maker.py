@@ -19,10 +19,10 @@ import pickle
 
 subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
 
-mask_flag = 'wholebrain' #'vtc'/'wholebrain'/'GM'/'GM_group'/'PHG'/'FG'
+mask_flag = 'vtc' #'vtc'/'wholebrain'/'GM'/'GM_group'/'PHG'/'FG'
 brain_flag = 'T1w'
 TR_shift=5
-ses = 'study' #study/localizer/btwnsub
+ses = 'localizer' #study/localizer/btwnsub
 clear_data=1
 rest='off'
 subcat='off'

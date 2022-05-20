@@ -27,9 +27,9 @@ from scipy import stats
 from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score
 
-subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25']
+subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
 TR_shift=5
-brain_flag='MNI'
+brain_flag='T1w'
 
 #masks=['wholebrain','vtc'] #wholebrain/vtc
 mask_flag='vtc'
@@ -38,7 +38,7 @@ clear_data=1 #0 off / 1 on
 force_clean=1
 
 def confound_cleaner(confounds):
-    COI = ['a_comp_cor_00','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
+    COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
     for _c in confounds.columns:
         if 'cosine' in _c:
             COI.append(_c)
@@ -551,6 +551,7 @@ for num in range(len(subs)):
     study_operation=study_matrix["condition"].values
     study_run=study_matrix["run"].values
     study_present=study_matrix["stim_present"].values
+    study_operation_trial=study_matrix["cond_trial"].values
 
     run1_index=np.where(study_run==1)
     run2_index=np.where(study_run==2)
@@ -573,7 +574,8 @@ for num in range(len(subs)):
     oper_list=study_operation
     oper_list=oper_list[:,None]
 
-    study_stim_list=study_stim_list[:,None]          
+    study_stim_list=study_stim_list[:,None]
+    study_operation_trial=study_operation_trial[:,None]          
 
     #trim the training to the first 4 localizer runs, to match samples and with rest
     run1_4=np.where((run_list_stims_and_rest<=2)|(run_list_stims_and_rest>=5))
@@ -633,6 +635,7 @@ for num in range(len(subs)):
     np.savetxt("train_local(1256)_test_study_category_evidence.csv",L2_evidence, delimiter=",")
     np.savetxt("train_local(1256)_test_study_category_predictprob.csv",L2_predict_probs[0], delimiter=",")    
     np.savetxt("Operation_labels.csv",study_stim_list, delimiter=",")
+    np.savetxt("Operation_trials.csv",study_operation_trial, delimiter=",")
 
     output_table = {
         "subject" : sub,

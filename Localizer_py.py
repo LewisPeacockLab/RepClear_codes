@@ -26,8 +26,8 @@ from scipy import stats
 from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score
 
-#subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25']
-subs=['26']
+subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
+
 
 
 TR_shifts=[5]
@@ -477,8 +477,8 @@ for TR_shift in TR_shifts:
                         #calculate evidence values
                         evidence=(1. / (1. + np.exp(-L2_out.decision_function(X_test))))
                         evidences.append(evidence)
-                        predict_prob=L2_out.predict_proba(X_test)
-                        predict_probs.append(predict_prob)
+                        # predict_prob=L2_out.predict_proba(X_test)
+                        # predict_probs.append(predict_prob)
                         score=L2_out.score(X_test, y_test) #score the model
                         predict = L2_out.predict(X_test) #what are the predicted classes
                         predicts.append(predict) #append the list over the x-val runs
@@ -494,8 +494,8 @@ for TR_shift in TR_shifts:
                         #calculate evidence values
                         evidence=(1. / (1. + np.exp(-L2_out.decision_function(X_test))))
                         evidences.append(evidence)
-                        predict_prob=L2_out.predict_proba(X_test)
-                        predict_probs.append(predict_prob)
+                        # predict_prob=L2_out.predict_proba(X_test)
+                        # predict_probs.append(predict_prob)
                         score=L2_out.score(X_test, y_test) #score the model
                         predict = L2_out.predict(X_test) #what are the predicted classes
                         predicts.append(predict) #append the list over the x-val runs
@@ -505,20 +505,20 @@ for TR_shift in TR_shifts:
                         chosenvoxels.append(selectedvoxels.get_support())
                         sig_score=roc_auc_score(true,L2_out.decision_function(X_test))
                         sig_scores.append(sig_score)
-                return L2_out, scores, predicts, trues, evidences, C_best, chosenvoxels, sig_scores, predict_probs         
+                return L2_out, scores, predicts, trues, evidences, C_best, chosenvoxels, sig_scores         
 
             #test if limiting to the first 4 runs changes anything, so the samples should be balanced
             #stim_on_rest=stim_on_rest[run_list_stims_and_rest<=4] # now all the samples are even
             #an alternative of this is:
             stim_on_rest=stim_on_rest[(run_list_stims_and_rest<=2)|(run_list_stims_and_rest>=5)]
 
-            #stim_on_filt=stim_on_filt[run_list_on_filt<=4]
+            stim_on_filt=stim_on_filt[run_list_on_filt<=4]
 
             #localizer_bold_stims_and_rest=localizer_bold_stims_and_rest[run_list_stims_and_rest<=4]
-            #localizer_bold_on_filt=localizer_bold_on_filt[run_list_on_filt<=4]        
+            localizer_bold_on_filt=localizer_bold_on_filt[run_list_on_filt<=4]        
 
             #run_list_stims_and_rest=run_list_stims_and_rest[run_list_stims_and_rest<=4]
-            #run_list_on_filt=run_list_on_filt[run_list_on_filt<=4]
+            run_list_on_filt=run_list_on_filt[run_list_on_filt<=4]
 
             localizer_bold_stims_and_rest=localizer_bold_stims_and_rest[(run_list_stims_and_rest<=2)|(run_list_stims_and_rest>=5)]
             #localizer_bold_on_filt=localizer_bold_on_filt[(run_list_stims_and_rest<=2)|(run_list_stims_and_rest>=5)]        
@@ -542,10 +542,10 @@ for TR_shift in TR_shifts:
             print('Now running classifier...')
 
             if rest=='off':
-                L2_models, L2_scores, L2_predicts, L2_trues, L2_evidence, L2_costs, L2_chosenvoxels, L2_sig_scores, L2_predict_probs = L2_xval(localizer_bold_on_filt, stim_on_filt, run_list_on_filt, groups_on)
+                L2_models, L2_scores, L2_predicts, L2_trues, L2_evidence, L2_costs, L2_chosenvoxels, L2_sig_scores = L2_xval(localizer_bold_on_filt, stim_on_filt, run_list_on_filt, groups_on)
                 L2_subject_score_mean = np.mean(L2_scores)
             elif rest=='on':
-                L2_models_on_rest, L2_scores_on_rest, L2_predicts_on_rest, L2_trues_on_rest, L2_evidence_on_rest, L2_costs_on_rest, L2_chosenvoxels_on_rest, L2_sig_scores_on_rest, L2_predict_probs_on_rest = L2_xval(localizer_bold_stims_and_rest, stim_on_rest, run_list_stims_and_rest, groups_stims_and_rest)
+                L2_models_on_rest, L2_scores_on_rest, L2_predicts_on_rest, L2_trues_on_rest, L2_evidence_on_rest, L2_costs_on_rest, L2_chosenvoxels_on_rest, L2_sig_scores_on_rest = L2_xval(localizer_bold_stims_and_rest, stim_on_rest, run_list_stims_and_rest, groups_stims_and_rest)
                 L2_subject_score_mean_on_rest = np.mean(L2_scores_on_rest)
             print('Classifier done!')
             print('Now running random Classifier to find chance level...')                 
