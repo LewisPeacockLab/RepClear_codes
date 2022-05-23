@@ -578,7 +578,7 @@ for num in range(len(subs)):
     study_operation_trial=study_operation_trial[:,None]          
 
     #trim the training to the first 4 localizer runs, to match samples and with rest
-    run1_4=np.where((run_list_stims_and_rest<=2)|(run_list_stims_and_rest>=5))
+    run1_4=np.where((run_list_stims_and_rest<=4))
     localizer_bold_14=localizer_bold_stims_and_rest[run1_4]
     stim_on_14=stim_on_rest[run1_4]  
 
@@ -641,12 +641,12 @@ for num in range(len(subs)):
 
 #    L2_models_nr, L2_scores_nr, L2_predicts_nr, L2_trues_nr, L2_decisions_nr, L2_evidence_nr = CLF(localizer_bold_on_filt, stim_on_filt, study_bold, study_stim_list, 1500)
 #    L2_subject_score_nr_mean = np.mean(L2_scores_nr)                                        
-    # L2_models, L2_scores, L2_predicts, L2_trues, L2_decisions, L2_evidence, L2_predict_probs = CLF(localizer_bold_14, stim_on_14, study_bold, study_stim_list, 3000)
-    # L2_subject_score_mean = np.mean(L2_scores) 
+    L2_models, L2_scores, L2_predicts, L2_trues, L2_decisions, L2_evidence, L2_predict_probs = CLF(localizer_bold_14, stim_on_14, study_bold, study_stim_list, 3000)
+    L2_subject_score_mean = np.mean(L2_scores) 
 
     #train on ALL data
-    L2_models, L2_scores, L2_predicts, L2_trues, L2_decisions, L2_evidence, L2_predict_probs = CLF(localizer_bold_stims_and_rest, stim_on_rest, study_bold, study_stim_list, 3000)
-    L2_subject_score_mean = np.mean(L2_scores) 
+    # L2_models, L2_scores, L2_predicts, L2_trues, L2_decisions, L2_evidence, L2_predict_probs = CLF(localizer_bold_stims_and_rest, stim_on_rest, study_bold, study_stim_list, 3000)
+    # L2_subject_score_mean = np.mean(L2_scores) 
 
 
     np.savetxt("%s_train_localizer_test_study_category_evidence.csv" % brain_flag,L2_evidence, delimiter=",")
