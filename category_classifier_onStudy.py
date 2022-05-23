@@ -628,12 +628,16 @@ for num in range(len(subs)):
 
 #    L2_models_nr, L2_scores_nr, L2_predicts_nr, L2_trues_nr, L2_decisions_nr, L2_evidence_nr = CLF(localizer_bold_on_filt, stim_on_filt, study_bold, study_stim_list, 1500)
 #    L2_subject_score_nr_mean = np.mean(L2_scores_nr)                                        
-    L2_models, L2_scores, L2_predicts, L2_trues, L2_decisions, L2_evidence, L2_predict_probs = CLF(localizer_bold_14, stim_on_14, study_bold, study_stim_list, 3000)
+    # L2_models, L2_scores, L2_predicts, L2_trues, L2_decisions, L2_evidence, L2_predict_probs = CLF(localizer_bold_14, stim_on_14, study_bold, study_stim_list, 3000)
+    # L2_subject_score_mean = np.mean(L2_scores) 
+
+    #train on ALL data
+    L2_models, L2_scores, L2_predicts, L2_trues, L2_decisions, L2_evidence, L2_predict_probs = CLF(localizer_bold_stims_and_rest, stim_on_rest, study_bold, study_stim_list, 3000)
     L2_subject_score_mean = np.mean(L2_scores) 
 
 
-    np.savetxt("train_local(1256)_test_study_category_evidence.csv",L2_evidence, delimiter=",")
-    np.savetxt("train_local(1256)_test_study_category_predictprob.csv",L2_predict_probs[0], delimiter=",")    
+    np.savetxt("train_localizer_test_study_category_evidence.csv",L2_evidence, delimiter=",")
+    np.savetxt("train_localizer_test_study_category_predictprob.csv",L2_predict_probs[0], delimiter=",")    
     np.savetxt("Operation_labels.csv",study_stim_list, delimiter=",")
     np.savetxt("Operation_trials.csv",study_operation_trial, delimiter=",")
 
@@ -661,6 +665,6 @@ for num in range(len(subs)):
     
     import pickle
     os.chdir(os.path.join(container_path,sub))
-    f = open("%s-train_local(1256)_test_study_%s_%sTR lag_data.pkl" % (sub,brain_flag,TR_shift),"wb")
+    f = open("%s-train_localizer_test_study_%s_%sTR lag_data.pkl" % (sub,brain_flag,TR_shift),"wb")
     pickle.dump(output_table,f)
     f.close()    
