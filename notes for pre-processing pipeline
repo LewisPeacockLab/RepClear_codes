@@ -1,0 +1,67 @@
+notes for pre-processing pipeline - add to lab wiki:
+
+1) First need to download the files off the SFTP server
+2) Make sure you have dcm2niix and fmriprep installed and ready - dcm2bids/dcm2niix can be combo installed via link below in 3-b
+3) convert DICOMS into NII and then move into BIDS format
+    a) can be done via dcm2niix then use something to move into bids
+        - create the BIDS structure using: dcm2bids_scaffold
+        - then move your DICOMS into the "sourcedata" folder
+        - then run: dcm2bids_helper -d sourcedata/folder/
+        - the converted DICOMS will be in temp_dcm2bids/helper/
+            This should include the NII files and the JSON sidecars
+        - Next a configuration file needs to be made: dcm2bids_config.json
+    b) or you can use dcm2bids to finish this (https://unfmontreal.github.io/Dcm2Bids/docs/2-tutorial/#setup)
+4) run fmriprep on the BIDS directory
+
+---
+
+#fmriprep code
+
+fmriprep-docker /Users/zb3663/Desktop/repclear_preprocessing/repclearbids /Users/zb3663/Desktop/repclear_preprocessing/repclearbids/derivatives participant -w /Users/zb3663/Desktop/repclear_preprocessing/temp \--low-mem --nthreads 4 --omp-nthreads 2 --mem-mb 8500 --resource-monitor --ignore slicetiming --fs-license-file $HOME/freesurfer_license.txt
+
+#fmriprep-docker path
+
+export PATH="$PATH:/Users/zb3663/.local/bin"
+
+#path to lewpealab data storage:
+
+/corral-repl/utexas/lewpealab
+
+#my folder locations:
+
+/06873/zbretton #that number is where all my servers are located
+
+#dcm2niix base commands:
+The minimal command line call would be dcm2niix /path/to/dicom/folder. However, you may want to invoke additional options, for example the call dcm2niix -z y -f %p_%t_%s -o /path/output /path/to/dicom/folder will save data as gzip compressed, with the filename based on the protocol name (%p) acquisition time (%t) and DICOM series number (%s), with all files saved to the folder "output".
+
+#example dcm2niix:
+dcm2niix -z y -f %p_%t_%s -o $HOME/Desktop/repclear_preprocessing/output  /Users/zb3663/Desktop/repclear_preprocessing/repclearbids/sourcedata/repclear_202110211
+
+#example dcm2bids:
+dcm2bids -d repclearbids/sourcedata/repclear_202110211 -p 002 -c repclearbids/code/dcm2bids_config.json
+
+#TACC Singularity build (module load tacc-singularity) (from Gus) - neurodocker:
+singularity build $SCRATCH/neurodocker.simg docker://achennings/neurodocker:latest
+
+#example run fmriprep code:
+singularity run --cleanenv ${image_of_fmriprep} ${in_bids} ${out_bids_derivatives} participant \
+    --participant_label ${SUBJ} \
+    --output-spaces MNI152NLin2009cAsym T1w fsnative \
+    --nthreads 12 --mem_mb 64000 \
+    -w ${prep_work} \
+    --fs-license-file $WORK/bids-apps/freesurfer_license.txt
+
+#running fmriprep on TACC - wrote as run_fmriprep.sh:
+bash run_fmriprep.sh
+    #if we need to submit as a job:
+        use the launch.sh to submit and target to text file fmriprep_job.txt:
+            bash $SCRATCH/tacc_tools/run_fmriprep.sh
+
+        Launcher has changed - module load launcher
+            edit launcher.slurm file
+                First need to edit: export LAUNCHER_JOB_FILE=job.txt
+                run: sbatch launcher.slurm
+    #easiest way is to write your own sbatch file:
+        fmriprep_sbatch is an example I am using. Launcher is not needed unless I want to thread many together, this reduces errors
+
+
