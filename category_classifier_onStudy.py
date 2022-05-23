@@ -17,7 +17,7 @@ import pandas as pd
 import pickle
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
-from sklearn.model_selection import PredefinedSplit, cross_validate, cross_val_predict, GridSearchCV, LeaveOneGroupOut
+from sklearn.model_selection import PredefinedSplit, cross_validate, cross_val_predict, GridSearchCV, LeaveOneGroupOut, KFold
 from sklearn.feature_selection import VarianceThreshold, f_classif, SelectKBest, SelectFpr
 from sklearn.preprocessing import StandardScaler
 from nilearn.input_data import NiftiMasker,  MultiNiftiMasker
@@ -591,8 +591,8 @@ for num in range(len(subs)):
         evidences=[]
         predict_probs=[] #adding this to test against the decision function
         sig_scores=[]
+        C_best=[]
 
-        clf=LogisticRegression(penalty='l2',solver='liblinear',C=1)
         X_train, X_test = train_data, test_data
         y_train, y_test = train_labels, test_labels
 
@@ -601,6 +601,19 @@ for num in range(len(subs)):
 
         X_train=selectedvoxels.transform(X_train)
         X_test=selectedvoxels.transform(X_test)
+
+        parameters ={'C':[0.01,0.1,1,10,100,1000]}
+        inner_clf = GridSearchCV(
+            LogisticRegression(penalty='l2',solver='liblinear'),
+            parameters,
+            cv=4,
+            return_train_score=True)
+        inner_clf.fit(X_train,y_train)
+        C_best_i = inner_clf.best_params_['C']
+        C_best.append(C_best_i)
+
+
+        clf=LogisticRegression(penalty='l2',solver='liblinear',C=C_best_i,multi_class='ovr')
 
         # fit the model
         clf.fit(X_train, y_train)
@@ -636,10 +649,10 @@ for num in range(len(subs)):
     L2_subject_score_mean = np.mean(L2_scores) 
 
 
-    np.savetxt("train_localizer_test_study_category_evidence.csv",L2_evidence, delimiter=",")
-    np.savetxt("train_localizer_test_study_category_predictprob.csv",L2_predict_probs[0], delimiter=",")    
-    np.savetxt("Operation_labels.csv",study_stim_list, delimiter=",")
-    np.savetxt("Operation_trials.csv",study_operation_trial, delimiter=",")
+    np.savetxt("%s_train_localizer_test_study_category_evidence.csv" % brain_flag,L2_evidence, delimiter=",")
+    np.savetxt("%s_train_localizer_test_study_category_predictprob.csv"% brain_flag,L2_predict_probs[0], delimiter=",")    
+    np.savetxt("%s_Operation_labels.csv"% brain_flag,study_stim_list, delimiter=",")
+    np.savetxt("%s_Operation_trials.csv"% brain_flag,study_operation_trial, delimiter=",")
 
     output_table = {
         "subject" : sub,
