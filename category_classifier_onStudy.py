@@ -27,347 +27,21 @@ from scipy import stats
 from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score
 
-subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
+subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26'] #"all"
+
+#subs=['02','03','04','05','06','07','08','09','11','12','14','17','23','24','25','26'] #"subjects with no notable issues in data"
+
 TR_shift=5
 brain_flag='T1w'
+shift_sizes_TR = [5]
 
+spaces = {'T1w': 'T1w', 
+            'MNI': 'MNI152NLin2009cAsym'}
 #masks=['wholebrain','vtc'] #wholebrain/vtc
 mask_flag='vtc'
 
 clear_data=1 #0 off / 1 on
 force_clean=1
-
-workspace = 'scratch'
-data_dir = '/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/'
-param_dir = '/scratch/06873/zbretton/repclear_dataset/BIDS/params/'
-results_dir = '/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/model_fitting_results/'
-
-
-def get_preprocessed_data(subID, task, space, mask_ROIS, runs=np.arange(6)+1, save=False):
-    '''
-    Data preprocessing for required sub, task, space, & ROI. 
-    Load preprocessed data if saved; 
-    Else generate paths for bold, mask, & confound files, then mask & clean data
-
-    Input:
-    subID: str of 3 digit number (e.g. "002")
-    task: 'rest', 'preremoval', 'study', or 'postremoval'
-    space: 'T1w' or 'MNI'
-    mask_ROIS: could be (1) "wholebrain", str;
-                        (2) be a list of ROIs
-
-    Output:
-    full_data: array of (all_runs_time x all_ROI_vox)
-    '''
-
-    space_long = spaces[space]
-    def load_existing_data(): 
-        print("\n*** Attempting to load existing data if there is any...")
-        preproc_data = {}
-        todo_ROIs = []
-        
-        if type(mask_ROIS) == str and mask_ROIS == 'wholebrain':
-            if os.path.exists(os.path.join(bold_dir, out_fname_template.format('wholebrain'))):
-                print("Loading saved preprocessed data", out_fname_template, '...')
-                preproc_data["wholebrain"] = np.load(os.path.join(bold_dir, out_fname_template.format('wholebrain')))
-            else:
-                print("Wholebrain data to be processed.")
-                todo_ROIs = "wholebrain"
-
-        elif type(mask_ROIS) == list:
-            for ROI in mask_ROIS:
-                if ROI == 'VVS': ROI = 'vtc'   # only change when loading saved data
-                if os.path.exists(os.path.join(bold_dir, out_fname_template.format(ROI))):
-                    print("Loading saved preprocessed data", out_fname_template.format(ROI), '...')
-                    preproc_data[ROI] = np.load(os.path.join(bold_dir, out_fname_template.format(ROI)))
-                else: 
-                    if ROI == 'vtc': ROI = 'VVS'  # change back to laod masks...
-                    print(f"ROI {ROI} data to be processed.")
-                    todo_ROIs.append(ROI)
-        else: 
-            raise ValueError(f"Man! Incorrect ROI value! (Entered: {mask_ROIS})")
-
-        return preproc_data, todo_ROIs
-
-    def confound_cleaner(confounds):
-        COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
-        for _c in confounds.columns:
-            if 'cosine' in _c:
-                COI.append(_c)
-        confounds = confounds[COI]
-        # *** pd future warning: "A value is trying to be set on a copy of a slice from a DataFrame" ***
-        confounds.loc[0,'framewise_displacement'] = confounds.loc[1:,'framewise_displacement'].mean()
-        return confounds
-
-    def apply_mask(mask=None,target=None):
-        coor = np.where(mask == 1)
-        values = target[coor]
-        # *** data is already vox x time when loaded ***
-        # print("before transpose:", values.shape)
-        # if values.ndim > 1:
-        #     values = np.transpose(values) #swap axes to get feature X sample
-        # print("after transpose:", values.shape)
-        return values
-
-
-    # ====================================================
-    print(f"\n***** Data preprocessing for sub {subID} {task} {space} with ROIs {mask_ROIS}...")
-
-    # whole brain mask: includeing white matter. should be changed to grey matter mask later
-    if mask_ROIS == 'wholebrain':
-        raise NotImplementedError("function doesn't support wholebrain mask!")
-
-    # FIXME: regenerate masked & cleaned data & save to new dir
-    bold_dir = os.path.join(data_dir, f"sub-{subID}", "func")
-    out_fname_template = f"sub-{subID}_{space}_{task}_{{}}_masked_cleaned.npy"
-
-    # ========== check & load existing files
-    ready_data, mask_ROIS = load_existing_data()
-    if type(mask_ROIS) == list and len(mask_ROIS) == 0: 
-        return np.vstack(list(ready_data.values()))
-    else: 
-        print("Preprocessing ROIs", mask_ROIS)
-
-    # ========== start from scratch for todo_ROIs
-    # ======= generate file names to load
-    # get list of data names
-    fname_template = f"sub-{subID}_task-{task}_run-{{}}_space-{space_long}_desc-{{}}.nii.gz"
-    bold_fnames = [fname_template.format(i, "preproc_bold") for i in runs]
-    bold_paths = [os.path.join(data_dir, f"sub-{subID}", "func", fname) for fname in bold_fnames]
-
-    # get mask name
-    if type(mask_ROIS) == str:  # 'wholebrain'
-        # whole brain masks: 1 for each run
-        mask_fnames = [fname_template.format(i, "brain_mask") for i in runs]
-        mask_paths = [os.path.join(data_dir, f"sub-{subID}", "func", fname) for fname in mask_fnames]
-    else:
-        # ROI masks: 1 for each ROI
-        mask_fnames = [f"{ROI}_{task}_{space}_mask.nii.gz" for ROI in mask_ROIS]
-        mask_paths = [os.path.join(data_dir, f"sub-{subID}", "new_mask", fname) for fname in mask_fnames]
-
-    # get confound filenames
-    confound_fnames = [f"*{task}*{run}*confounds*.tsv" for run in runs]
-    confound_paths = [os.path.join(data_dir, f"sub-{subID}", "func", f) for f in confound_fnames]  # template for each run 
-    confound_paths = [glob.glob(p)[0] for p in confound_paths]  # actual file names
-
-    # ======= load data & preprocessing
-
-    # ===== load data files 
-    print("\n*** Loading & cleaning data...")
-    print("Loading bold data...")
-    # loaded bold shape: (x/y/z x time))
-    bolds = [nib.load(p) for p in bold_paths]
-
-    print("Loading masks...")
-    masks = [nib.load(p) for p in mask_paths]
-
-    print("Loading confound files...")
-    confounds = [pd.read_csv(p,sep='\t') for p in confound_paths]
-    confounds_cleaned = [confound_cleaner(c) for c in confounds]
-
-    # ===== for each run & ROI, mask & clean
-    print("\n*** Masking & cleaing bold data...")
-    if type(mask_ROIS) == str:  # 'wholebrain'
-        cleaned_bolds = [None for _ in range(len(runs))]
-        # all files are by nruns
-        for runi, (bold, mask, confound) in enumerate(zip(bolds, masks, confounds_cleaned)):
-            print(f"Processing run {runi}...")
-            masked = apply_mask(mask=mask.get_data(), target=bold.get_data())
-            # *** clean: confound length in time; transpose signal to (time x vox) for cleaning & model fitting ***
-            cleaned_bolds[runi] = clean(masked.T, confounds=confound, t_r=1, detrend=False, standardize='zscore')
-            print("claened shape: ", cleaned_bolds[runi].shape)
-
-        # {ROI: time x vox}
-        preproc_data = {'wholebrain': np.hstack(cleaned_bolds)}
-
-    else:  # list of specific ROIs
-        cleaned_bolds = [[None for _ in range(len(runs))] for _ in range(len(mask_ROIS))]
-
-        for rowi, mask in enumerate(masks):
-            print(f"Processing mask {rowi}...")
-            for coli, (bold, confound) in enumerate(zip(bolds, confounds_cleaned)):
-                print(f"Processing run {coli}...")
-                # *** nib deprecation warning: 
-                #       "get_data() is deprecated in favor of get_fdata(), which has a more predictable return type. 
-                #        To obtain get_data() behavior going forward, use numpy.asanyarray(img.dataobj)."
-                # masked: vox x time
-                masked = apply_mask(mask=mask.get_data(), target=bold.get_data())
-                # *** clean: confound length in time; transpose signal to (time x vox) for cleaning & model fitting ***
-                cleaned_bolds[rowi][coli] = clean(masked.T, confounds=confound, t_r=1, detrend=False, standardize='zscore')
-                print(f"ROI {rowi}, run {coli}")
-                print(f"shape: {cleaned_bolds[rowi][coli].shape}")
-
-        # {ROI: time x vox}
-        preproc_data = {ROI: np.vstack(run_data) for ROI, run_data in zip(mask_ROIS, cleaned_bolds)}
-
-    print("processed data shape: ", [d.shape for d in preproc_data.values()])
-    print("*** Done with preprocessing!")
-
-    # save for future use
-    if save: 
-        for ROI, run_data in preproc_data.items():
-            out_fname = out_fname_template.format(ROI)
-            print(f"Saving to file {bold_dir}/{out_fname}...")
-            np.save(f"{bold_dir}/{out_fname}", run_data)
-
-    full_dict = {**ready_data, **preproc_data}
-    # array: all_runs_time x all_ROI_vox 
-    full_data = np.hstack(list(full_dict.values()))
-    return full_data
-
-
-def get_shifted_labels(task, shift_size_TR, rest_tag=0):
-    # load labels, & add hemodynamic shift to all vars
-
-    def shift_timing(label_df, TR_shift_size, tag=0):
-        # Shift 2D df labels by given TRs with paddings of tag
-        # Input label_df must be time x nvars
-        nvars = len(label_df.loc[0])
-        shift = pd.DataFrame(np.zeros((TR_shift_size, nvars))+tag, columns=label_df.columns)
-        shifted = pd.concat([shift, label_df])
-        return shifted[:len(label_df)]  # trim time points outside of scanning time
-
-    print("\n***** Loading labels...")
-
-    event_path = os.path.join(param_dir, f'{task}_events.csv')
-    events_df = pd.read_csv(event_path)
-    # === commented out: getting only three rows
-    # # categories: 1 Scenes, 2 Faces / 0 is rest
-    # TR_category = events_df["category"].values
-    # # stim_on labels: 1 actual stim; 2 rest between stims; 0 actual rest
-    # TR_stim_on = events_df["stim_present"].values
-    # # run
-    # TR_run_list = events_df["run"].values
-    # # shifted
-    # sTR_category = shift_timing(TR_category, shift_size_TR, rest_tag)
-    # sTR_stim_on = shift_timing(TR_stim_on, shift_size_TR, rest_tag)
-    # sTR_run_list = shift_timing(TR_run_list, shift_size_TR, rest_tag)
-
-    shifted_df = shift_timing(events_df, shift_size_TR, rest_tag)
-
-    return shifted_df
-
-
-def random_subsample(full_data, label_df, include_rest=True):
-    """
-    Subsample data by random sampling, only based on target labels but not runs
-    """
-    # stim_list: 1 Scenes, 2 Faces / 0 is rest
-    # stim_on labels: 1 actual stim; 2 rest between stims; 0 rest between runs
-    print("\n***** Randomly subsampling data points...")
-
-    stim_list = label_df['category']
-    stim_on = label_df['stim_present']
-
-    labels = set(stim_list)
-    labels.remove(0)  # rest will be done separately afterwards
-
-    # indices for each category
-    stim_inds = {lab: np.where((stim_on == 1) & (stim_list == lab))[0] for lab in labels}
-    min_n = min([len(inds) for inds in stim_inds.values()])  # min sample size to get from each category
-
-    sampled_inds = {}
-    # ===== get indices of samples to choose
-    # subsample min_n samples from each catefgory
-    for lab, inds in stim_inds.items():
-        chosen_inds = np.random.choice(inds, min_n, replace=False)
-        sampled_inds[int(lab)] = sorted(chosen_inds)
-
-    # === if including rest: 
-    if include_rest: 
-        print("Including resting category...")
-        # get TR intervals for rest between stims (stim_on == 2)
-        rest_bools = stim_on == 2
-        padded_bools = np.r_[False, rest_bools, False]  # pad the bools at beginning and end for diff to operate
-        rest_diff = np.diff(padded_bools)  # get the pairwise diff in the array --> True for start and end indices of rest periods
-        rest_intervals = rest_diff.nonzero()[0].reshape((-1,2))  # each pair is the interval of rest periods
-        print("random sample rest_intervals: ", rest_intervals)
-        exit()
-
-        # get desired time points: can be changed to be middle/end of resting periods, or just random subsample
-        # current choice: get time points in the middle of rest periods for rest samples; if 0.5, round up
-        rest_inds = [np.ceil(np.average(interval)).astype(int) for interval in rest_intervals]  
-
-        # subsample to min_n
-        chosen_rest_inds = np.random.choice(rest_inds, min_n, replace=False)
-        sampled_inds[0] = sorted(chosen_rest_inds)
-
-    # ===== stack indices
-    X = []
-    Y = []
-    for lab, inds in sampled_inds.items():
-        X.append(full_data[inds, :])
-        Y.append(np.zeros(len(inds)) + lab)
-
-    X = np.vstack(X)
-    Y = np.concatenate(Y)
-    return X, Y, _
-
-
-def subsample_by_runs(full_data, label_df, include_rest=True):
-    """
-    Subsample data by runs. Yield splits or all combination of 2 runs.
-    Return: stacked X & Y for train/test split & model fitting
-    """ 
-
-    # stim_list: 1 Scenes, 2 Faces / 0 is rest
-    # stim_on labels: 1 actual stim; 2 rest between stims; 0 rest between runs
-    print("\n***** Subsampling data points by runs...")
-
-    stim_list = label_df['category']
-    stim_on = label_df['stim_present']
-    run_list = label_df['run']
-
-    # get faces
-    face_inds = np.where((stim_on == 1) & (stim_list == 2))[0]
-    rest_inds = []
-    groups = np.concatenate([np.full(int(len(face_inds)/2), 1), np.full(int(len(face_inds)/2), 2)])
-
-    scenes_runs = [3,4,5,6]
-    for i in range(len(scenes_runs)):
-        runi = scenes_runs[i]
-        for j in range(i+1, len(scenes_runs)):
-            runj = scenes_runs[j]
-            print(f"\nSubsampling scenes with runs {runi} & {runj}...")
-            
-            # choose scene samples based on run
-            scene_inds = np.where((stim_on == 1) & (stim_list == 1) & 
-                                    ((run_list == runi) | (run_list == runj)))[0] # actual stim; stim is scene; stim in the two runs
-            
-            if include_rest:
-                print("Including resting category...")
-                # get TR intervals for rest between stims (stim_on == 2)
-                rest_bools = ((run_list == runi) | (run_list == runj)) & (stim_on == 2)
-                padded_bools = np.r_[False, rest_bools, False]  # pad the bools at beginning and end for diff to operate
-                rest_diff = np.diff(padded_bools)  # get the pairwise diff in the array --> True for start and end indices of rest periods
-                rest_intervals = rest_diff.nonzero()[0].reshape((-1,2))  # each pair is the interval of rest periods
-
-                # get desired time points: can be changed to be middle/end of resting periods, or just random subsample
-                # current choice: get time points in the middle of rest periods for rest samples; if 0.5, round up
-                rest_intervals[:,-1] -= 1
-                rest_inds = [np.ceil(np.average(interval)).astype(int) for interval in rest_intervals] + \
-                            [np.ceil(np.average(interval)).astype(int)+1 for interval in rest_intervals]
-
-                # should give same number of rest samples; if not, do random sample
-                # rest_inds = np.random.choice(rest_inds, len(face_inds), replace=False)
-
-            # === get X & Y
-            X = []
-            Y = []
-            print(f"rest_inds: {len(rest_inds)}, scene_inds: {len(scene_inds)}, face_inds: {len(face_inds)}")
-            for lab, inds in zip([0,1,2], [rest_inds, scene_inds, face_inds]):
-                print("label counts:", lab, len(inds))
-                X.append(full_data[inds, :])
-                Y.append(np.zeros(len(inds)) + lab)
-
-            X = np.vstack(X)
-            Y = np.concatenate(Y)
-            all_groups = np.concatenate([groups, groups, groups])
-            yield X, Y, all_groups
-
-            # flip groups so even & odd groups can be paired
-            all_groups = np.concatenate([groups, list(reversed(groups)), list(reversed(groups))])
-            yield X, Y, all_groups
 
 def confound_cleaner(confounds):
     COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
@@ -729,10 +403,17 @@ for num in range(len(subs)):
 
     bold_files=find('*study*bold*.nii.gz',bold_path)
     wholebrain_mask_path=find('*study*mask*.nii.gz',bold_path)
-    pattern = '*MNI*'
-    pattern2 = '*MNI*preproc*'
-    brain_mask_path = fnmatch.filter(wholebrain_mask_path,pattern)
-    study_files = fnmatch.filter(bold_files,pattern2)
+
+    if brain_flag=='MNI':
+        pattern = '*MNI*'
+        pattern2= '*MNI152NLin2009cAsym*preproc*'
+        brain_mask_path = fnmatch.filter(wholebrain_mask_path,pattern)
+        localizer_files = fnmatch.filter(localizer_files,pattern2)
+    elif brain_flag=='T1w':
+        pattern = '*T1w*'
+        pattern2 = '*T1w*preproc*'
+        brain_mask_path = fnmatch.filter(wholebrain_mask_path,pattern)
+        localizer_files = fnmatch.filter(localizer_files,pattern2)
 
     brain_mask_path.sort()
     study_files.sort()
@@ -914,24 +595,6 @@ for num in range(len(subs)):
     localizer_bold_14=localizer_bold_stims_and_rest[run1_4]
     stim_on_14=stim_on_rest[run1_4]  
 
-    task = 'preremoval'
-    space = 'T1w'
-    ROIs = ['VVS'] #'LatOcc'
-    shift_size_TR = shift_sizes_TR[0]
-    rest_tag = 0
-
-    full_data = get_preprocessed_data(subID, task, space, ROIs, save=True)
-    print(f"Full_data shape: {full_data.shape}")
-
-    # get labels
-    label_df = get_shifted_labels(task, shift_size_TR, rest_tag)
-    print(f"Category label shape: {label_df.shape}")  
-
-    for X, Y, groups in subsample_by_runs(full_data, label_df):
-        X=X
-        Y=Y
-        groups=groups
-
     #do a L2 estimator
     def CLF(train_data, train_labels, test_data, test_labels, k_best):
         scores = []
@@ -991,7 +654,7 @@ for num in range(len(subs)):
 
 #    L2_models_nr, L2_scores_nr, L2_predicts_nr, L2_trues_nr, L2_decisions_nr, L2_evidence_nr = CLF(localizer_bold_on_filt, stim_on_filt, study_bold, study_stim_list, 1500)
 #    L2_subject_score_nr_mean = np.mean(L2_scores_nr)                                        
-    L2_models, L2_scores, L2_predicts, L2_trues, L2_decisions, L2_evidence, L2_predict_probs = CLF(X, Y, study_bold, study_stim_list, 3000)
+    L2_models, L2_scores, L2_predicts, L2_trues, L2_decisions, L2_evidence, L2_predict_probs = CLF(localizer_bold_14, stim_on_14, study_bold, study_stim_list, 3000)
     L2_subject_score_mean = np.mean(L2_scores) 
 
     #train on ALL data
