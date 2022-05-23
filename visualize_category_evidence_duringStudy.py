@@ -113,7 +113,7 @@ for num in subs:
             normalize=temp[:3].mean()
             suppress_evi['trial %s' % i]=temp-normalize
 
-            temp2 = evi_df['faces'][suppress_inds].values[:-fills]
+            temp2 = evi_df['rest'][suppress_inds].values[:-fills]
             normalize2=temp2[:3].mean()
             baseline_evi['trial %s' % i]=temp2-normalize2
 
