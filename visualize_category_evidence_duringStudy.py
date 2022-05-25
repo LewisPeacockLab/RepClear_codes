@@ -277,15 +277,16 @@ for num in subs:
 
     group_diffreplace_df[num]=replace_evi.sub(maintain_evi.mean(axis=1),axis=0).mean(axis=1)
     group_diffsuppress_df[num]=suppress_evi.sub(maintain_evi.mean(axis=1),axis=0).mean(axis=1)
+
+    group_mem_plot=group_mem_plot.append(mem_plot_df)
 ###########
 
-group_mem_plot=group_mem_plot.append(mem_plot_df)
 
 group_mem_plot.to_csv(os.path.join(container_path,'%s_evidence_for_memory.csv' % (brain_flag)))
 
 
 sns.lmplot(data=group_mem_plot,y='memory',x='category_evi',hue='condition',logistic=True, y_jitter=0.03)
-plt.savefig(os.path.join(container_path,sub,'%s_evidence_for_memory(by_condition).png' % (brain_flag)))
+plt.savefig(os.path.join(container_path,'%s_evidence_for_memory(by_condition).png' % (brain_flag)))
 plt.clf()    
 
 sns.lmplot(data=group_mem_plot,y='memory',x='category_evi',logistic=True, y_jitter=0.03)
