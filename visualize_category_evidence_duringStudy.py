@@ -60,7 +60,7 @@ for num in subs:
 
     os.chdir(os.path.join(container_path,sub,'func'))
 
-    evi_df=pd.read_csv("%s_train_localizer_test_study_category_predictprob.csv" % brain_flag, delimiter=",",header=None)
+    evi_df=pd.read_csv("%s_train_localizer_test_study_category_evidence.csv" % brain_flag, delimiter=",",header=None)
     category_labels=pd.read_csv("%s_Operation_labels.csv" % brain_flag, delimiter=",",header=None)
     category_trials=pd.read_csv("%s_Operation_trials.csv" % brain_flag, delimiter=",",header=None)
 
