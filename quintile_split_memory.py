@@ -65,6 +65,12 @@ for sub in subs:
     group_overall_df=group_overall_df.append(temp_df2)
     
 
-sns.lmplot(data=group_condition_df,x='quintiles',y='memory',hue='condition',col="condition",fit_reg=True,robust=True)
+sns.violinplot(data=group_condition_df,x='condition',y='memory',hue='quintiles',palette='flare')
+plt.tight_layout()
+plt.savefig(os.path.join(param_dir,'group_by_condition_memory_quintiles.png'))
+plt.clf()
 
-sns.regplot(data=group_overall_df,x='quintiles',y='memory')
+sns.violinplot(data=group_overall_df,x='quintiles',y='memory',palette='flare')
+plt.tight_layout()
+plt.savefig(os.path.join(param_dir,'group_overall_memory_quintiles.png'))
+plt.clf()
