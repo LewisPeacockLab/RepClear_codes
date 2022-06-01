@@ -1228,13 +1228,16 @@ fig.set_title('Item Weighted (Group Level) - Pre vs. Post Changes - Remembered i
 plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_post_remember_minus_forgot_summary.png'))
 plt.clf() 
 
+print(AnovaRM(data=grouped_by_sub_item_difference_pre_post, depvar='fidelity', subject='sub',within=['operation']).fit())
+
+
 grouped_by_sub_item_remember_pre_post=group_by_sub_item_remember_pre_post.melt()
 grouped_by_sub_item_forgot_pre_post=group_by_sub_item_forgot_pre_post.melt()
 
 grouped_by_sub_item_remember_pre_post['sub']=np.tile(subs,4)
 grouped_by_sub_item_forgot_pre_post['sub']=np.tile(subs,4)
 
-print(AnovaRM(data=grouped_by_sub_item_difference_pre_post, depvar='fidelity', subject='sub',within=['operation']).fit())
+# print(AnovaRM(data=grouped_by_sub_item_difference_pre_post, depvar='fidelity', subject='sub',within=['operation']).fit())
 
 # fig=sns.barplot(data=group_unweighted_remember_pre_post,ci=95,palette=['green','blue','red','gray'])
 # fig.set_xlabel('Operations')
