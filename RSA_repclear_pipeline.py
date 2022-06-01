@@ -1126,6 +1126,10 @@ group_item_forgot_pre_post=pd.DataFrame()
 group_unweighted_remember_pre_post=pd.DataFrame()
 group_unweighted_forgot_pre_post=pd.DataFrame()
 
+group_by_sub_item_remember_pre_post=pd.DataFrame()
+group_by_sub_item_forgot_pre_post=pd.DataFrame()
+
+
 for subID in subs:
     data_path=os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag)
 
@@ -1169,6 +1173,10 @@ for subID in subs:
     un_f_pre_post=os.path.join(data_path,'unweighted_pre_post_forgot_fidelity.csv')
     group_unweighted_forgot_pre_post=group_unweighted_forgot_pre_post.append(pd.read_csv(un_f_pre_post,usecols=[1,2,3,4]),ignore_index=True)
 
+    group_by_sub_item_remember_pre_post=group_by_sub_item_remember_pre_post.append(pd.read_csv(item_r_pre_post,usecols=[1,2,3,4]).mean(),ignore_index=True)
+
+    group_by_sub_item_forgot_pre_post=group_by_sub_item_forgot_pre_post.append(pd.read_csv(item_f_pre_post,usecols=[1,2,3,4]).mean(),ignore_index=True)    
+
 if not os.path.exists(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag)): os.makedirs(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag),exist_ok=True)
 #plot and save the figures of the data - Pre vs Post
 fig=sns.barplot(data=group_item_weighted_pre_post,ci=95,palette=['green','blue','red','gray'])
@@ -1200,6 +1208,33 @@ fig.set_ylabel('Fidelity')
 fig.set_title('Item Weighted (Group Level) - Pre vs. Post - Only Forgot')
 plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_post_forgot_summary.png'))
 plt.clf() 
+
+
+grouped_by_sub_item_difference_pre_post=group_by_sub_item_remember_pre_post.subtract(group_by_sub_item_forgot_pre_post)
+temp=grouped_by_sub_item_difference_pre_post.pop('preexp')
+grouped_by_sub_item_difference_pre_post=pd.concat([grouped_by_sub_item_difference_pre_post,temp],1)
+grouped_by_sub_item_difference_pre_post.dropna(inplace=True)
+non_nan_subs=np.take(subs,grouped_by_sub_item_difference_pre_post.index)
+grouped_by_sub_item_difference_pre_post=grouped_by_sub_item_difference_pre_post.melt()
+grouped_by_sub_item_difference_pre_post['sub']=np.tile(non_nan_subs,4)
+grouped_by_sub_item_difference_pre_post.rename(columns={'variable':'operation','value':'fidelity','sub':'sub'},inplace=True)
+fig=sns.barplot(data=grouped_by_sub_item_difference_pre_post,x='operation',y='fidelity',ci=95,palette=['green','blue','red','gray'])
+# fig, test_results = add_stat_annotation(fig, data=grouped_by_sub_item_difference_pre_post, x='operation',y='fidelity',
+#                                     box_pairs=[("maintain", "replace"), ("maintain", "suppress"), ("maintain", "preexp"), ("suppress", "preexp"), ("replace", "preexp")],
+#                                     test='t-test_paired', text_format='star',loc='inside', verbose=2)  
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity Difference (Remembered - Forgot)')
+fig.set_title('Item Weighted (Group Level) - Pre vs. Post Changes - Remembered items minus Forgotten items',loc='center', wrap=True)
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_post_remember_minus_forgot_summary.png'))
+plt.clf() 
+
+grouped_by_sub_item_remember_pre_post=group_by_sub_item_remember_pre_post.melt()
+grouped_by_sub_item_forgot_pre_post=group_by_sub_item_forgot_pre_post.melt()
+
+grouped_by_sub_item_remember_pre_post['sub']=np.tile(subs,4)
+grouped_by_sub_item_forgot_pre_post['sub']=np.tile(subs,4)
+
+print(AnovaRM(data=grouped_by_sub_item_difference_pre_post, depvar='fidelity', subject='sub',within=['operation']).fit())
 
 # fig=sns.barplot(data=group_unweighted_remember_pre_post,ci=95,palette=['green','blue','red','gray'])
 # fig.set_xlabel('Operations')
