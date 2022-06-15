@@ -27,11 +27,12 @@ from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score
 
 subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
+subs =['02','05','07','08','09']
 
 
 
 TR_shifts=[5]
-brain_flag='T1w'
+brain_flag='MNI'
 
 #masks=['wholebrain','vtc'] #wholebrain/vtc
 #masks=['vtc'] #added: PHG and FG
@@ -449,6 +450,11 @@ for TR_shift in TR_shifts:
 
                     X_train=selectedvoxels.transform(X_train)
                     X_test=selectedvoxels.transform(X_test)
+
+                    print('Training features: ')
+                    print(X_train.shape)
+                    print('Testing features: ')
+                    print(X_train.shape)
 
                     #for now I have removed the inner classifier training to see if this is causing any effect on the data
 

@@ -67,7 +67,7 @@ for brain_flag in brain_flags:
             subject_path=os.path.join(container_path,sub)
             
             indir = os.path.join(subject_path, 'new_mask')
-            outdir = os.path.join(subject_path, 'new_mask')
+            outdir = os.path.join('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/')
             if not os.path.exists(outdir):
                 os.mkdir(outdir)
                 
@@ -76,5 +76,5 @@ for brain_flag in brain_flags:
 
         out_mask = os.path.join(outdir, 'group_MNI_VTC_mask.nii.gz')
                         
-        os.system('fslmaths %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -bin %s'%(lh_fusiform[0], rh_fusiform[0], lh_parahippocampal[0], rh_parahippocampal[0], lh_parahippocampal_anterior[0], rh_parahippocampal_anterior[0], lh_inferiortemporal[0], rh_inferiortemporal[0],lh_lingual[0], rh_lingual[0], lh_lateraloccipital[0], rh_lateraloccipital[0], lh_calcarine[0] ,rh_calcarine[0] ,lh_cuneus[0] ,rh_cuneus[0] ,lh_temporal_pole[0], rh_temporal_pole[0], lh_middletemporal[0], rh_middletemporal[0], lh_superiortemporal[0], rh_superiortemporal[0], lh_pericalcarine[0], rh_pericalcarine[0], out_mask))
+        os.system('fslmaths %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -add %s -bin %s'%(roi_paths[0], roi_paths[1], roi_paths[2], roi_paths[3], roi_paths[4], roi_paths[5], roi_paths[6], roi_paths[7], roi_paths[8], roi_paths[9], roi_paths[10], roi_paths[11], roi_paths[12] , roi_paths[13] ,roi_paths[14] ,roi_paths[15] , roi_paths[16], roi_paths[17], roi_paths[18], roi_paths[19], roi_paths[20], roi_paths[21], out_mask))
         

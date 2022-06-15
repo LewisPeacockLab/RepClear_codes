@@ -23,7 +23,7 @@ from sklearn.preprocessing import StandardScaler
 subs=['02','03','04']
 
 
-brain_flag='MNI'  #or MNI
+brain_flag='T1w'  #or MNI
 task_flag='preremoval' #preremoval, study, postremoval 
 
 for num in range(len(subs)):
