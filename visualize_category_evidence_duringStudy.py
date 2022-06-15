@@ -47,6 +47,7 @@ group_diffreplace_df=pd.DataFrame(columns=subs)
 group_diffsuppress_df=pd.DataFrame(columns=subs)
 
 group_mem_plot=pd.DataFrame(columns=['category_evi','memory','condition'])
+group_stim_evi=pd.DataFrame(columns=['category_evi','memory','condition'])
 
 param_dir =  '/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/subject_designs'
 
@@ -108,6 +109,10 @@ for num in subs:
     mem_maintain_evi=pd.DataFrame(columns=['category_evi','memory'])
     mem_suppress_evi=pd.DataFrame(columns=['category_evi','memory'])
 
+    stim_replace_evi=pd.DataFrame(columns=['category_evi','memory'])
+    stim_maintain_evi=pd.DataFrame(columns=['category_evi','memory'])
+    stim_suppress_evi=pd.DataFrame(columns=['category_evi','memory'])    
+
     for i in range(1,31):
         #find the indices of the i trial for each operation
         replace_inds=np.where((evi_df['operation']=='replace') & (evi_df['operation_trials']==i))[0]
@@ -128,10 +133,14 @@ for num in subs:
             if trial_mem==1:
                 r_replace_evi['trial %s' % i]=temp
                 temp_df={'category_evi':temp[7:11].mean(), 'memory':1}
+                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':1}
                 mem_replace_evi=mem_replace_evi.append(temp_df,ignore_index=True)
+                stim_replace_evi=stim_replace_evi.append(temp_stim_df,ignore_index=True)
             else:
                 temp_df={'category_evi':temp[7:11].mean(), 'memory':0}
+                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':0}                
                 mem_replace_evi=mem_replace_evi.append(temp_df,ignore_index=True)
+                stim_replace_evi=stim_replace_evi.append(temp_stim_df,ignore_index=True)                
                 f_replace_evi['trial %s' % i]=temp
 
             normalize=temp[:2].mean() #normalize values to first 2 TRs
@@ -157,10 +166,14 @@ for num in subs:
             if trial_mem==1:
                 r_maintain_evi['trial %s' % i]=temp
                 temp_df={'category_evi':temp[7:11].mean(), 'memory':1}
+                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':1}
+                stim_maintain_evi=stim_maintain_evi.append(temp_stim_df,ignore_index=True)                
                 mem_maintain_evi=mem_maintain_evi.append(temp_df,ignore_index=True)                
             else:
                 f_maintain_evi['trial %s' % i]=temp
                 temp_df={'category_evi':temp[7:11].mean(), 'memory':0}
+                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':0}
+                stim_maintain_evi=stim_maintain_evi.append(temp_stim_df,ignore_index=True)                 
                 mem_maintain_evi=mem_maintain_evi.append(temp_df,ignore_index=True)
 
             normalize=temp[:2].mean()
@@ -179,10 +192,14 @@ for num in subs:
             if trial_mem==1:
                 r_suppress_evi['trial %s' % i]=temp
                 temp_df={'category_evi':temp[7:11].mean(), 'memory':1}
+                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':1}
+                stim_suppress_evi=stim_suppress_evi.append(temp_stim_df,ignore_index=True)                 
                 mem_suppress_evi=mem_suppress_evi.append(temp_df,ignore_index=True)                
             else:
                 f_suppress_evi['trial %s' % i]=temp
                 temp_df={'category_evi':temp[7:11].mean(), 'memory':0}
+                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':0}
+                stim_suppress_evi=stim_suppress_evi.append(temp_stim_df,ignore_index=True)                 
                 mem_suppress_evi=mem_suppress_evi.append(temp_df,ignore_index=True)
 
             normalize=temp[:2].mean()
@@ -243,6 +260,13 @@ for num in subs:
 
     mem_plot_df.to_csv(os.path.join(container_path,sub,'%s_%s_evidence_for_memory.csv' % (brain_flag,sub)))
 
+    stim_replace_evi['condition']='replace'
+    stim_maintain_evi['condition']='maintain'
+    stim_suppress_evi['condition']='suppress'
+    stim_plot_df=pd.concat([stim_replace_evi,stim_maintain_evi,stim_suppress_evi])
+
+    stim_plot_df.to_csv(os.path.join(container_path,sub,'%s_%s_evidence_for_stimuli.csv' % (brain_flag,sub)))    
+
     sns.lmplot(data=mem_plot_df,y='memory',x='category_evi',hue='condition',logistic=True, y_jitter=0.03)
     plt.savefig(os.path.join(container_path,sub,'%s_%s_evidence_for_memory(by_condition).png' % (brain_flag,sub)))
     plt.clf()    
@@ -279,10 +303,12 @@ for num in subs:
     group_diffsuppress_df[num]=suppress_evi.sub(maintain_evi.mean(axis=1),axis=0).mean(axis=1)
 
     group_mem_plot=group_mem_plot.append(mem_plot_df)
+    group_stim_evi=group_stim_evi.append(stim_plot_df)
 ###########
 
 
 group_mem_plot.to_csv(os.path.join(container_path,'%s_evidence_for_memory.csv' % (brain_flag)))
+group_stim_evi.to_csv(os.path.join(container_path,'%s_evidence_for_stimuli.csv' % (brain_flag)))
 
 
 sns.lmplot(data=group_mem_plot,y='memory',x='category_evi',hue='condition',logistic=True, y_jitter=0.03)
