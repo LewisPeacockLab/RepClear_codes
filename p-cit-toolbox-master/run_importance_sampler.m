@@ -37,7 +37,7 @@ function [] = run_importance_sampler()
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 analysis_settings = struct(); % Creating a struct
 
-analysis_settings.analysis_id = 'repclear_remembered'; % analysis_id: specifies the target directory into which the output .mat will be located; if empty then the target directory is the timestamp of the form - YYYY-MM-DD-HH-MM
+analysis_settings.analysis_id = 'repclear_2sample_diff_suppress_nonz'; % analysis_id: specifies the target directory into which the output .mat will be located; if empty then the target directory is the timestamp of the form - YYYY-MM-DD-HH-MM
 
 analysis_settings.em_iterations = 20; % Number of expectation maximization iterations
 analysis_settings.particles = 100000; % Number of particles to be used in the importance sampling algorithm
@@ -50,7 +50,7 @@ analysis_settings.dist_specific_params.sigma = 1;
 analysis_settings.beta_0 = 0; % Initializing beta_0 for linear predictor
 analysis_settings.beta_1 = 1; % Initializing beta_1 for linear predictor
 analysis_settings.tau = 0.05; % Specifies the radius to sample curves in the curve space
-analysis_settings.category = []; % Specifies if the analyses will need to run on a specific category. Vector length Should be greater than 0. For instance [2] will cause the analyses to be run only on the second category; [] will run the analyses on all categories
+analysis_settings.category = [3]; % Specifies if the analyses will need to run on a specific category. Vector length Should be greater than 0. For instance [2] will cause the analyses to be run only on the second category; [] will run the analyses on all categories
 
 analysis_settings.drop_outliers = 3; % specifies how many std dev away from group mean will the predictor variable outliers need to be dropped
 analysis_settings.zscore_within_subjects = false; % if TRUE, the independednt variables will be zscored within each suibject
@@ -87,8 +87,8 @@ end
 % The three lines below load the simulated data into the raw_data matrix. Replace these two lines of the code with code to load your actual data
 
 results_dir = fullfile(pwd, 'results');
-load(sprintf('pcit_remember_table.mat'));
-raw_data = pcit_remember_table;
+load(sprintf('pcit_memory_2sample_diff_table.mat'));
+raw_data = pcit_table;
 
 importance_sampler(raw_data, analysis_settings);
 

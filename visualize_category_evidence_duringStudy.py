@@ -126,21 +126,30 @@ for num in subs:
         if (evi_df['scenes'][replace_inds].values.size) > 14:
             fills=evi_df['scenes'][replace_inds].values.size - 14
             temp = evi_df['scenes'][replace_inds].values[:-fills] #matching array lengths
+            temp_faces = evi_df['faces'][replace_inds].values[:-fills] #matching array lengths
 
             #we also want to see if this item was remembered or not
             trial_id=study_scene_order['image_id'][study_scene_order['condition']==2].values[i-1]
             trial_mem=mem_df[mem_df['image_num']==trial_id]['memory'].values[0]
             if trial_mem==1:
                 r_replace_evi['trial %s' % i]=temp
-                temp_df={'category_evi':temp[7:11].mean(), 'memory':1}
-                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':1}
+                temp_df={'category_evi':temp[7:11].mean(), 'memory':1,'category_diff_evi':((temp[7:11].mean()) - (temp_faces[7:11].mean()))}
+
+                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':1, 'category_diff_evi':((temp[5:7].mean()) - (temp_faces[5:7].mean()))}
+
                 mem_replace_evi=mem_replace_evi.append(temp_df,ignore_index=True)
+
                 stim_replace_evi=stim_replace_evi.append(temp_stim_df,ignore_index=True)
+
             else:
-                temp_df={'category_evi':temp[7:11].mean(), 'memory':0}
-                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':0}                
+                temp_df={'category_evi':temp[7:11].mean(), 'memory':0,'category_diff_evi':((temp[7:11].mean()) - (temp_faces[7:11].mean()))}
+
+                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':0, 'category_diff_evi':((temp[5:7].mean()) - (temp_faces[5:7].mean()))}
+
                 mem_replace_evi=mem_replace_evi.append(temp_df,ignore_index=True)
-                stim_replace_evi=stim_replace_evi.append(temp_stim_df,ignore_index=True)                
+
+                stim_replace_evi=stim_replace_evi.append(temp_stim_df,ignore_index=True)
+
                 f_replace_evi['trial %s' % i]=temp
 
             normalize=temp[:2].mean() #normalize values to first 2 TRs
@@ -159,21 +168,28 @@ for num in subs:
         if (evi_df['scenes'][maintain_inds].values.size) > 14:
             fills = evi_df['scenes'][maintain_inds].values.size - 14
             temp = evi_df['scenes'][maintain_inds].values[:-fills]
+            temp_faces = evi_df['faces'][maintain_inds].values[:-fills] #matching array lengths
 
             #we also want to see if this item was remembered or not
             trial_id=study_scene_order['image_id'][study_scene_order['condition']==1].values[i-1]
             trial_mem=mem_df[mem_df['image_num']==trial_id]['memory'].values[0]
             if trial_mem==1:
                 r_maintain_evi['trial %s' % i]=temp
-                temp_df={'category_evi':temp[7:11].mean(), 'memory':1}
-                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':1}
-                stim_maintain_evi=stim_maintain_evi.append(temp_stim_df,ignore_index=True)                
+                temp_df={'category_evi':temp[7:11].mean(), 'memory':1,'category_diff_evi':((temp[7:11].mean()) - (temp_faces[7:11].mean()))}
+
+                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':1, 'category_diff_evi':((temp[5:7].mean()) - (temp_faces[5:7].mean()))}
+
+                stim_maintain_evi=stim_maintain_evi.append(temp_stim_df,ignore_index=True)    
+
                 mem_maintain_evi=mem_maintain_evi.append(temp_df,ignore_index=True)                
             else:
                 f_maintain_evi['trial %s' % i]=temp
-                temp_df={'category_evi':temp[7:11].mean(), 'memory':0}
-                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':0}
-                stim_maintain_evi=stim_maintain_evi.append(temp_stim_df,ignore_index=True)                 
+                temp_df={'category_evi':temp[7:11].mean(), 'memory':0,'category_diff_evi':((temp[7:11].mean()) - (temp_faces[7:11].mean()))}
+
+                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':0, 'category_diff_evi':((temp[5:7].mean()) - (temp_faces[5:7].mean()))}
+
+                stim_maintain_evi=stim_maintain_evi.append(temp_stim_df,ignore_index=True)    
+
                 mem_maintain_evi=mem_maintain_evi.append(temp_df,ignore_index=True)
 
             normalize=temp[:2].mean()
@@ -185,22 +201,30 @@ for num in subs:
         if (evi_df['scenes'][suppress_inds].values.size) > 14:
             fills = evi_df['scenes'][suppress_inds].values.size - 14
             temp = evi_df['scenes'][suppress_inds].values[:-fills]
+            temp_faces = evi_df['faces'][suppress_inds].values[:-fills]
+
 
             #we also want to see if this item was remembered or not
             trial_id=study_scene_order['image_id'][study_scene_order['condition']==3].values[i-1]
             trial_mem=mem_df[mem_df['image_num']==trial_id]['memory'].values[0]
             if trial_mem==1:
                 r_suppress_evi['trial %s' % i]=temp
-                temp_df={'category_evi':temp[7:11].mean(), 'memory':1}
-                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':1}
-                stim_suppress_evi=stim_suppress_evi.append(temp_stim_df,ignore_index=True)                 
+                temp_df={'category_evi':temp[7:11].mean(), 'memory':1,'category_diff_evi':((temp[7:11].mean()) - (temp_faces[7:11].mean()))}
+
+                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':1, 'category_diff_evi':((temp[5:7].mean()) - (temp_faces[5:7].mean()))}
+
+                stim_suppress_evi=stim_suppress_evi.append(temp_stim_df,ignore_index=True)  
+
                 mem_suppress_evi=mem_suppress_evi.append(temp_df,ignore_index=True)                
             else:
                 f_suppress_evi['trial %s' % i]=temp
-                temp_df={'category_evi':temp[7:11].mean(), 'memory':0}
-                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':0}
-                stim_suppress_evi=stim_suppress_evi.append(temp_stim_df,ignore_index=True)                 
-                mem_suppress_evi=mem_suppress_evi.append(temp_df,ignore_index=True)
+                temp_df={'category_evi':temp[7:11].mean(), 'memory':0,'category_diff_evi':((temp[7:11].mean()) - (temp_faces[7:11].mean()))}
+
+                temp_stim_df={'category_evi':temp[5:7].mean(), 'memory':0, 'category_diff_evi':((temp[5:7].mean()) - (temp_faces[5:7].mean()))}
+
+                stim_suppress_evi=stim_suppress_evi.append(temp_stim_df,ignore_index=True)  
+
+                mem_suppress_evi=mem_suppress_evi.append(temp_df,ignore_index=True)  
 
             normalize=temp[:2].mean()
             suppress_evi['trial %s' % i]=temp-normalize
