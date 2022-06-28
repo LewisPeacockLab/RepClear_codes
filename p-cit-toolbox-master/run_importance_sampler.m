@@ -37,7 +37,7 @@ function [] = run_importance_sampler()
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 analysis_settings = struct(); % Creating a struct
 
-analysis_settings.analysis_id = 'repclear_2sample_diff_suppress_nonz'; % analysis_id: specifies the target directory into which the output .mat will be located; if empty then the target directory is the timestamp of the form - YYYY-MM-DD-HH-MM
+analysis_settings.analysis_id = 'repclear_2sample_diff_suppress_z'; % analysis_id: specifies the target directory into which the output .mat will be located; if empty then the target directory is the timestamp of the form - YYYY-MM-DD-HH-MM
 
 analysis_settings.em_iterations = 20; % Number of expectation maximization iterations
 analysis_settings.particles = 100000; % Number of particles to be used in the importance sampling algorithm
@@ -53,7 +53,7 @@ analysis_settings.tau = 0.05; % Specifies the radius to sample curves in the cur
 analysis_settings.category = [3]; % Specifies if the analyses will need to run on a specific category. Vector length Should be greater than 0. For instance [2] will cause the analyses to be run only on the second category; [] will run the analyses on all categories
 
 analysis_settings.drop_outliers = 3; % specifies how many std dev away from group mean will the predictor variable outliers need to be dropped
-analysis_settings.zscore_within_subjects = false; % if TRUE, the independednt variables will be zscored within each suibject
+analysis_settings.zscore_within_subjects = true; % if TRUE, the independednt variables will be zscored within each suibject
 % Registering which column in the data matrix is carrying which piece of information
 analysis_settings.data_matrix_columns = struct();
 analysis_settings.data_matrix_columns.subject_id = 1;
