@@ -195,7 +195,7 @@ def item_representation_study(subID):
 
         
         trial_pattern=np.mean(img_clean.get_fdata()[:,:,:,(onset):(onset+2)],axis=3) #this is getting the 2 TRs for that trial's onset and then taking the average of it across the 4th dimension (time)
-        removal_pattern=np.mean(img_clean.get_fdata()[:,:,:,(onset+2):(onset+6)],axis=3) #this is getting the 2 TRs for that trial's onset and then taking the average of it across the 4th dimension (time)
+        removal_timecourse=img_clean.get_fdata()[:,:,:,(onset+2):(onset+6)]#this is getting the 2 TRs for that trial's onset and then taking the average of it across the 4th dimension (time)
         
 
         output_name = os.path.join(out_folder, ('Sub-0%s_study_scene_trial%s_result.nii.gz' % (subID,(trial+1))))
@@ -206,14 +206,14 @@ def item_representation_study(subID):
         hdr.set_zooms((dimsize[0], dimsize[1], dimsize[2]))
         nib.save(trial_pattern_nii, output_name)  # Save the volume  
 
-        removal_output_name = os.path.join(out_folder, ('Sub-0%s_study_removal_scene_trial%s_result.nii.gz' % (subID,(trial+1))))
-        removal_pattern = removal_pattern.astype('double')  # Convert the output into a precision format that can be used by other applications
-        removal_pattern[np.isnan(removal_pattern)] = 0  # Exchange nans with zero to ensure compatibility with other applications
-        removal_pattern_nii = nib.Nifti1Image(removal_pattern, affine_mat)  # create the volume image
+        removal_output_name = os.path.join(out_folder, ('Sub-0%s_study_removal_timecourse_scene_trial%s_result.nii.gz' % (subID,(trial+1))))
+        removal_timecourse = removal_timecourse.astype('double')  # Convert the output into a precision format that can be used by other applications
+        removal_timecourse[np.isnan(removal_timecourse)] = 0  # Exchange nans with zero to ensure compatibility with other applications
+        removal_pattern_nii = nib.Nifti1Image(removal_timecourse, affine_mat)  # create the volume image
         hdr = removal_pattern_nii.header  # get a handle of the .nii file's header
-        hdr.set_zooms((dimsize[0], dimsize[1], dimsize[2]))
+        hdr.set_zooms((dimsize[0], dimsize[1], dimsize[2], dimsize[3]))
         nib.save(removal_pattern_nii, removal_output_name)  # Save the volume         
 
-        del trial_pattern, trial_pattern_nii, affine_mat, onset, out_folder, output_name, hdr, removal_pattern, removal_pattern_nii, removal_output_name
+        del trial_pattern, trial_pattern_nii, affine_mat, onset, out_folder, output_name, hdr, removal_timecourse, removal_pattern_nii, removal_output_name
 
 Parallel(n_jobs=4)(delayed(item_representation_study)(i) for i in subs)
