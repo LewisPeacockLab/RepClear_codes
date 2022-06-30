@@ -175,7 +175,7 @@ for subID in subs:
     all_bolds_4 = {}  # {cateID: {trialID: bold}}
     bolds_arr_4 = []  # sample x vox
     for cateID in sub_cates.keys():
-        cate_bolds_fnames_4 = glob.glob(f"{bold_dir_4}/*study_removal_{cateID}*")
+        cate_bolds_fnames_4 = glob.glob(f"{bold_dir_4}/*study_removal_timecourse_{cateID}*")
         cate_bolds_4 = {}
         try:
             for fname in cate_bolds_fnames_4:
@@ -234,9 +234,9 @@ for subID in subs:
     # apply mask on study removal BOLD
     masked_bolds_arr_4 = []
     for bold in bolds_arr_4:
-        masked_bolds_arr_4.append(apply_mask(mask=mask.get_fdata(), target=bold).flatten())
-    masked_bolds_arr_4 = np.vstack(masked_bolds_arr_4)
-    print("masked study removal phase bold array shape: ", masked_bolds_arr_4.shape) 
+        masked_bolds_arr_4.append(apply_mask(mask=mask.get_fdata(), target=bold))
+    masked_bolds_arr_4 = np.dstack(masked_bolds_arr_4)
+    print("masked study removal phase bold array shape: ", masked_bolds_arr_4.shape) #with this method, to access the trials you do: masked_bolds_arr_4[:,:,trial#] 
 
     # apply VTC mask on postlocalizer BOLD
     masked_bolds_arr_3 = []
@@ -398,18 +398,16 @@ for subID in subs:
 
     m_item_repress_study_comp=np.zeros_like(item_repress_pre[:30,:])
     m_item_repress_pre_comp=np.zeros_like(item_repress_pre[:30,:])
-    m_item_repress_removal_comp=np.zeros_like(item_repress_pre[:30,:])
+    m_item_repress_removal_comp={}
     r_item_repress_study_comp=np.zeros_like(item_repress_pre[:30,:])
     r_item_repress_pre_comp=np.zeros_like(item_repress_pre[:30,:])
-    r_item_repress_removal_comp=np.zeros_like(item_repress_pre[:30,:])
+    r_item_repress_removal_comp={}
     s_item_repress_study_comp=np.zeros_like(item_repress_pre[:30,:])
     s_item_repress_pre_comp=np.zeros_like(item_repress_pre[:30,:])
-    s_item_repress_removal_comp=np.zeros_like(item_repress_pre[:30,:])
+    s_item_repress_removal_comp={}
 
 
     for trial in study_scene_order['trial_id'].values: 
-        if trial==1: 
-            continue
 
         study_trial_index=study_scene_order.index[study_scene_order['trial_id']==trial].tolist()[0] #find the order 
         study_image_id=study_scene_order.loc[study_trial_index,'image_id'] #this now uses the index of the dataframe to find the image_id
@@ -417,22 +415,22 @@ for subID in subs:
 
         pre_trial_index=pre_scene_order.index[pre_scene_order['image_id']==study_image_id].tolist()[0] #find the index in the pre for this study trial
         pre_trial_num = pre_scene_order.loc[pre_trial_index,'trial_id']
-        image_condition=  pre_scene_order.loc[pre_scene_order['trial_id']==pre_trial_num-1]['condition'].values[0]
+        image_condition=  pre_scene_order.loc[pre_scene_order['trial_id']==pre_trial_num]['condition'].values[0]
         pre_trial_subcat = pre_scene_order.loc[pre_trial_index,'subcategory']
 
         if image_condition==1:
             m_item_repress_study_comp[m_counter]=np.multiply(masked_bolds_arr_2[trial-1,:], masked_weights_arr[pre_trial_num-1,:])
-            m_item_repress_removal_comp[m_counter]=np.multiply(masked_bolds_arr_4[trial-1,:], masked_weights_arr[pre_trial_num-1,:])
+            m_item_repress_removal_comp[m_counter]=np.multiply(masked_bolds_arr_4[:,:,trial-1], masked_weights_arr[pre_trial_num-1,:].reshape((1, masked_weights_arr[pre_trial_num-1,:].size)))
             m_item_repress_pre_comp[m_counter]=item_repress_pre[pre_trial_num-1,:]
             m_counter=m_counter+1
         elif image_condition==2:
             r_item_repress_study_comp[r_counter]=np.multiply(masked_bolds_arr_2[trial-1,:], masked_weights_arr[pre_trial_num-1,:])
-            r_item_repress_removal_comp[r_counter]=np.multiply(masked_bolds_arr_4[trial-1,:], masked_weights_arr[pre_trial_num-1,:])            
+            r_item_repress_removal_comp[r_counter]=np.multiply(masked_bolds_arr_4[:,:,trial-1], masked_weights_arr[pre_trial_num-1,:].reshape((1, masked_weights_arr[pre_trial_num-1,:].size)))
             r_item_repress_pre_comp[r_counter]=item_repress_pre[pre_trial_num-1,:]
             r_counter=r_counter+1    
         elif image_condition==3:
             s_item_repress_study_comp[s_counter]=np.multiply(masked_bolds_arr_2[trial-1,:], masked_weights_arr[pre_trial_num-1,:])
-            s_item_repress_removal_comp[s_counter]=np.multiply(masked_bolds_arr_4[trial-1,:], masked_weights_arr[pre_trial_num-1,:])            
+            s_item_repress_removal_comp[s_counter]=np.multiply(masked_bolds_arr_4[:,:,trial-1], masked_weights_arr[pre_trial_num-1,:].reshape((1, masked_weights_arr[pre_trial_num-1,:].size)))   
             s_item_repress_pre_comp[s_counter]=item_repress_pre[pre_trial_num-1,:]
             s_counter=s_counter+1                  
 
@@ -453,21 +451,21 @@ for subID in subs:
     temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'suppress_item_weight_pre_study_RSA.csv'))
     del temp_df             
 
-    m_item_pre_removal_comp=np.corrcoef(m_item_repress_pre_comp,m_item_repress_removal_comp)
-    temp_df=pd.DataFrame(data=m_item_pre_removal_comp)
-    if not os.path.exists(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag)): os.makedirs(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag),exist_ok=True)
-    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'maintain_item_weight_pre_removal_RSA.csv'))
-    del temp_df   
+    # m_item_pre_removal_comp=np.corrcoef(m_item_repress_pre_comp,m_item_repress_removal_comp)
+    # temp_df=pd.DataFrame(data=m_item_pre_removal_comp)
+    # if not os.path.exists(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag)): os.makedirs(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag),exist_ok=True)
+    # temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'maintain_item_weight_pre_removal_RSA.csv'))
+    # del temp_df   
 
-    r_item_pre_removal_comp=np.corrcoef(r_item_repress_pre_comp,r_item_repress_removal_comp)
-    temp_df=pd.DataFrame(data=r_item_pre_removal_comp)
-    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'replace_item_weight_pre_removal_RSA.csv'))
-    del temp_df   
+    # r_item_pre_removal_comp=np.corrcoef(r_item_repress_pre_comp,r_item_repress_removal_comp)
+    # temp_df=pd.DataFrame(data=r_item_pre_removal_comp)
+    # temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'replace_item_weight_pre_removal_RSA.csv'))
+    # del temp_df   
 
-    s_item_pre_removal_comp=np.corrcoef(s_item_repress_pre_comp,s_item_repress_removal_comp)
-    temp_df=pd.DataFrame(data=s_item_pre_removal_comp)
-    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'suppress_item_weight_pre_removal_RSA.csv'))
-    del temp_df 
+    # s_item_pre_removal_comp=np.corrcoef(s_item_repress_pre_comp,s_item_repress_removal_comp)
+    # temp_df=pd.DataFrame(data=s_item_pre_removal_comp)
+    # temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'suppress_item_weight_pre_removal_RSA.csv'))
+    # del temp_df 
 
 
     #this loop is limited by the smaller index, so thats the study condition (only 90 stims)
