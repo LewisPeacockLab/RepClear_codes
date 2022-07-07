@@ -57,9 +57,13 @@ def make_tim_file():
         
         for phase in phases.keys():
             design = mat_dict['args']['design']['ph'][phase-1]['matrix']
-            header = mat_dict['args']['design']['ph'][phase-1]['header']
+            header = mat_dict['args']['design']['ph'][phase-1]['header'] #this is by trial
+
+            #this is by TR
+            design_tr = mat_dict['args']['design']['ph'][phase-1]['matrix_tr']
             
             trial_df = pd.DataFrame(design, columns=header)
+            tr_df = pd.DataFrame(design_tr, columns=header)
             print(trial_df.shape)
             # for storage
             phase_df = pd.DataFrame(columns=["phase", "trial_id", "image_id", "image_name", "category", "subcategory", 
@@ -101,6 +105,9 @@ def make_tim_file():
                 phase_df.loc[phase_df["category"]==catei,"trial_id"] = np.arange(n_cate_trial)+1
             
             subdfs.append(phase_df)
+
+            out_fname = f"{out_dir}/sub-{subIDs_dict[subID]}_{phases[phase]}_tr_design.csv"
+            tr_df.to_csv(out_fname)
         
         sub_df = pd.concat(subdfs)
 

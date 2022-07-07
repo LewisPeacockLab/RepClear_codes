@@ -320,7 +320,7 @@ for subID in subs:
    
 
     item_repress_study_comp=np.zeros_like(item_repress_pre[:90,:]) #set up this array in the same size as the pre, so I can size things in the correct trial order
-    item_repress_removal_comp=np.zeros_like(item_repress_study_comp)
+    item_repress_removal_comp={}
     #now we are setting up a pre_item_weighted array to correlate to the study one
     item_repress_pre_comp=np.zeros_like(item_repress_study_comp)
     item_repress_post_comp = np.zeros_like(item_repress_study_comp)
@@ -486,7 +486,7 @@ for subID in subs:
 
         #now that I have the link between prelocalizer, study, and postlocalizer I can get that representation weighted with the item weight
         item_repress_study_comp[counter]=np.multiply(masked_bolds_arr_2[trial-1,:], masked_weights_arr[pre_trial_num-1,:])
-        item_repress_removal_comp[counter]=np.multiply(masked_bolds_arr_4[trial-1,:], masked_weights_arr[pre_trial_num-1,:])        
+        item_repress_removal_comp[counter]=np.multiply(masked_bolds_arr_4[:,:,trial-1], masked_weights_arr[pre_trial_num-1,:].reshape((1, masked_weights_arr[pre_trial_num-1,:].size)))
         item_repress_pre_comp[counter]=item_repress_pre[pre_trial_num-1,:]
         item_repress_post_comp[counter]=np.multiply(masked_bolds_arr_3[post_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])
 
@@ -507,11 +507,11 @@ for subID in subs:
         #This is to get the fidelity of the current item/trial from pre to post (item_weighted)
         pre_post_trial_iw_fidelity=np.corrcoef(item_repress_pre_comp[counter,:],item_repress_post_comp[counter,:])
         #This is to get the fidelity of the current item/trial from pre to removal (item_weighted)
-        pre_removal_trial_iw_fidelity=np.corrcoef(item_repress_pre_comp[counter,:],item_repress_removal_comp[counter,:])        
+        pre_removal_trial_iw_fidelity=np.corrcoef(item_repress_pre_comp[counter,:],item_repress_removal_comp[counter])        
         #This is to get the fidelity of the current item/trial from study to post (item_weighted)
         study_post_trial_iw_fidelity=np.corrcoef(item_repress_study_comp[counter,:],item_repress_post_comp[counter,:])
         #This is to get the fidelity of the current item/removal from study to post (item_weighted)
-        removal_post_trial_iw_fidelity=np.corrcoef(item_repress_removal_comp[counter,:],item_repress_post_comp[counter,:])        
+        removal_post_trial_iw_fidelity=np.corrcoef(item_repress_removal_comp[counter],item_repress_post_comp[counter,:])        
         #This is to get the fidelity of the current item/trial from pre to study (item_weighted)
         pre_study_trial_iw_fidelity=np.corrcoef(item_repress_pre_comp[counter,:],item_repress_study_comp[counter,:])
 
@@ -542,8 +542,8 @@ for subID in subs:
             change_uw_maintain_dict['image ID: %s' % study_image_id] = pre_post_trial_uw_fidelity[1][0]
 
             modify_iw_maintain_dict['image ID: %s' % study_image_id] = study_post_trial_iw_fidelity[1][0]
-            removal_iw_maintain_dict['image ID: %s' % study_image_id] = removal_post_trial_iw_fidelity[1][0]
-            preremoval_iw_maintain_dict['image ID: %s' % study_image_id] = pre_removal_trial_iw_fidelity[1][0]
+            removal_iw_maintain_dict['image ID: %s' % study_image_id] = removal_post_trial_iw_fidelity[0][1:]
+            preremoval_iw_maintain_dict['image ID: %s' % study_image_id] = pre_removal_trial_iw_fidelity[0][1:]
 
             modify_uw_maintain_dict['image ID: %s' % study_image_id] = study_post_trial_uw_fidelity[1][0]
             if brain_flag=='MNI':
@@ -561,8 +561,8 @@ for subID in subs:
 
             modify_iw_replace_dict['image ID: %s' % study_image_id] = study_post_trial_iw_fidelity[1][0]
 
-            removal_iw_replace_dict['image ID: %s' % study_image_id] = removal_post_trial_iw_fidelity[1][0]
-            preremoval_iw_replace_dict['image ID: %s' % study_image_id] = pre_removal_trial_iw_fidelity[1][0]            
+            removal_iw_replace_dict['image ID: %s' % study_image_id] = removal_post_trial_iw_fidelity[0][1:]
+            preremoval_iw_replace_dict['image ID: %s' % study_image_id] = pre_removal_trial_iw_fidelity[0][1:]            
 
             modify_uw_replace_dict['image ID: %s' % study_image_id] = study_post_trial_uw_fidelity[1][0]
 
@@ -581,8 +581,8 @@ for subID in subs:
             change_uw_suppress_dict['image ID: %s' % study_image_id] = pre_post_trial_uw_fidelity[1][0]
 
             modify_iw_suppress_dict['image ID: %s' % study_image_id] = study_post_trial_iw_fidelity[1][0]
-            removal_iw_suppress_dict['image ID: %s' % study_image_id] = removal_post_trial_iw_fidelity[1][0]
-            preremoval_iw_suppress_dict['image ID: %s' % study_image_id] = pre_removal_trial_iw_fidelity[1][0]            
+            removal_iw_suppress_dict['image ID: %s' % study_image_id] = removal_post_trial_iw_fidelity[0][1:]
+            preremoval_iw_suppress_dict['image ID: %s' % study_image_id] = pre_removal_trial_iw_fidelity[0][1:]            
 
             modify_uw_suppress_dict['image ID: %s' % study_image_id] = study_post_trial_uw_fidelity[1][0]
 
@@ -705,12 +705,16 @@ for subID in subs:
     temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'item_weight_study_post_RSA.csv'))
     del temp_df     
 
-    item_removal_post_comp=np.corrcoef(item_repress_removal_comp,item_repress_post_comp)
+    item_removal_post_comp={}
+    for i in item_repress_removal_comp.keys():    
+        item_removal_post_comp[i]=np.corrcoef(item_repress_removal_comp[i],item_repress_post_comp[i])[0][1:]
     temp_df=pd.DataFrame(data=item_removal_post_comp)
     temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'item_weight_removal_post_RSA.csv'))
     del temp_df  
 
-    item_pre_removal_comp=np.corrcoef(item_repress_pre_comp,item_repress_removal_comp)
+    item_pre_removal_comp={}
+    for i in item_repress_removal_comp.keys():
+        item_pre_removal_comp[i]=np.corrcoef(item_repress_pre_comp[i],item_repress_removal_comp[i])[0][1:]
     temp_df=pd.DataFrame(data=item_pre_removal_comp)
     temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'item_weight_pre_removal_RSA.csv'))
     del temp_df 
@@ -931,37 +935,63 @@ for subID in subs:
     unw_pre_df['preexposed']=np.array(list(change_uw_preexp_dict.values()))
     unw_pre_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'unweighted_pre_post_fidelity.csv'))    
 
-    itemw_pre_df=pd.DataFrame()
-    itemw_pre_df['maintain']=np.array(list(preremoval_iw_maintain_dict.values()))
-    itemw_pre_df['replace']=np.array(list(preremoval_iw_replace_dict.values()))
-    itemw_pre_df['suppress']=np.array(list(preremoval_iw_suppress_dict.values()))
-    itemw_pre_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'itemweighted_pre_removal_fidelity.csv'))
+    itemw_preremoval_df_m=pd.DataFrame(data=np.array(list(preremoval_iw_maintain_dict.values())))
+    itemw_preremoval_df_m['operation']=np.repeat('maintain',30)
+    itemw_preremoval_df_r=pd.DataFrame(data=np.array(list(preremoval_iw_replace_dict.values())))
+    itemw_preremoval_df_r['operation']=np.repeat('replace',30)    
+    itemw_preremoval_df_s=pd.DataFrame(data=np.array(list(preremoval_iw_suppress_dict.values())))
+    itemw_preremoval_df_s['operation']=np.repeat('suppress',30)    
+    itemw_preremoval_df=pd.DataFrame()
+    itemw_preremoval_df=itemw_preremoval_df.append(itemw_preremoval_df_m, ignore_index=True)
+    itemw_preremoval_df=itemw_preremoval_df.append(itemw_preremoval_df_r, ignore_index=True)
+    itemw_preremoval_df=itemw_preremoval_df.append(itemw_preremoval_df_s, ignore_index=True)
+    itemw_preremoval_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'itemweighted_pre_removal_fidelity.csv'))
 
 
     itemw_remembered_df=pd.DataFrame(columns=['maintain','replace','suppress','preexp'],index=range(0,30))
     itemw_forgot_df=pd.DataFrame(columns=['maintain','replace','suppress','preexp'],index=range(0,30))
 
     itemw_study_post_forgot_df=pd.DataFrame(columns=['maintain','replace','suppress'],index=range(0,30))
-    itemw_removal_post_forgot_df=pd.DataFrame(columns=['maintain','replace','suppress'],index=range(0,30))
-    itemw_removal_post_remember_df=pd.DataFrame(columns=['maintain','replace','suppress'],index=range(0,30))
 
-    itemw_pre_removal_df=pd.DataFrame(columns=['maintain','replace','suppress'],index=range(0,30))
+    operation_list=np.repeat(['maintain','replace','suppress'],30)
+
+    itemw_removal_post_forgot_df=pd.DataFrame(index=range(0,90),columns=[0,1,2,3,4,5,6,7,8,'operation'])
+
+    itemw_removal_post_remember_df=pd.DataFrame(index=range(0,90),columns=[0,1,2,3,4,5,6,7,8,'operation'])
+
+    itemw_pre_removal_remember_df=pd.DataFrame(index=range(0,90),columns=[0,1,2,3,4,5,6,7,8,'operation'])
+
+    itemw_pre_removal_forgot_df=pd.DataFrame(index=range(0,90),columns=[0,1,2,3,4,5,6,7,8,'operation'])
 
     indexer_r=0
     indexer_f=0
+
+    indexer_r_agg=0
+    indexer_f_agg=0    
     for img_key in change_iw_maintain_dict.keys():
         img_num = re.split('(\d+)', img_key) 
         img_num=int(img_num[1])
         if (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==1:
             itemw_remembered_df.loc[indexer_r]['maintain']=change_iw_maintain_dict['image ID: %s' % img_num]
-            itemw_removal_post_remember_df.loc[indexer_r]['maintain']=removal_iw_maintain_dict['image ID: %s' % img_num]
-
+            itemw_study_post_remember_df.loc[indexer_f]['maintain']=modify_iw_maintain_dict['image ID: %s' % img_num]            
+            for i in range(0,9):
+                itemw_removal_post_remember_df.loc[indexer_r_agg][i]=removal_iw_maintain_dict['image ID: %s' % img_num][i]
+                itemw_pre_removal_remember_df.loc[indexer_r_agg][i]=preremoval_iw_maintain_dict['image ID: %s' % img_num][i]
+            itemw_pre_removal_remember_df.loc[indexer_r_agg]['operation']='maintain'
+            itemw_removal_post_remember_df.loc[indexer_r_agg]['operation']='maintain'                
             indexer_r=indexer_r+1
+            indexer_r_agg=indexer_r_agg+1           
+
         elif (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==0:
             itemw_forgot_df.loc[indexer_f]['maintain']=change_iw_maintain_dict['image ID: %s' % img_num]
             itemw_study_post_forgot_df.loc[indexer_f]['maintain']=modify_iw_maintain_dict['image ID: %s' % img_num]
-            itemw_removal_post_forgot_df.loc[indexer_f]['maintain']=removal_iw_maintain_dict['image ID: %s' % img_num]
+            for i in range(0,9):
+                itemw_removal_post_forgot_df.loc[indexer_f_agg][i]=removal_iw_maintain_dict['image ID: %s' % img_num][i]
+                itemw_pre_removal_forgot_df.loc[indexer_f_agg][i]=preremoval_iw_maintain_dict['image ID: %s' % img_num][i]
+            itemw_pre_removal_forgot_df.loc[indexer_f_agg]['operation']='maintain'
+            itemw_removal_post_forgot_df.loc[indexer_f_agg]['operation']='maintain'                
             indexer_f=indexer_f+1
+            indexer_f_agg=indexer_f_agg+1            
 
     indexer_r=0
     indexer_f=0
@@ -971,14 +1001,25 @@ for subID in subs:
 
         if (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==1:
             itemw_remembered_df.loc[indexer_r]['replace']=change_iw_replace_dict['image ID: %s' % img_num]
-            itemw_removal_post_remember_df.loc[indexer_r]['replace']=removal_iw_replace_dict['image ID: %s' % img_num]            
+            itemw_study_post_remember_df.loc[indexer_f]['replace']=modify_iw_replace_dict['image ID: %s' % img_num]               
+            for i in range(0,9):
+                itemw_removal_post_remember_df.loc[indexer_r_agg][i]=removal_iw_replace_dict['image ID: %s' % img_num][i]
+                itemw_pre_removal_remember_df.loc[indexer_r_agg][i]=preremoval_iw_replace_dict['image ID: %s' % img_num][i]
+            itemw_pre_removal_remember_df.loc[indexer_r_agg]['operation']='replace'
+            itemw_removal_post_remember_df.loc[indexer_r_agg]['operation']='replace'                
             indexer_r=indexer_r+1
+            indexer_r_agg=indexer_r_agg+1           
 
         elif (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==0:
             itemw_forgot_df.loc[indexer_f]['replace']=change_iw_replace_dict['image ID: %s' % img_num]
             itemw_study_post_forgot_df.loc[indexer_f]['replace']=modify_iw_replace_dict['image ID: %s' % img_num]   
-            itemw_removal_post_forgot_df.loc[indexer_f]['replace']=removal_iw_replace_dict['image ID: %s' % img_num]                     
+            for i in range(0,9):
+                itemw_removal_post_forgot_df.loc[indexer_f_agg][i]=removal_iw_replace_dict['image ID: %s' % img_num][i]
+                itemw_pre_removal_forgot_df.loc[indexer_f_agg][i]=preremoval_iw_replace_dict['image ID: %s' % img_num][i]
+            itemw_pre_removal_forgot_df.loc[indexer_f_agg]['operation']='replace'
+            itemw_removal_post_forgot_df.loc[indexer_f_agg]['operation']='replace'                
             indexer_f=indexer_f+1
+            indexer_f_agg=indexer_f_agg+1            
 
     indexer_r=0
     indexer_f=0
@@ -988,14 +1029,25 @@ for subID in subs:
 
         if (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==1:
             itemw_remembered_df.loc[indexer_r]['suppress']=change_iw_suppress_dict['image ID: %s' % img_num]
-            itemw_removal_post_remember_df.loc[indexer_r]['suppress']=removal_iw_suppress_dict['image ID: %s' % img_num]                        
+            itemw_study_post_remember_df.loc[indexer_f]['suppress']=modify_iw_suppress_dict['image ID: %s' % img_num]               
+            for i in range(0,9):
+                itemw_removal_post_remember_df.loc[indexer_r_agg][i]=removal_iw_suppress_dict['image ID: %s' % img_num][i]
+                itemw_pre_removal_remember_df.loc[indexer_r_agg][i]=preremoval_iw_suppress_dict['image ID: %s' % img_num][i]
+            itemw_pre_removal_remember_df.loc[indexer_r_agg]['operation']='suppress'
+            itemw_removal_post_remember_df.loc[indexer_r_agg]['operation']='suppress'            
             indexer_r=indexer_r+1
+            indexer_r_agg=indexer_r_agg+1           
 
         elif (memory_csv['memory'][memory_csv['image_num']==img_num]).values[0]==0:
             itemw_forgot_df.loc[indexer_f]['suppress']=change_iw_suppress_dict['image ID: %s' % img_num]
             itemw_study_post_forgot_df.loc[indexer_f]['suppress']=modify_iw_suppress_dict['image ID: %s' % img_num]   
-            itemw_removal_post_forgot_df.loc[indexer_f]['suppress']=removal_iw_suppress_dict['image ID: %s' % img_num]                     
+            for i in range(0,9):
+                itemw_removal_post_forgot_df.loc[indexer_f_agg][i]=removal_iw_suppress_dict['image ID: %s' % img_num][i]
+                itemw_pre_removal_forgot_df.loc[indexer_f_agg][i]=preremoval_iw_suppress_dict['image ID: %s' % img_num][i]
+            itemw_pre_removal_forgot_df.loc[indexer_f_agg]['operation']='suppress'
+            itemw_removal_post_forgot_df.loc[indexer_f_agg]['operation']='suppress'    
             indexer_f=indexer_f+1
+            indexer_f_agg=indexer_f_agg+1            
 
     indexer_r=0
     indexer_f=0
@@ -1081,8 +1133,13 @@ for subID in subs:
     uw_forgot_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'unweighted_pre_post_forgot_fidelity.csv'))
 
     itemw_study_post_forgot_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'itemweighted_study_post_forgot_fidelity.csv'))
+    itemw_study_post_remember_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'itemweighted_study_post_remember_fidelity.csv'))
+
     itemw_removal_post_forgot_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'itemweighted_removal_post_forgot_fidelity.csv'))
     itemw_removal_post_remember_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'itemweighted_removal_post_remembered_fidelity.csv'))
+
+    itemw_pre_removal_forgot_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'itemweighted_pre_removal_forgot_fidelity.csv'))
+    itemw_pre_removal_remember_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'itemweighted_pre_removal_remembered_fidelity.csv'))
 
     fig=sns.barplot(data=itemw_study_post_forgot_df)
     fig.set_xlabel('Operations')
@@ -1091,20 +1148,65 @@ for subID in subs:
     plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'Item_Weighted_forgot_only_study_post_summary.png'))
     plt.clf()
 
-    fig=sns.barplot(data=itemw_removal_post_forgot_df)
-    fig.set_xlabel('Operations')
+    itemw_removal_post_forgot_df=itemw_removal_post_forgot_df.dropna()
+    temp_oper_list=itemw_removal_post_forgot_df['operation'].values
+    itemw_removal_post_forgot_df.drop(columns=['operation'],inplace=True)
+    itemw_removal_post_forgot_df=itemw_removal_post_forgot_df.melt()
+    itemw_removal_post_forgot_df['operation']=np.tile(temp_oper_list,9)
+    itemw_removal_post_forgot_df=itemw_removal_post_forgot_df.astype({"value": float})
+
+    fig=sns.lineplot(data=itemw_removal_post_forgot_df,x='variable',y='value',hue='operation')
+    fig.set_xlabel('TR')
     fig.set_ylabel('Fidelity')
+    fig.set_ylim([-0.2,0.2])
     fig.set_title('Item Weighted - Removal vs. Post - Forgot items only')
-    plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'Item_Weighted_forgot_only_removal_post_summary.png'))
+    plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'Item_Weighted_forgot_only_removal_post_summary_timecourse.png'))
     plt.clf()
 
-    fig=sns.barplot(data=itemw_removal_post_remember_df)
-    fig.set_xlabel('Operations')
+    itemw_removal_post_remember_df=itemw_removal_post_remember_df.dropna()
+    temp_oper_list=itemw_removal_post_remember_df['operation'].values
+    itemw_removal_post_remember_df.drop(columns=['operation'],inplace=True)
+    itemw_removal_post_remember_df=itemw_removal_post_remember_df.melt()
+    itemw_removal_post_remember_df['operation']=np.tile(temp_oper_list,9)
+    itemw_removal_post_remember_df=itemw_removal_post_remember_df.astype({"value": float})
+
+    fig=sns.lineplot(data=itemw_removal_post_remember_df,x='variable',y='value',hue='operation')
+    fig.set_xlabel('TR')
     fig.set_ylabel('Fidelity')
+    fig.set_ylim([-0.2,0.2])    
     fig.set_title('Item Weighted - Removal vs. Post - Remembered items only')
-    plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'Item_Weighted_remember_only_removal_post_summary.png'))
+    plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'Item_Weighted_remember_only_removal_post_summary_timecourse.png'))
     plt.clf()    
 
+    itemw_pre_removal_forgot_df=itemw_pre_removal_forgot_df.dropna()
+    temp_oper_list=itemw_pre_removal_forgot_df['operation'].values
+    itemw_pre_removal_forgot_df.drop(columns=['operation'],inplace=True)
+    itemw_pre_removal_forgot_df=itemw_pre_removal_forgot_df.melt()
+    itemw_pre_removal_forgot_df['operation']=np.tile(temp_oper_list,9)
+    itemw_pre_removal_forgot_df=itemw_pre_removal_forgot_df.astype({"value": float})
+
+    fig=sns.lineplot(data=itemw_pre_removal_forgot_df,x='variable',y='value',hue='operation')
+    fig.set_xlabel('TR')
+    fig.set_ylabel('Fidelity')
+    fig.set_ylim([-0.2,0.2])
+    fig.set_title('Item Weighted - Pre vs. Removal - Forgot items only')
+    plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'Item_Weighted_forgot_only_pre_removal_summary_timecourse.png'))
+    plt.clf()
+
+    itemw_pre_removal_remember_df=itemw_pre_removal_remember_df.dropna()
+    temp_oper_list=itemw_pre_removal_remember_df['operation'].values
+    itemw_pre_removal_remember_df.drop(columns=['operation'],inplace=True)
+    itemw_pre_removal_remember_df=itemw_pre_removal_remember_df.melt()
+    itemw_pre_removal_remember_df['operation']=np.tile(temp_oper_list,9)
+    itemw_pre_removal_remember_df=itemw_pre_removal_remember_df.astype({"value": float})
+
+    fig=sns.lineplot(data=itemw_pre_removal_remember_df,x='variable',y='value',hue='operation')
+    fig.set_xlabel('TR')
+    fig.set_ylabel('Fidelity')
+    fig.set_ylim([-0.2,0.2])    
+    fig.set_title('Item Weighted - Pre vs. Removal - Remembered items only')
+    plt.savefig(os.path.join(container_path,"sub-0%s"  % subID,"Representational_Changes_%s" % brain_flag,'Item_Weighted_remember_only_pre_removal_summary_timecourse.png'))
+    plt.clf()  
 
     #study vs. post changes
     itemw_study_df=pd.DataFrame()
@@ -1249,31 +1351,40 @@ group_item_weighted_study_post=pd.DataFrame()
 group_item_weighted_pre_study=pd.DataFrame()
 
 group_item_weighted_pre_removal=pd.DataFrame()
+group_item_weighted_removal_post=pd.DataFrame()
 
-group_cate_weighted_pre_post=pd.DataFrame()
-group_cate_weighted_study_post=pd.DataFrame()
-group_cate_weighted_pre_study=pd.DataFrame()
+# group_cate_weighted_pre_post=pd.DataFrame()
+# group_cate_weighted_study_post=pd.DataFrame()
+# group_cate_weighted_pre_study=pd.DataFrame()
 
-group_unweighted_pre_post=pd.DataFrame()
-group_unweighted_study_post=pd.DataFrame()
-group_unweighted_pre_study=pd.DataFrame()
+# group_unweighted_pre_post=pd.DataFrame()
+# group_unweighted_study_post=pd.DataFrame()
+# group_unweighted_pre_study=pd.DataFrame()
 
 group_item_remember_pre_post=pd.DataFrame()
 group_item_forgot_pre_post=pd.DataFrame()
-group_unweighted_remember_pre_post=pd.DataFrame()
-group_unweighted_forgot_pre_post=pd.DataFrame()
+# group_unweighted_remember_pre_post=pd.DataFrame()
+# group_unweighted_forgot_pre_post=pd.DataFrame()
 
 group_by_sub_item_remember_pre_post=pd.DataFrame()
 group_by_sub_item_forgot_pre_post=pd.DataFrame()
 
 group_by_sub_item_remember_removal_post=pd.DataFrame()
 group_by_sub_item_forgot_removal_post=pd.DataFrame()
+
+group_by_sub_item_remember_pre_removal=pd.DataFrame()
+group_by_sub_item_forgot_pre_removal=pd.DataFrame()
+
 group_by_sub_item_pre_removal=pd.DataFrame()
+group_by_sub_item_removal_post=pd.DataFrame()
 
 group_item_forgot_study_post=pd.DataFrame()
 group_item_forgot_removal_post=pd.DataFrame()
 group_item_remember_removal_post=pd.DataFrame()
+group_item_remember_study_post=pd.DataFrame()
 
+group_item_remember_pre_removal=pd.DataFrame()
+group_item_forgot_pre_removal=pd.DataFrame()
 
 
 for subID in subs:
@@ -1289,25 +1400,25 @@ for subID in subs:
     group_item_weighted_pre_study=group_item_weighted_pre_study.append(pd.read_csv(item_pre_study[0],usecols=[1,2,3]),ignore_index=True)
 
     item_pre_removal=find('item*pre*removal*fidelity*',data_path)
-    group_item_weighted_pre_removal=group_item_weighted_pre_removal.append(pd.read_csv(item_pre_removal[0],usecols=[1,2,3]),ignore_index=True)    
+    group_item_weighted_pre_removal=group_item_weighted_pre_removal.append(pd.read_csv(item_pre_removal[0],index_col=[0]),ignore_index=True)   
 
-    cate_pre_post=find('scene*pre*post*fidelity*',data_path)
-    group_cate_weighted_pre_post=group_cate_weighted_pre_post.append(pd.read_csv(cate_pre_post[0],usecols=[1,2,3]),ignore_index=True)
+    # cate_pre_post=find('scene*pre*post*fidelity*',data_path)
+    # group_cate_weighted_pre_post=group_cate_weighted_pre_post.append(pd.read_csv(cate_pre_post[0],usecols=[1,2,3]),ignore_index=True)
 
-    cate_study_post=find('scene*study*post*fidelity*',data_path)
-    group_cate_weighted_study_post=group_cate_weighted_study_post.append(pd.read_csv(cate_study_post[0],usecols=[1,2,3]),ignore_index=True)
+    # cate_study_post=find('scene*study*post*fidelity*',data_path)
+    # group_cate_weighted_study_post=group_cate_weighted_study_post.append(pd.read_csv(cate_study_post[0],usecols=[1,2,3]),ignore_index=True)
 
-    cate_pre_study=find('scene*pre*study*fidelity*',data_path)
-    group_cate_weighted_pre_study=group_cate_weighted_pre_study.append(pd.read_csv(cate_study_post[0],usecols=[1,2,3]),ignore_index=True)
+    # cate_pre_study=find('scene*pre*study*fidelity*',data_path)
+    # group_cate_weighted_pre_study=group_cate_weighted_pre_study.append(pd.read_csv(cate_study_post[0],usecols=[1,2,3]),ignore_index=True)
 
-    un_pre_post=os.path.join(data_path,'unweighted_pre_post_fidelity.csv')
-    group_unweighted_pre_post=group_unweighted_pre_post.append(pd.read_csv(un_pre_post,usecols=[1,2,3,4]),ignore_index=True)
+    # un_pre_post=os.path.join(data_path,'unweighted_pre_post_fidelity.csv')
+    # group_unweighted_pre_post=group_unweighted_pre_post.append(pd.read_csv(un_pre_post,usecols=[1,2,3,4]),ignore_index=True)
 
-    un_study_post=find('unweighted*study*post*fidelity*',data_path)
-    group_unweighted_study_post=group_unweighted_study_post.append(pd.read_csv(un_study_post[0],usecols=[1,2,3]),ignore_index=True)
+    # un_study_post=find('unweighted*study*post*fidelity*',data_path)
+    # group_unweighted_study_post=group_unweighted_study_post.append(pd.read_csv(un_study_post[0],usecols=[1,2,3]),ignore_index=True)
 
-    un_pre_study=find('unweighted*pre*study*fidelity*',data_path)
-    group_unweighted_pre_study=group_unweighted_pre_study.append(pd.read_csv(un_pre_study[0],usecols=[1,2,3]),ignore_index=True)
+    # un_pre_study=find('unweighted*pre*study*fidelity*',data_path)
+    # group_unweighted_pre_study=group_unweighted_pre_study.append(pd.read_csv(un_pre_study[0],usecols=[1,2,3]),ignore_index=True)
 
     #now pull the ones sorted by memory:
     item_r_pre_post=os.path.join(data_path,'itemweighted_pre_post_remember_fidelity.csv')
@@ -1316,30 +1427,48 @@ for subID in subs:
     item_f_pre_post=os.path.join(data_path,'itemweighted_pre_post_forgot_fidelity.csv')
     group_item_forgot_pre_post=group_item_forgot_pre_post.append(pd.read_csv(item_f_pre_post,usecols=[1,2,3,4]),ignore_index=True)
 
+    # item_r_study_post=os.path.join(data_path,'itemweighted_study_post_remember_fidelity.csv')
+    # group_item_remember_study_post=group_item_remember_study_post.append(pd.read_csv(item_r_study_post,usecols=[1,2,3]),ignore_index=True) 
+
     item_f_study_post=os.path.join(data_path,'itemweighted_study_post_forgot_fidelity.csv')
     group_item_forgot_study_post=group_item_forgot_study_post.append(pd.read_csv(item_f_study_post,usecols=[1,2,3]),ignore_index=True)    
 
     item_f_removal_post=os.path.join(data_path,'itemweighted_removal_post_forgot_fidelity.csv')
-    group_item_forgot_removal_post=group_item_forgot_removal_post.append(pd.read_csv(item_f_removal_post,usecols=[1,2,3]),ignore_index=True)  
+    group_item_forgot_removal_post=group_item_forgot_removal_post.append(pd.read_csv(item_f_removal_post,index_col=[0]),ignore_index=True).dropna()  
 
     item_r_removal_post=os.path.join(data_path,'itemweighted_removal_post_remembered_fidelity.csv')
-    group_item_remember_removal_post=group_item_remember_removal_post.append(pd.read_csv(item_r_removal_post,usecols=[1,2,3]),ignore_index=True)  
+    group_item_remember_removal_post=group_item_remember_removal_post.append(pd.read_csv(item_r_removal_post,index_col=[0]),ignore_index=True).dropna()
 
-    un_r_pre_post=os.path.join(data_path,'unweighted_pre_post_remember_fidelity.csv')
-    group_unweighted_remember_pre_post=group_unweighted_remember_pre_post.append(pd.read_csv(un_r_pre_post,usecols=[1,2,3,4]),ignore_index=True)
+    item_f_pre_removal=os.path.join(data_path,'itemweighted_pre_removal_forgot_fidelity.csv')
+    group_item_forgot_pre_removal=group_item_forgot_pre_removal.append(pd.read_csv(item_f_pre_removal,index_col=[0]),ignore_index=True).dropna()  
 
-    un_f_pre_post=os.path.join(data_path,'unweighted_pre_post_forgot_fidelity.csv')
-    group_unweighted_forgot_pre_post=group_unweighted_forgot_pre_post.append(pd.read_csv(un_f_pre_post,usecols=[1,2,3,4]),ignore_index=True)
+    item_r_pre_removal=os.path.join(data_path,'itemweighted_pre_removal_remembered_fidelity.csv')
+    group_item_remember_pre_removal=group_item_remember_pre_removal.append(pd.read_csv(item_r_pre_removal,index_col=[0]),ignore_index=True).dropna()
+
+    # un_r_pre_post=os.path.join(data_path,'unweighted_pre_post_remember_fidelity.csv')
+    # group_unweighted_remember_pre_post=group_unweighted_remember_pre_post.append(pd.read_csv(un_r_pre_post,usecols=[1,2,3,4]),ignore_index=True)
+
+    # un_f_pre_post=os.path.join(data_path,'unweighted_pre_post_forgot_fidelity.csv')
+    # group_unweighted_forgot_pre_post=group_unweighted_forgot_pre_post.append(pd.read_csv(un_f_pre_post,usecols=[1,2,3,4]),ignore_index=True)
 
     group_by_sub_item_remember_pre_post=group_by_sub_item_remember_pre_post.append(pd.read_csv(item_r_pre_post,usecols=[1,2,3,4]).mean(),ignore_index=True)
 
     group_by_sub_item_forgot_pre_post=group_by_sub_item_forgot_pre_post.append(pd.read_csv(item_f_pre_post,usecols=[1,2,3,4]).mean(),ignore_index=True)   
 
-    group_by_sub_item_pre_removal=group_by_sub_item_pre_removal.append(pd.read_csv(item_pre_removal[0],usecols=[1,2,3]).mean(),ignore_index=True)
 
-    group_by_sub_item_remember_removal_post=group_by_sub_item_remember_removal_post.append(pd.read_csv(item_r_removal_post,usecols=[1,2,3]).mean(),ignore_index=True)
+    if subID in ['06','07','14','23']: #these subjects have an operation without forgetting, thus this messes up my subject level assesment and I am leaving them out for now
+        continue
 
-    group_by_sub_item_forgot_removal_post=group_by_sub_item_forgot_removal_post.append(pd.read_csv(item_f_removal_post,usecols=[1,2,3]).mean(),ignore_index=True)        
+    #this drops the index of the operation but the pattern is [maintain, replace, suppress] since I am getting operation averages per sub
+    group_by_sub_item_pre_removal=group_by_sub_item_pre_removal.append(pd.read_csv(item_pre_removal[0],index_col=[0]).groupby('operation').mean())
+
+    group_by_sub_item_remember_pre_removal=group_by_sub_item_remember_pre_removal.append(pd.read_csv(item_r_pre_removal,index_col=[0]).groupby('operation').mean())
+
+    group_by_sub_item_forgot_pre_removal=group_by_sub_item_forgot_pre_removal.append(pd.read_csv(item_f_pre_removal,index_col=[0]).groupby('operation').mean())
+
+    group_by_sub_item_remember_removal_post=group_by_sub_item_remember_removal_post.append(pd.read_csv(item_r_removal_post,index_col=[0]).groupby('operation').mean())
+    
+    group_by_sub_item_forgot_removal_post=group_by_sub_item_forgot_removal_post.append(pd.read_csv(item_f_removal_post,index_col=[0]).groupby('operation').mean())
 
 if not os.path.exists(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag)): os.makedirs(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag),exist_ok=True)
 #plot and save the figures of the data - Pre vs Post
@@ -1384,58 +1513,160 @@ plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_
 plt.clf() 
 
 
-fig=sns.barplot(data=group_item_forgot_removal_post,ci=95,palette=['green','blue','red'])
+temp_oper_list=group_item_forgot_removal_post['operation'].values
+group_item_forgot_removal_post.drop(columns=['operation'],inplace=True)
+group_item_forgot_removal_post=group_item_forgot_removal_post.melt()
+group_item_forgot_removal_post['operation']=np.tile(temp_oper_list,9)
+group_item_forgot_removal_post=group_item_forgot_removal_post.astype({"value": float})
+
+fig=sns.lineplot(data=group_item_forgot_removal_post,x='variable',y='value',hue='operation',ci=95,palette=['green','blue','red'])
 # fig, test_results = add_stat_annotation(fig, data=group_item_forgot_pre_post,
 #                                    box_pairs=[("maintain", "replace"), ("maintain", "suppress"), ("maintain", "preexp"), ("suppress", "preexp"), ("replace", "preexp")],
 #                                    test='t-test_ind', text_format='star',loc='outside', verbose=2)  
-fig.set_xlabel('Operations')
+fig.set_xlabel('TR')
+fig.set_ylim([-0.2,0.2])
 fig.set_ylabel('Fidelity')
 fig.set_title('Item Weighted (Group Level) - Removal vs. Post - Only Forgot')
-plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_removal_post_forgot_summary.png'))
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_removal_post_forgot_summary_timecourse.png'))
 plt.clf() 
 
+temp_oper_list=group_item_remember_removal_post['operation'].values
+group_item_remember_removal_post.drop(columns=['operation'],inplace=True)
+group_item_remember_removal_post=group_item_remember_removal_post.melt()
+group_item_remember_removal_post['operation']=np.tile(temp_oper_list,9)
+group_item_remember_removal_post=group_item_remember_removal_post.astype({"value": float})
 
-fig=sns.barplot(data=group_item_remember_removal_post,ci=95,palette=['green','blue','red'])
+fig=sns.lineplot(data=group_item_remember_removal_post,x='variable',y='value',hue='operation',ci=95,palette=['green','blue','red'])
 # fig, test_results = add_stat_annotation(fig, data=group_item_forgot_pre_post,
 #                                    box_pairs=[("maintain", "replace"), ("maintain", "suppress"), ("maintain", "preexp"), ("suppress", "preexp"), ("replace", "preexp")],
 #                                    test='t-test_ind', text_format='star',loc='outside', verbose=2)  
-fig.set_xlabel('Operations')
+fig.set_xlabel('TR')
+fig.set_ylim([-0.2,0.2])
 fig.set_ylabel('Fidelity')
 fig.set_title('Item Weighted (Group Level) - Removal vs. Post - Only Remembered')
-plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_removal_post_remember_summary.png'))
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_removal_post_remember_summary_timecourse.png'))
 plt.clf() 
 
 
+temp_oper_list=group_item_weighted_pre_removal['operation'].values
+group_item_weighted_pre_removal.drop(columns=['operation'],inplace=True)
+group_item_weighted_pre_removal=group_item_weighted_pre_removal.melt()
+group_item_weighted_pre_removal['operation']=np.tile(temp_oper_list,9)
+group_item_weighted_pre_removal=group_item_weighted_pre_removal.astype({"value": float})
 #plot and save the figures of the data - Pre vs Removal
-fig=sns.barplot(data=group_item_weighted_pre_removal,ci=95,palette=['green','blue','red'])
-fig.set_xlabel('Operations')
+fig=sns.lineplot(data=group_item_weighted_pre_removal,x='variable',y='value',hue='operation',ci=95,palette=['green','blue','red'])
+fig.set_xlabel('TR')
+fig.set_ylim([-0.1,0.1])
 fig.set_ylabel('Fidelity')
 fig.set_title('Item Weighted (Group Level) - Pre vs. Removal')  
 # fig, test_results = add_stat_annotation(fig, data=group_item_weighted_pre_post,
 #                                    box_pairs=[("maintain", "replace"), ("maintain", "suppress"), ("maintain", "preexposed"), ("suppress", "preexposed"), ("replace", "preexposed")],
 #                                    test='t-test_ind', text_format='star',loc='outside', verbose=2) 
-plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_removal_summary.png'))
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_removal_summary_timecourse.png'))
 plt.clf() 
 
+temp_oper_list=group_item_remember_pre_removal['operation'].values
+group_item_remember_pre_removal.drop(columns=['operation'],inplace=True)
+group_item_remember_pre_removal=group_item_remember_pre_removal.melt()
+group_item_remember_pre_removal['operation']=np.tile(temp_oper_list,9)
+group_item_remember_pre_removal=group_item_remember_pre_removal.astype({"value": float})
+#plot and save the figures of the data - Pre vs Removal
+fig=sns.lineplot(data=group_item_remember_pre_removal,x='variable',y='value',hue='operation',ci=95,palette=['green','blue','red'])
+fig.set_xlabel('TR')
+fig.set_ylim([-0.1,0.1])
+fig.set_ylabel('Fidelity')
+fig.set_title('Item Weighted (Group Level) - Pre vs. Removal - Only Remembered')  
+# fig, test_results = add_stat_annotation(fig, data=group_item_weighted_pre_post,
+#                                    box_pairs=[("maintain", "replace"), ("maintain", "suppress"), ("maintain", "preexposed"), ("suppress", "preexposed"), ("replace", "preexposed")],
+#                                    test='t-test_ind', text_format='star',loc='outside', verbose=2) 
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_removal_remember_summary_timecourse.png'))
+plt.clf() 
+
+temp_oper_list=group_item_forgot_pre_removal['operation'].values
+group_item_forgot_pre_removal.drop(columns=['operation'],inplace=True)
+group_item_forgot_pre_removal=group_item_forgot_pre_removal.melt()
+group_item_forgot_pre_removal['operation']=np.tile(temp_oper_list,9)
+group_item_forgot_pre_removal=group_item_forgot_pre_removal.astype({"value": float})
+#plot and save the figures of the data - Pre vs Removal
+fig=sns.lineplot(data=group_item_forgot_pre_removal,x='variable',y='value',hue='operation',ci=95,palette=['green','blue','red'])
+fig.set_xlabel('TR')
+fig.set_ylim([-0.1,0.1])
+fig.set_ylabel('Fidelity')
+fig.set_title('Item Weighted (Group Level) - Pre vs. Removal - Only Forgot')  
+# fig, test_results = add_stat_annotation(fig, data=group_item_weighted_pre_post,
+#                                    box_pairs=[("maintain", "replace"), ("maintain", "suppress"), ("maintain", "preexposed"), ("suppress", "preexposed"), ("replace", "preexposed")],
+#                                    test='t-test_ind', text_format='star',loc='outside', verbose=2) 
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_removal_forgot_summary_timecourse.png'))
+plt.clf() 
+
+temp_maintain_mean=group_item_weighted_pre_removal[group_item_weighted_pre_removal['operation']=='maintain'].groupby('variable').mean()['value'].values
+for i in range(0,9):
+    group_item_weighted_pre_removal.loc[group_item_weighted_pre_removal.variable==str(i),"value"] -= temp_maintain_mean[i]
+
+fig=sns.lineplot(data=group_item_weighted_pre_removal,x='variable',y='value',hue='operation',ci=95,palette=['green','blue','red'])
+fig.set_xlabel('TR')
+fig.set_ylabel('Fidelity')
+fig.set_title('Item Weighted (Group Level) - Pre vs. Removal - (Removal-Maintain)')  
+# fig, test_results = add_stat_annotation(fig, data=group_item_weighted_pre_post,
+#                                    box_pairs=[("maintain", "replace"), ("maintain", "suppress"), ("maintain", "preexposed"), ("suppress", "preexposed"), ("replace", "preexposed")],
+#                                    test='t-test_ind', text_format='star',loc='outside', verbose=2) 
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_removal_normalized_summary_timecourse.png'))
+plt.clf()     
 #######################
 
 grouped_by_sub_item_difference_removal_post=group_by_sub_item_remember_removal_post.subtract(group_by_sub_item_forgot_removal_post)
-grouped_by_sub_item_difference_removal_post.dropna(inplace=True)
-non_nan_subs=np.take(subs,grouped_by_sub_item_difference_removal_post.index)
 grouped_by_sub_item_difference_removal_post=grouped_by_sub_item_difference_removal_post.melt()
-grouped_by_sub_item_difference_removal_post['sub']=np.tile(non_nan_subs,3)
-grouped_by_sub_item_difference_removal_post.rename(columns={'variable':'operation','value':'fidelity','sub':'sub'},inplace=True)
-fig=sns.barplot(data=grouped_by_sub_item_difference_removal_post,x='operation',y='fidelity',ci=95,palette=['green','blue','red'])
+grouped_by_sub_item_difference_removal_post['operation']=np.tile(['maintain','replace','suppress'],162) #162 is from the 18 subjects in this analysis * the 9 TRs
+grouped_by_sub_item_difference_removal_post.rename(columns={'variable':'TR','value':'fidelity'},inplace=True)
+fig=sns.lineplot(data=grouped_by_sub_item_difference_removal_post,x='TR',y='fidelity',hue='operation',ci=95,palette=['green','blue','red'])
 # fig, test_results = add_stat_annotation(fig, data=grouped_by_sub_item_difference_pre_post, x='operation',y='fidelity',
 #                                     box_pairs=[("maintain", "replace"), ("maintain", "suppress"), ("maintain", "preexp"), ("suppress", "preexp"), ("replace", "preexp")],
 #                                     test='t-test_paired', text_format='star',loc='inside', verbose=2)  
-fig.set_xlabel('Operations')
+fig.set_xlabel('TR')
 fig.set_ylabel('Fidelity Difference (Remembered - Forgot)')
 fig.set_title('Item Weighted (Group Level) - Removal vs. Post Changes - Remembered items minus Forgotten items',loc='center', wrap=True)
-plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_removal_post_remember_minus_forgot_summary.png'))
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_removal_post_remember_minus_forgot_summary_timecourse.png'))
 plt.clf() 
 
 # print(AnovaRM(data=grouped_by_sub_item_difference_removal_post, depvar='fidelity', subject='sub',within=['operation']).fit())
+#######################
+grouped_by_sub_item_difference_pre_removal=group_by_sub_item_remember_pre_removal.subtract(group_by_sub_item_forgot_pre_removal)
+grouped_by_sub_item_difference_pre_removal=grouped_by_sub_item_difference_pre_removal.melt()
+grouped_by_sub_item_difference_pre_removal['operation']=np.tile(['maintain','replace','suppress'],162) #162 is from the 18 subjects in this analysis * the 9 TRs
+grouped_by_sub_item_difference_pre_removal.rename(columns={'variable':'TR','value':'fidelity'},inplace=True)
+fig=sns.lineplot(data=grouped_by_sub_item_difference_pre_removal,x='TR',y='fidelity',hue='operation',ci=95,palette=['green','blue','red'])
+# fig, test_results = add_stat_annotation(fig, data=grouped_by_sub_item_difference_pre_post, x='operation',y='fidelity',
+#                                     box_pairs=[("maintain", "replace"), ("maintain", "suppress"), ("maintain", "preexp"), ("suppress", "preexp"), ("replace", "preexp")],
+#                                     test='t-test_paired', text_format='star',loc='inside', verbose=2)  
+fig.set_xlabel('TR')
+fig.set_ylabel('Fidelity Difference (Remembered - Forgot)')
+fig.set_title('Item Weighted (Group Level) - Pre vs. Removal Changes - Remembered items minus Forgotten items',loc='center', wrap=True)
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_removal_remember_minus_forgot_summary_timecourse.png'))
+plt.clf() 
+
+##########################
+group_by_sub_item_remember_pre_removal=group_by_sub_item_remember_pre_removal.melt()
+group_by_sub_item_remember_pre_removal['operation']=np.tile(['maintain','replace','suppress'],162) #162 is from the 18 subjects in this analysis * the 9 TRs
+group_by_sub_item_remember_pre_removal=group_by_sub_item_remember_pre_removal.astype({"value": float})
+group_by_sub_item_remember_pre_removal['memory']='remembered'
+
+group_by_sub_item_forgot_pre_removal=group_by_sub_item_forgot_pre_removal.melt()
+group_by_sub_item_forgot_pre_removal['operation']=np.tile(['maintain','replace','suppress'],162) #162 is from the 18 subjects in this analysis * the 9 TRs
+group_by_sub_item_forgot_pre_removal=group_by_sub_item_forgot_pre_removal.astype({"value": float})
+group_by_sub_item_forgot_pre_removal['memory']='forgot'
+
+group_by_sub_item_pre_removal_compare=group_by_sub_item_remember_pre_removal.append(group_by_sub_item_forgot_pre_removal)
+#plot and save the figures of the data - Pre vs Removal
+fig=sns.lineplot(data=group_by_sub_item_pre_removal_compare,x='variable',y='value',hue='operation',style='memory',ci=95,palette=['green','blue','red'])
+fig.set_xlabel('TR')
+fig.set_ylim([-0.1,0.1])
+fig.set_ylabel('Fidelity')
+fig.set_title('Item Weighted (Group Level by Subject) - Pre vs. Removal - Remember vs. Forgot')  
+# fig, test_results = add_stat_annotation(fig, data=group_item_weighted_pre_post,
+#                                    box_pairs=[("maintain", "replace"), ("maintain", "suppress"), ("maintain", "preexposed"), ("suppress", "preexposed"), ("replace", "preexposed")],
+#                                    test='t-test_ind', text_format='star',loc='outside', verbose=2) 
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_bysub_Item_Weighted_pre_removal_summary_timecourse.png'))
+plt.clf() 
 
 
 #######################
@@ -1488,25 +1719,25 @@ grouped_by_sub_item_forgot_pre_post['sub']=np.tile(subs,4)
 # plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Unweighted_pre_post_forgot_summary.png'))
 # plt.clf() 
 
-# fig=sns.barplot(data=group_item_weighted_study_post,ci=95,palette=['green','blue','red','gray'])
-# fig.set_xlabel('Operations')
-# fig.set_ylabel('Fidelity')
-# fig.set_title('Item Weighted (Group Level) - Study vs. Post')
+fig=sns.barplot(data=group_item_weighted_study_post,ci=95,palette=['green','blue','red','gray'])
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity')
+fig.set_title('Item Weighted (Group Level) - Study vs. Post')
 # fig, test_results = add_stat_annotation(fig, data=group_item_weighted_study_post,
 #                                    box_pairs=[("maintain", "replace"), ("maintain", "suppress"), ("maintain", "preexposed"), ("suppress", "preexposed"), ("replace", "preexposed")],
 #                                    test='t-test_paired', text_format='star', loc='inside', verbose=2)  
-# plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_study_post_summary.png'))
-# plt.clf() 
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_study_post_summary.png'))
+plt.clf() 
 
-# fig=sns.barplot(data=group_item_weighted_pre_study,ci=95,palette=['green','blue','red','gray'])
-# fig.set_xlabel('Operations')
-# fig.set_ylabel('Fidelity')
-# fig.set_title('Item Weighted (Group Level) - Pre vs. Study')
+fig=sns.barplot(data=group_item_weighted_pre_study,ci=95,palette=['green','blue','red'])
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity')
+fig.set_title('Item Weighted (Group Level) - Pre vs. Study')
 # fig, test_results = add_stat_annotation(fig, data=group_item_weighted_pre_study,
 #                                    box_pairs=[("maintain", "replace"), ("maintain", "suppress"), ("maintain", "preexposed"), ("suppress", "preexposed"), ("replace", "preexposed")],
 #                                    test='t-test_paired', text_format='star', loc='inside', verbose=2)  
-# plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_study_summary.png'))
-# plt.clf() 
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Item_Weighted_pre_study_summary.png'))
+plt.clf() 
 
 # fig=sns.barplot(data=group_cate_weighted_pre_post,ci=95)
 # fig.set_xlabel('Operations')

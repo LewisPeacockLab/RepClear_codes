@@ -27,7 +27,7 @@ from scipy import stats
 from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score
 
-subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26'] #"all"
+subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','23','24','25','26'] #"all"
 
 #subs=['02','03','04','05','06','07','08','09','11','12','14','17','23','24','25','26'] #"subjects with no notable issues in data"
 
@@ -41,7 +41,7 @@ spaces = {'T1w': 'T1w',
 mask_flag='vtc'
 
 clear_data=1 #0 off / 1 on
-force_clean=1
+force_clean=0
 
 def confound_cleaner(confounds):
     COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
@@ -60,6 +60,7 @@ for num in range(len(subs)):
     sub = ('sub-0%s' % sub_num)
     container_path='/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep'
   
+    sub_path=os.path.join(container_path,sub)
     bold_path=os.path.join(container_path,sub,'func/')
     os.chdir(bold_path)
   
@@ -408,12 +409,12 @@ for num in range(len(subs)):
         pattern = '*MNI*'
         pattern2= '*MNI152NLin2009cAsym*preproc*'
         brain_mask_path = fnmatch.filter(wholebrain_mask_path,pattern)
-        localizer_files = fnmatch.filter(localizer_files,pattern2)
+        study_files = fnmatch.filter(bold_files,pattern2)
     elif brain_flag=='T1w':
         pattern = '*T1w*'
         pattern2 = '*T1w*preproc*'
         brain_mask_path = fnmatch.filter(wholebrain_mask_path,pattern)
-        localizer_files = fnmatch.filter(localizer_files,pattern2)
+        study_files = fnmatch.filter(bold_files,pattern2)
 
     brain_mask_path.sort()
     study_files.sort()
@@ -560,11 +561,36 @@ for num in range(len(subs)):
     param_search='study*events*.csv'
     param_file=find(param_search,params_dir)
 
+    #pulling in the memory outcome for these items
+    subject_design_dir='/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/subject_designs/'
+    subd_search=('memory*%s*.csv' % sub)
+    subd_file=find(subd_search,subject_design_dir)
+    subd_df=pd.read_csv(subd_file[0])
+    subd_df=subd_df[['image_num','condition_num','memory']] #reduce to only the important items
+    subd_study_df=subd_df[subd_df['condition_num']>0] #only pull the images that are operated for this subject
+
+    sub_study=('%s*study*tr*' % sub)
+    sub_study_file=find(sub_study,subject_design_dir)
+    sub_study_matrix = pd.read_csv(sub_study_file[0]) #this is the correct, TR by TR list of what happened during this subject's study phase
+    sub_study_images_tr=sub_study_matrix['image_id'].values
+
     study_matrix = pd.read_csv(param_file[0])
     study_operation=study_matrix["condition"].values
     study_run=study_matrix["run"].values
     study_present=study_matrix["stim_present"].values
     study_operation_trial=study_matrix["cond_trial"].values
+
+
+    #pull the image of a given trial, so we can get the info of memory outcomes
+    study_memory=[]
+    for i in range(0,len(study_matrix)):
+        tr_image=sub_study_images_tr[i]
+        if tr_image==0:
+            study_memory.append('rest')
+        else:
+            study_memory.append(subd_study_df[subd_study_df['image_num']==tr_image]['memory'].values[0])
+
+    study_memory=np.asarray(study_memory) #converts to an array, but all are strings since I include 'rest' as a tag
 
     run1_index=np.where(study_run==1)
     run2_index=np.where(study_run==2)
@@ -576,6 +602,7 @@ for num in range(len(subs)):
 #1. maintain
 #2. replace_category
 #3. suppress
+    #this is to average over ALL trials
     study_stim_list=np.full(len(study_bold),0)
     maintain_list=np.where((study_operation==1) & ((study_present==1) |(study_present==2) | (study_present==3)))
     suppress_list=np.where((study_operation==3) & ((study_present==1) |(study_present==2) | (study_present==3)))
@@ -583,6 +610,24 @@ for num in range(len(subs)):
     study_stim_list[maintain_list]=1
     study_stim_list[suppress_list]=3
     study_stim_list[replace_list]=2
+
+    #this is to sort the operations also by outcome
+    study_stim_remember=np.full(len(study_bold),0)
+    study_stim_forgot=np.full(len(study_bold),0)
+    #remembered
+    maintain_list_r=np.where((study_operation==1) & (study_memory=='1') & ((study_present==1) |(study_present==2) | (study_present==3)))
+    suppress_list_r=np.where((study_operation==3) & (study_memory=='1') & ((study_present==1) |(study_present==2) | (study_present==3)))
+    replace_list_r=np.where((study_operation==2) & (study_memory=='1') & ((study_present==1) |(study_present==2) | (study_present==3)))
+    study_stim_remember[maintain_list_r]=1
+    study_stim_remember[suppress_list_r]=3
+    study_stim_remember[replace_list_r]=2
+    #forgotten
+    maintain_list_f=np.where((study_operation==1) & (study_memory=='0') & ((study_present==1) |(study_present==2) | (study_present==3)))
+    suppress_list_f=np.where((study_operation==3) & (study_memory=='0') & ((study_present==1) |(study_present==2) | (study_present==3)))
+    replace_list_f=np.where((study_operation==2) & (study_memory=='0') & ((study_present==1) |(study_present==2) | (study_present==3)))
+    study_stim_forgot[maintain_list_f]=1
+    study_stim_forgot[suppress_list_f]=3
+    study_stim_forgot[replace_list_f]=2
 
     oper_list=study_operation
     oper_list=oper_list[:,None]
@@ -595,8 +640,13 @@ for num in range(len(subs)):
     localizer_bold_14=localizer_bold_stims_and_rest[run1_4]
     stim_on_14=stim_on_rest[run1_4]  
 
+    run_combo=[[1,2,3,4],[1,2,4,5],[1,2,5,6],[1,2,3,5],[1,2,3,6],[1,2,4,6]]
+
+    def find_indx(lst, a):
+        return [i for i, x in enumerate(lst) if x==a[0] or x==a[1] or x==a[2] or x==a[3]]
+
     #do a L2 estimator
-    def CLF(train_data, train_labels, test_data, test_labels, k_best):
+    def CLF(train_data, train_labels, test_data, test_labels):
         scores = []
         predicts = []
         trues = []
@@ -653,44 +703,83 @@ for num in range(len(subs)):
         return clf, scores, predicts, trues, decisions, evidence, predict_probs
 
 #    L2_models_nr, L2_scores_nr, L2_predicts_nr, L2_trues_nr, L2_decisions_nr, L2_evidence_nr = CLF(localizer_bold_on_filt, stim_on_filt, study_bold, study_stim_list, 1500)
-#    L2_subject_score_nr_mean = np.mean(L2_scores_nr)                                        
-    L2_models, L2_scores, L2_predicts, L2_trues, L2_decisions, L2_evidence, L2_predict_probs = CLF(localizer_bold_14, stim_on_14, study_bold, study_stim_list, 3000)
-    L2_subject_score_mean = np.mean(L2_scores) 
+#    L2_subject_score_nr_mean = np.mean(L2_scores_nr)   
+    L2_predicts=[]
+    L2_trues=[]
+    L2_evidence=[]
+    L2_predict_probs=[]
 
-    #train on ALL data
-    # L2_models, L2_scores, L2_predicts, L2_trues, L2_decisions, L2_evidence, L2_predict_probs = CLF(localizer_bold_stims_and_rest, stim_on_rest, study_bold, study_stim_list, 3000)
-    # L2_subject_score_mean = np.mean(L2_scores) 
+    for i in run_combo:
+        loop_indx=find_indx(run_list_stims_and_rest,i)
+        localizer_bold_itr=localizer_bold_stims_and_rest[loop_indx]
+        stim_on_itr=stim_on_rest[loop_indx]                                     
+        _, _, L2_predicts_itr, L2_trues_itr, _, L2_evidence_itr, L2_predict_probs_itr = CLF(localizer_bold_itr, stim_on_itr, study_bold, study_stim_list)
 
+        if i==run_combo[0]:
+            L2_predicts=L2_predicts_itr
+            L2_trues=L2_trues_itr
+            L2_evidence=L2_evidence_itr
+            L2_predict_probs=L2_predict_probs_itr
+
+        else:
+            L2_predicts=np.dstack((L2_predicts,L2_predicts_itr))
+            L2_trues=np.dstack((L2_trues,L2_trues_itr))
+            L2_evidence=np.dstack((L2_evidence,L2_evidence_itr))
+            L2_predict_probs=np.dstack((L2_predict_probs,L2_predict_probs_itr))
+
+
+    L2_predicts=L2_predicts.mean(axis=2)
+    L2_trues=L2_trues.mean(axis=2)
+    L2_evidence=L2_evidence.mean(axis=2)
+    L2_predict_probs=L2_predict_probs.mean(axis=2)
+
+    #grab the remembered trials
+    L2_evidence_r=pd.DataFrame(data=L2_evidence)
+    L2_evidence_r['remembered_operation']=study_stim_remember
+    L2_evidence_r['image_id']=sub_study_images_tr
+
+    #grab the forgotten trials
+    L2_evidence_f=pd.DataFrame(data=L2_evidence)
+    L2_evidence_f['forgot_operation']=study_stim_forgot
+    L2_evidence_f['image_id']=sub_study_images_tr
 
     np.savetxt("%s_train_localizer_test_study_category_evidence.csv" % brain_flag,L2_evidence, delimiter=",")
     np.savetxt("%s_train_localizer_test_study_category_predictprob.csv"% brain_flag,L2_predict_probs[0], delimiter=",")    
     np.savetxt("%s_Operation_labels.csv"% brain_flag,study_stim_list, delimiter=",")
     np.savetxt("%s_Operation_trials.csv"% brain_flag,study_operation_trial, delimiter=",")
 
-    output_table = {
-        "subject" : sub,
+    L2_evidence_r.to_csv(os.path.join(sub_path,"%s_train_localizer_test_study_remember_category_evidence.csv" % brain_flag))
+    L2_evidence_f.to_csv(os.path.join(sub_path,"%s_train_localizer_test_study_forgot_category_evidence.csv" % brain_flag))
+    L2_evidence_all=pd.DataFrame(data=L2_evidence)
+    L2_evidence_all['operation']=study_stim_list
+    L2_evidence_all['image_id']=sub_study_images_tr
+    L2_evidence_all.to_csv(os.path.join(sub_path,"%s_train_localizer_test_study_all_category_evidence.csv" % brain_flag))
 
-        "CLF Average Scores from Testing" : L2_subject_score_mean,
-        "CLF Model Testing" : L2_models,
-        "CLF Model Decisions" : L2_decisions,
+    #getting rid of this for now
+    # output_table = {
+    #     "subject" : sub,
 
-        "CLF Category Evidece" : L2_evidence,
+    #     "CLF Average Scores from Testing" : L2_subject_score_mean,
+    #     "CLF Model Testing" : L2_models,
+    #     "CLF Model Decisions" : L2_decisions,
 
-        "CLF Operation Trues" : L2_trues,
-        "CLF Predict Probs" : L2_predict_probs,
-        "CLF Score" : L2_scores,
-        "CLF Predictions" : L2_predicts,
-        "CLF True" : L2_trues,
+    #     "CLF Category Evidece" : L2_evidence,
 
-        "Category List Shifted w/ Rest" : stim_on_filt,
-        "Operation List": study_stim_list,
+    #     "CLF Operation Trues" : L2_trues,
+    #     "CLF Predict Probs" : L2_predict_probs,
+    #     "CLF Score" : L2_scores,
+    #     "CLF Predictions" : L2_predicts,
+    #     "CLF True" : L2_trues,
+
+    #     "Category List Shifted w/ Rest" : stim_on_filt,
+    #     "Operation List": study_stim_list,
         
-        "Localizer Shifted w/ Rest": localizer_bold_on_filt,
+    #     "Localizer Shifted w/ Rest": localizer_bold_on_filt,
         
-        }
+    #     }
     
-    import pickle
-    os.chdir(os.path.join(container_path,sub))
-    f = open("%s-train_localizer_test_study_%s_%sTR lag_data.pkl" % (sub,brain_flag,TR_shift),"wb")
-    pickle.dump(output_table,f)
-    f.close()    
+    # import pickle
+    # os.chdir(os.path.join(container_path,sub))
+    # f = open("%s-train_localizer_test_study_%s_%sTR lag_data.pkl" % (sub,brain_flag,TR_shift),"wb")
+    # pickle.dump(output_table,f)
+    # f.close()    
