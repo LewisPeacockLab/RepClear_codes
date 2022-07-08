@@ -81,7 +81,7 @@ def find(pattern, path): #find the pattern we're looking for
                 result.append(os.path.join(root, name))
         return result    
 
-def load_existing_data():
+def load_existing_data(): #try to find if the data we want has already been cleaned and saved...
     print("\n*** Attempting to load existing data if there is any...")
     preproc_data = {}
     todo_ROIs = []
@@ -98,7 +98,7 @@ def load_existing_data():
             todo_ROIs.append(ROI)    
     return preproc_data, todo_ROIs
 
-def load_process_data():
+def load_process_data(): #this wraps the above function, with a process to load and save the data if there isnt an already saved .npy file
     # ========== check & load existing files
     ready_data, mask_ROIS = load_existing_data()
     if type(mask_ROIS) == list and len(mask_ROIS) == 0: 
@@ -170,11 +170,10 @@ def load_process_data():
             print(f"Processing mask {rowi}...")
             for coli, (bold, confound) in enumerate(zip(bolds, confounds_cleaned)):
                 print(f"Processing run {coli}...")
-                # *** nib deprecation warning: 
-                #       "get_data() is deprecated in favor of get_fdata(), which has a more predictable return type. 
-                #        To obtain get_data() behavior going forward, use numpy.asanyarray(img.dataobj)."
+
                 # masked: time x vox
-                masked = apply_mask(mask=mask.get_data(), target=bold.get_data())
+                masked = apply_mask(mask=mask.get_fdata(), target=bold.get_fdata())
+
                 # *** clean: confound rows are time; 
                 cleaned_bolds[rowi][coli] = clean(masked, confounds=confound, t_r=1, detrend=False, standardize='zscore')
                 print(f"ROI {rowi}, run {coli}")
@@ -196,6 +195,7 @@ def load_process_data():
             print(f"Saving to file {bold_dir}/{out_fname}...")
             np.save(f"{bold_dir}/{out_fname}", run_data)
 
+    #this will handle mutliple ROIs and then if needed save them into 1 dictionary
     try:
         full_dict = {**ready_data, **preproc_data}
     except:
@@ -352,6 +352,16 @@ def fit_model(X, Y, groups, save=False, out_fname=None, v=False):
 
     return scores, auc_scores, cms, trained_models, fprs
 
+def decode(trained_model,fpr,data_decode):
+    print(f"\n ***** Decoding the category content in {task2}")
+
+    featsel_data=fpr.transform(data_decode) #using the feature selection method from the trained model to select the proper voxels for decoding
+
+    predictions=trained_model.predict(featsel_data) #get the predicted categories from running the model
+    evidence=(1. / (1. + np.exp(-trained_model.decision_function(featsel_data)))) #MAIN: collect the evidence values of all timepoints (3 columns: 0-rest, 1-faces, 2-scenes)
+
+    return predictions, evidence
+
 
 def classification(subID):
     task = 'preremoval'
@@ -412,6 +422,14 @@ def classification(subID):
     # get labels
     label_df2 = get_shifted_labels(task2, shift_size_TR, rest_tag)
     print(f"Category label shape: {label_df2.shape}") 
-       
+
+    #will need to build in a real selection method, but for now can take the first versions
+    predicts, evidence = decode(trained_models[0],fprs[0],full_data2) #this will decode the data using the already trained model and feature selection method
+
+    #need to then save the evidence:
+    #CODE HERE
+
+    #after saving the evidence, we need to use the label_df2 to sort out the conditions so this can be plotted properly (and will also wanna sort based on remember vs. forgotten )
+
     # save results
     np.savez_compressed(results_fname, scores=scores, auc_scores=auc_scores, cms=cms,)
