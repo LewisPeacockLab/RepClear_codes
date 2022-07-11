@@ -532,7 +532,7 @@ def classification(subID):
 
 
 #now I need to create a function to take each subject's evidence DF, and then sort, organize and then visualize:
-def visualize_evidence(subID):
+def organize_evidence(subID,save=True):
     task = 'preremoval'
     task2 = 'study'
     space = 'T1w'
@@ -541,9 +541,9 @@ def visualize_evidence(subID):
     print("\n *** loading evidence values from subject dataframe ***")
 
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
-    out_fname_template = f"sub-{subID}_{space}_trained-{task}_tested-{task2}_evidence.csv"   
+    in_fname_template = f"sub-{subID}_{space}_trained-{task}_tested-{task2}_evidence.csv"   
 
-    sub_df=pd.read_csv(os.path.join(sub_dir,out_fname_template))  
+    sub_df=pd.read_csv(os.path.join(sub_dir,in_fname_template))  
     sub_df.drop(columns=sub_df.columns[0], axis=1, inplace=True) #now drop the extra index column
 
     sub_images,sub_index=np.unique(sub_df['image_id'], return_index=True) #this searches through the dataframe to find each occurance of the image_id. This allows me to find the start of each trial, and linked to the image_ID #
@@ -584,6 +584,47 @@ def visualize_evidence(subID):
     #now I will have to change the structure to be able to plot in seaborn:
     avg_maintain=avg_maintain.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
     avg_maintain['sub']=np.repeat(subID,len(avg_maintain)) #input the subject so I can stack melted dfs
-    avg_maintain['evidence_class']=np.tile(['rest','faces','scenes'],14) #add in the labels so we know what each data point is refering to
-    avg_maitnain.rename(columns={'variable':'TR','value':'evidence'}) #renamed the melted column names 
+    avg_maintain['evidence_class']=np.tile(['rest','scenes','faces'],14) #add in the labels so we know what each data point is refering to
+    avg_maintain.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_maintain['condition']='maintain' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_replace=avg_replace.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_replace['sub']=np.repeat(subID,len(avg_replace)) #input the subject so I can stack melted dfs
+    avg_replace['evidence_class']=np.tile(['rest','scenes','faces'],14) #add in the labels so we know what each data point is refering to
+    avg_replace.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_replace['condition']='replace' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_suppress=avg_suppress.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_suppress['sub']=np.repeat(subID,len(avg_suppress)) #input the subject so I can stack melted dfs
+    avg_suppress['evidence_class']=np.tile(['rest','scenes','faces'],14) #add in the labels so we know what each data point is refering to
+    avg_suppress.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_suppress['condition']='suppress' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_subject_df= pd.concat([avg_maintain,avg_replace,avg_suppress], ignore_index=True, sort=False)
+
+    # save for future use
+    if save: 
+        sub_dir = os.path.join(data_dir, f"sub-{subID}")
+        out_fname_template = f"sub-{subID}_{space}_{task2}_evidence_dataframe.csv"  
+        print(f"\n Saving the sorted evidence dataframe for {subID} - phase: {task2} - as {out_fname_template}")
+        avg_subject_df.to_csv(os.path.join(sub_dir,out_fname_template))
+    return avg_subject_df
+
+def visualize_evidence():
+    group_evidence_df=pd.DataFrame()
+    for subID in subIDs:
+        temp_subject_df=organize_evidence(subID)
+        group_evidence_df=pd.concat([group_evidence_df,temp_subject_df],ignore_index=True, sort=False)
+
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='maintain') & (group_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='green',label='maintain', ci=68)
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='replace') & (group_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='blue',label='replace-old', ci=68)
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='replace') & (group_evidence_df['evidence_class']=='faces')], x='TR',y='evidence',color='skyblue',label='replace-new',ci=68)
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='suppress') & (group_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='red',label='suppress',ci=68)
+
+    plt.legend()
+    ax.set(xlabel='TR', ylabel='Category Classifier Evidence', title='T1w - Category Classifier (group average)')
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_during_removal.png'))
+    plt.clf()
+
 
