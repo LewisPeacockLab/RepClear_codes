@@ -81,7 +81,7 @@ def find(pattern, path): #find the pattern we're looking for
                 result.append(os.path.join(root, name))
         return result    
 
-def load_existing_data(): #try to find if the data we want has already been cleaned and saved...
+def load_existing_data(subID, task, space, mask_ROIS): #try to find if the data we want has already been cleaned and saved...
     print("\n*** Attempting to load existing data if there is any...")
     preproc_data = {}
     todo_ROIs = []
@@ -89,27 +89,33 @@ def load_existing_data(): #try to find if the data we want has already been clea
     bold_dir = os.path.join(data_dir, f"sub-{subID}", "func")
     out_fname_template = f"sub-{subID}_{space}_{task}_{{}}_masked_cleaned.npy"
     for ROI in mask_ROIS:
+        if ROI=='VVS': ROI='VTC'
         if os.path.exists(os.path.join(bold_dir, out_fname_template.format(ROI))):
             print("\nLoading saved preprocessed data", out_fname_template.format(ROI), '...')
             preproc_data[ROI] = np.load(os.path.join(bold_dir, out_fname_template.format(ROI)))
         else: 
-            if ROI == 'vtc': ROI = 'VVS'  # change to load masks...
+            if ROI == 'VTC': ROI = 'VVS'  # change to load masks...
             print(f"\nROI {ROI} data to be processed.")
             todo_ROIs.append(ROI)    
     return preproc_data, todo_ROIs
 
-def load_process_data(): #this wraps the above function, with a process to load and save the data if there isnt an already saved .npy file
+def load_process_data(subID, task, space, mask_ROIS): #this wraps the above function, with a process to load and save the data if there isnt an already saved .npy file
     # ========== check & load existing files
-    ready_data, mask_ROIS = load_existing_data()
+    ready_data, mask_ROIS = load_existing_data(subID, task, space, mask_ROIS)
     if type(mask_ROIS) == list and len(mask_ROIS) == 0: 
         return np.vstack(list(ready_data.values()))
     else: 
         print("\nPreprocessing ROIs", mask_ROIS)
 
 
-    print(f"\n***** Data preprocessing for sub {subID} {task} {space} with ROIs {todo_ROIs}...")
+    print(f"\n***** Data preprocessing for sub {subID} {task} {space} with ROIs {mask_ROIS}...")
 
     space_long = spaces[space]
+
+    if task=='study':
+        runs=np.arange(3) + 1  
+    else:
+        runs=runs
 
     # ========== start from scratch for todo_ROIs
     # ======= generate file names to load
@@ -257,7 +263,7 @@ def subsample_by_runs(full_data, label_df, include_rest=True):
         for j in range(i+1, len(scenes_runs)):
             runj = scenes_runs[j]
             print(f"\nSubsampling scenes with runs {runi} & {runj}...")
-            
+            run_pair=[runi,runj]
             # choose scene samples based on runs in this subsample
             scene_inds = np.where((stim_on == 1) & (stim_list == 1) & 
                                     ((run_list == runi) | (run_list == runj)))[0] # actual stim; stim is scene; stim in the two runs
@@ -287,11 +293,63 @@ def subsample_by_runs(full_data, label_df, include_rest=True):
             X = np.vstack(X)
             Y = np.concatenate(Y)
             all_groups = np.concatenate([groups, groups, groups])
-            yield X, Y, all_groups
+            yield X, Y, all_groups, run_pair
 
             # flip groups so even & odd groups can be paired
             all_groups = np.concatenate([groups, list(reversed(groups)), list(reversed(groups))])
-            yield X, Y, all_groups
+            yield X, Y, all_groups, run_pair
+
+def subsample_for_training(full_data, label_df, train_pairs, include_rest=True):
+    """
+    Subsample data by runs. 
+    Return: subsampled labels and bold data
+    """ 
+
+    # stim_list: 1 Scenes, 2 Faces / 0 is rest
+    # stim_on labels: 1 actual stim; 2 rest between stims; 0 rest between runs
+    print("\n***** Subsampling data points by runs...")
+
+    stim_list = label_df['category']
+    stim_on = label_df['stim_present']
+    run_list = label_df['run']
+
+    # get faces
+    face_inds = np.where((stim_on == 1) & (stim_list == 2))[0]
+    rest_inds = []
+
+    scenes_runs = train_pairs
+    runi = scenes_runs[0]
+    runj = scenes_runs[1]
+    print(f"\nSubsampling scenes with runs {runi} & {runj}...")
+    # choose scene samples based on runs in this subsample
+    scene_inds = np.where((stim_on == 1) & (stim_list == 1) & 
+                            ((run_list == runi) | (run_list == runj)))[0] # actual stim; stim is scene; stim in the two runs
+    
+    if include_rest:
+        print("Including resting category...")
+        # get TR intervals for rest TRs between stims (stim_on == 2)
+        rest_bools = ((run_list == runi) | (run_list == runj)) & (stim_on == 2)
+        padded_bools = np.r_[False, rest_bools, False]  # pad the rest_bools 1 TR before and after to separate it from trial information
+        rest_diff = np.diff(padded_bools)  # get the pairwise diff in the array --> True for start and end indices of rest periods
+        rest_intervals = rest_diff.nonzero()[0].reshape((-1,2))  # each pair is the interval of rest periods
+
+        # get desired time points in the middle of rest periods for rest samples; if 0.5, round up
+        rest_intervals[:,-1] -= 1
+        rest_inds = [np.ceil(np.average(interval)).astype(int) for interval in rest_intervals] + \
+                    [np.ceil(np.average(interval)).astype(int)+1 for interval in rest_intervals]
+
+    # === get X & Y
+    X = []
+    Y = []
+    print(f"rest_inds: {len(rest_inds)}, scene_inds: {len(scene_inds)}, face_inds: {len(face_inds)}")
+    for lab, inds in zip([0,1,2], [rest_inds, scene_inds, face_inds]):
+        print("label counts:", lab, len(inds))
+        X.append(full_data[inds, :])
+        Y.append(np.zeros(len(inds)) + lab)
+
+    X = np.vstack(X)
+    Y = np.concatenate(Y)
+    return X, Y
 
 def fit_model(X, Y, groups, save=False, out_fname=None, v=False):
     if v: print("\n***** Fitting model...")
@@ -352,15 +410,38 @@ def fit_model(X, Y, groups, save=False, out_fname=None, v=False):
 
     return scores, auc_scores, cms, trained_models, fprs
 
-def decode(trained_model,fpr,data_decode):
+def decode(training_runs, train_data, train_labels, test_data, test_labels):
     print(f"\n ***** Decoding the category content in {task2}")
+    print(f"Running model fitting...")
 
-    featsel_data=fpr.transform(data_decode) #using the feature selection method from the trained model to select the proper voxels for decoding
+    X_train, y_train = subsample_for_training(train_data, train_labels, training_runs, include_rest=True)
 
-    predictions=trained_model.predict(featsel_data) #get the predicted categories from running the model
-    evidence=(1. / (1. + np.exp(-trained_model.decision_function(featsel_data)))) #MAIN: collect the evidence values of all timepoints (3 columns: 0-rest, 1-faces, 2-scenes)
+    X_test, y_test = test_data, test_labels['category'].values
+    
+    # feature selection and transformation
+    fpr = SelectFpr(f_classif, alpha=0.01).fit(X_train, y_train)
+    X_train_sub = fpr.transform(X_train)
+    X_test_sub = fpr.transform(X_test)
 
-    return predictions, evidence
+    # train & hyperparam tuning
+    parameters ={'C':[.001, .01, .1, 1, 10, 100, 1000]}
+    gscv = GridSearchCV(
+        LogisticRegression(penalty='l2', solver='lbfgs',max_iter=1000),
+        parameters,
+        return_train_score=True)
+    gscv.fit(X_train_sub, y_train)
+    best_C=(gscv.best_params_['C'])
+    
+    # refit with full data and optimal penalty value
+    lr = LogisticRegression(penalty='l2', solver='lbfgs', C=best_C,max_iter=1000)
+    lr.fit(X_train_sub, y_train)
+    
+    # test on held out data
+    predictions=lr.predict(X_test_sub) #get the predicted categories from running the model
+    evidence=(1. / (1. + np.exp(-lr.decision_function(X_test_sub)))) #MAIN: collect the evidence values of all timepoints (3 columns: 0-rest, 1-faces, 2-scenes)
+    true=y_test
+
+    return predictions, evidence, true
 
 
 def classification(subID):
@@ -376,11 +457,11 @@ def classification(subID):
 
     print(f"\n***** Running category level classification for sub {subID} {task} {space} with ROIs {ROIs}...")
 
-    # get data: all_ROI_vox x all_runs_time
-    full_data = get_preprocessed_data(subID, task, space, ROIs, save=True)
+    # get data:
+    full_data = load_process_data(subID, task, space, ROIs).T
     print(f"Full_data shape: {full_data.shape}")
 
-    # get labels
+    # get labels:
     label_df = get_shifted_labels(task, shift_size_TR, rest_tag)
     print(f"Category label shape: {label_df.shape}")
 
@@ -393,14 +474,14 @@ def classification(subID):
     cms = []
     trained_models=[]
     fprs=[]
+    run_pairs=[]
     
-    for X, Y, groups in subsample_by_runs(full_data, label_df): 
+    for X, Y, groups, run_pair in subsample_by_runs(full_data, label_df): 
         print(f"Running model fitting...")
         print("shape of X & Y:", X.shape, Y.shape)
         assert len(X) == len(Y), f"Length of X ({len(X)}) doesn't match length of Y({len(Y)})"
 
         # model fitting 
-        results_fname = os.path.join(results_dir, f"sub-{subID}_task-{task}_space-{space}_{ROIs[0]}_lrxval.npz")
         score, auc_score, cm, trained_model, fpr = fit_model(X, Y, groups, save=False, v=True)
         
         scores.append(score)
@@ -408,28 +489,42 @@ def classification(subID):
         cms.append(cm)
         trained_models.append(trained_model)
         fprs.append(fpr)
+        run_pairs.append(run_pair)
 
-    scores = np.concatenate(scores)
-    auc_scores = np.concatenate(auc_scores)
+    scores = np.mean(scores,axis=1) #get the mean of each iteration (since theyre in pairs for the train/test pair)
+    auc_scores = np.mean(auc_scores,axis=1) #get the auc mean of each iteration (since theyre in pairs for the train/test pair)
     cms = np.stack(cms)
+
+    #need to find the highest score/auc_score to maximize decoding. So we want to select the best combo of train/test (since I get scores for each set)
+    best_model=np.where(auc_scores==max(auc_scores))[0][0] #finding the max via auc_score
+    train_pairs=run_pairs[best_model]
 
     print(f"\n***** Running category level classification for sub {subID} {task2} {space} with ROIs {ROIs}...")
 
     # get data: all_ROI_vox x all_runs_time
-    full_data2 = get_preprocessed_data(subID, task2, space, ROIs, save=True)
-    print(f"Full_data shape: {full_data.shape}")
+    full_data2 = load_process_data(subID, task2, space, ROIs)
+    print(f"Full_data shape: {full_data2.shape}")
 
     # get labels
     label_df2 = get_shifted_labels(task2, shift_size_TR, rest_tag)
     print(f"Category label shape: {label_df2.shape}") 
 
     #will need to build in a real selection method, but for now can take the first versions
-    predicts, evidence = decode(trained_models[0],fprs[0],full_data2) #this will decode the data using the already trained model and feature selection method
+    predicts, evidence, true = decode(train_pairs, full_data, label_df, full_data2, label_df2) #this will decode the data using the already trained model and feature selection method
 
     #need to then save the evidence:
-    #CODE HERE
+    evidence_df=pd.DataFrame(data=label_df2) #take the study DF for this subject
+    evidence_df.drop(columns=evidence_df.columns[0], axis=1, inplace=True) #now drop the extra index column
+    evidence_df['rest_evi']=evidence[:,0] #add in the evidence values for rest
+    evidence_df['scene_evi']=evidence[:,1] #add in the evidence values for scenes
+    evidence_df['face_evi']=evidence[:,2] #add in the evidence values for faces
 
-    #after saving the evidence, we need to use the label_df2 to sort out the conditions so this can be plotted properly (and will also wanna sort based on remember vs. forgotten )
+    #this will export the subject level evidence to the subject's folder
+    sub_dir = os.path.join(data_dir, f"sub-{subID}")
+    out_fname_template = f"sub-{subID}_{space}_trained-{task}_tested-{task2}_evidence.csv"            
+    print("\n *** Saving evidence values with subject dataframe ***")
+    evidence_df.to_csv(os.path.join(sub_dir,out_fname_template))
 
-    # save results
-    np.savez_compressed(results_fname, scores=scores, auc_scores=auc_scores, cms=cms,)
+
+#now I need to create a function to take each subject's evidence DF, and then sort, organize and then visualize:
+
