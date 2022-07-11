@@ -81,7 +81,7 @@ def find(pattern, path): #find the pattern we're looking for
                 result.append(os.path.join(root, name))
         return result    
 
-def load_existing_data(subID, task, space, mask_ROIS): #try to find if the data we want has already been cleaned and saved...
+def load_existing_data(subID, task, space, mask_ROIS,load=False): #try to find if the data we want has already been cleaned and saved...
     print("\n*** Attempting to load existing data if there is any...")
     preproc_data = {}
     todo_ROIs = []
@@ -90,13 +90,18 @@ def load_existing_data(subID, task, space, mask_ROIS): #try to find if the data 
     out_fname_template = f"sub-{subID}_{space}_{task}_{{}}_masked_cleaned.npy"
     for ROI in mask_ROIS:
         if ROI=='VVS': ROI='VTC'
-        if os.path.exists(os.path.join(bold_dir, out_fname_template.format(ROI))):
-            print("\nLoading saved preprocessed data", out_fname_template.format(ROI), '...')
-            preproc_data[ROI] = np.load(os.path.join(bold_dir, out_fname_template.format(ROI)))
-        else: 
+        if load:
+            if os.path.exists(os.path.join(bold_dir, out_fname_template.format(ROI))):
+                print("\nLoading saved preprocessed data", out_fname_template.format(ROI), '...')
+                preproc_data[ROI] = np.load(os.path.join(bold_dir, out_fname_template.format(ROI)))
+            else: 
+                if ROI == 'VTC': ROI = 'VVS'  # change to load masks...
+                print(f"\nROI {ROI} data to be processed.")
+                todo_ROIs.append(ROI)
+        else:
             if ROI == 'VTC': ROI = 'VVS'  # change to load masks...
             print(f"\nROI {ROI} data to be processed.")
-            todo_ROIs.append(ROI)    
+            todo_ROIs.append(ROI)
     return preproc_data, todo_ROIs
 
 def load_process_data(subID, task, space, mask_ROIS): #this wraps the above function, with a process to load and save the data if there isnt an already saved .npy file
@@ -115,7 +120,7 @@ def load_process_data(subID, task, space, mask_ROIS): #this wraps the above func
     if task=='study':
         runs=np.arange(3) + 1  
     else:
-        runs=runs
+        runs=np.arange(6) + 1
 
     # ========== start from scratch for todo_ROIs
     # ======= generate file names to load
@@ -458,7 +463,7 @@ def classification(subID):
     print(f"\n***** Running category level classification for sub {subID} {task} {space} with ROIs {ROIs}...")
 
     # get data:
-    full_data = load_process_data(subID, task, space, ROIs).T
+    full_data = load_process_data(subID, task, space, ROIs)
     print(f"Full_data shape: {full_data.shape}")
 
     # get labels:
@@ -527,4 +532,58 @@ def classification(subID):
 
 
 #now I need to create a function to take each subject's evidence DF, and then sort, organize and then visualize:
+def visualize_evidence(subID):
+    task = 'preremoval'
+    task2 = 'study'
+    space = 'T1w'
+    ROIs = ['VVS']
+
+    print("\n *** loading evidence values from subject dataframe ***")
+
+    sub_dir = os.path.join(data_dir, f"sub-{subID}")
+    out_fname_template = f"sub-{subID}_{space}_trained-{task}_tested-{task2}_evidence.csv"   
+
+    sub_df=pd.read_csv(os.path.join(sub_dir,out_fname_template))  
+    sub_df.drop(columns=sub_df.columns[0], axis=1, inplace=True) #now drop the extra index column
+
+    sub_images,sub_index=np.unique(sub_df['image_id'], return_index=True) #this searches through the dataframe to find each occurance of the image_id. This allows me to find the start of each trial, and linked to the image_ID #
+
+    #now to sort the trials, we need to figure out what the operation performed is:
+    sub_condition_list=sub_df['condition'][sub_index].values.astype(int) #so using the above indices, we will now grab what the condition is of each image
+
+    counter=0
+    maintain_trials={}
+    replace_trials={}
+    suppress_trials={}
+
+    for i in sub_condition_list:
+        if i==0: #this is the first rest period (because we had to shift of hemodynamics. So this "0" condition is nothing)
+            print('i==0')
+            counter+=1                         
+            continue
+        elif i==1:
+            temp_image=sub_images[counter]
+            maintain_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[counter]-5:sub_index[counter]+9].values
+            counter+=1
+
+        elif i==2:
+            temp_image=sub_images[counter]            
+            replace_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[counter]-5:sub_index[counter]+9].values
+            counter+=1
+
+        elif i==3:
+            temp_image=sub_images[counter]            
+            suppress_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[counter]-5:sub_index[counter]+9].values
+            counter+=1
+
+    #now that the trials are sorted, we need to get the subject average for each condition:
+    avg_maintain=pd.DataFrame(data=np.dstack(maintain_trials.values()).mean(axis=2))
+    avg_replace=pd.DataFrame(data=np.dstack(replace_trials.values()).mean(axis=2))
+    avg_suppress=pd.DataFrame(data=np.dstack(suppress_trials.values()).mean(axis=2))
+
+    #now I will have to change the structure to be able to plot in seaborn:
+    avg_maintain=avg_maintain.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_maintain['sub']=np.repeat(subID,len(avg_maintain)) #input the subject so I can stack melted dfs
+    avg_maintain['evidence_class']=np.tile(['rest','faces','scenes'],14) #add in the labels so we know what each data point is refering to
+    avg_maitnain.rename(columns={'variable':'TR','value':'evidence'}) #renamed the melted column names 
 
