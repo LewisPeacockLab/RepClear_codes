@@ -877,4 +877,56 @@ def visualize_evidence():
     plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_during_suppress_difference.png'))
     plt.clf()
 
-    
+    #want to get the trajectory for removal of an item in WM (classifier evidence of removal - maintain):
+    maintain_df=group_evidence_df.loc[(group_evidence_df['condition']=='maintain') & (group_evidence_df['evidence_class']=='scenes')]
+    replace_df=group_evidence_df.loc[(group_evidence_df['condition']=='replace') & (group_evidence_df['evidence_class']=='scenes')]
+    suppress_df=group_evidence_df.loc[(group_evidence_df['condition']=='suppress') & (group_evidence_df['evidence_class']=='scenes')]
+
+    replace_df['evidence']=replace_df['evidence'].values-maintain_df['evidence'].values
+    suppress_df['evidence']=suppress_df['evidence'].values-maintain_df['evidence'].values
+
+    ax=sns.lineplot(data=replace_df, x='TR',y='evidence',color='blue',label='replace',ci=68)
+    ax=sns.lineplot(data=suppress_df, x='TR', y='evidence', color='red',label='suppress',ci=68)
+    ax.axhline(0,color='k',linestyle='--')
+    plt.legend()
+    ax.set(xlabel='TR', ylabel='Category Classifier Evidence (Removal - Maintain)')
+    ax.set_title('T1w - Category Classifier - Trajectory for removal of an item from WM', loc='center', wrap=True)    
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_removal_minus_maintain.png'))
+    plt.clf()    
+
+    #want to get the trajectory for removal of an item in WM (classifier evidence of removal - maintain) but focused on FORGOTTEN ITEMS:
+    maintain_df=group_evidence_df.loc[(group_evidence_df['condition']=='maintain') & (group_evidence_df['evidence_class']=='scenes')]
+    forgot_replace_df=group_forgot_evidence_df.loc[(group_forgot_evidence_df['condition']=='replace') & (group_forgot_evidence_df['evidence_class']=='scenes')]
+    forgot_suppress_df=group_forgot_evidence_df.loc[(group_forgot_evidence_df['condition']=='suppress') & (group_forgot_evidence_df['evidence_class']=='scenes')]
+
+    forgot_replace_df['evidence']=forgot_replace_df['evidence'].values-maintain_df['evidence'].values
+    forgot_suppress_df['evidence']=forgot_suppress_df['evidence'].values-maintain_df['evidence'].values
+
+    ax=sns.lineplot(data=forgot_replace_df, x='TR',y='evidence',color='blue',label='replace',ci=68)
+    ax=sns.lineplot(data=forgot_suppress_df, x='TR', y='evidence', color='red',label='suppress',ci=68)
+    ax.axhline(0,color='k',linestyle='--')
+    plt.legend()
+    ax.set(xlabel='TR', ylabel='Category Classifier Evidence (Removal - Maintain)')
+    ax.set_title('T1w - Category Classifier (Forgotten Items) - Trajectory for removal of an item from WM', loc='center', wrap=True)    
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_removal_minus_maintain_forgot.png'))
+    plt.clf()
+
+    #want to get the trajectory for removal of an item in WM (classifier evidence of removal - maintain) but focused on REMEMBERED ITEMS:
+    maintain_df=group_evidence_df.loc[(group_evidence_df['condition']=='maintain') & (group_evidence_df['evidence_class']=='scenes')]
+    remember_replace_df=group_remember_evidence_df.loc[(group_remember_evidence_df['condition']=='replace') & (group_remember_evidence_df['evidence_class']=='scenes')]
+    remember_suppress_df=group_remember_evidence_df.loc[(group_remember_evidence_df['condition']=='suppress') & (group_remember_evidence_df['evidence_class']=='scenes')]
+
+    remember_replace_df['evidence']=remember_replace_df['evidence'].values-maintain_df['evidence'].values
+    remember_suppress_df['evidence']=remember_suppress_df['evidence'].values-maintain_df['evidence'].values
+
+    ax=sns.lineplot(data=remember_replace_df, x='TR',y='evidence',color='blue',label='replace',ci=68)
+    ax=sns.lineplot(data=remember_suppress_df, x='TR', y='evidence', color='red',label='suppress',ci=68)
+    ax.axhline(0,color='k',linestyle='--')
+    plt.legend()
+    ax.set(xlabel='TR', ylabel='Category Classifier Evidence (Removal - Maintain)')
+    ax.set_title('T1w - Category Classifier (Forgotten Items) - Trajectory for removal of an item from WM', loc='center', wrap=True)    
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_removal_minus_maintain_remember.png'))
+    plt.clf()        
