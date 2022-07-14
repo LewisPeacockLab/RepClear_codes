@@ -29,6 +29,8 @@ from scipy import stats
 from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
 from joblib import Parallel, delayed
+from statsmodels.stats.anova import AnovaRM
+from statsmodels.stats.multitest import multipletests
 
 
 # global consts
@@ -930,3 +932,41 @@ def visualize_evidence():
     plt.tight_layout()
     plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_removal_minus_maintain_remember.png'))
     plt.clf()        
+
+def check_anova_stats():
+    group_evidence_df=pd.DataFrame()
+    for subID in subIDs:
+        temp_subject_df=organize_evidence(subID)
+        group_evidence_df=pd.concat([group_evidence_df,temp_subject_df],ignore_index=True, sort=False)
+
+    scene_evis=group_evidence_df.loc[group_evidence_df['evidence_class']=='scenes']   
+    
+    ANOVA_results={}
+    ttest_sm={}
+    ttest_rm={}
+    ttest_sr={}    
+    for i in scene_evis.TR.unique():
+        temp_df=scene_evis.loc[scene_evis.TR==i]
+        ANOVA_results[f"TR {i}"]=AnovaRM(data=temp_df, depvar='evidence', subject='sub', within=['condition']).fit()
+        print(f"TR {i}: ")
+        print(ANOVA_results[f"TR {i}"].summary())
+
+        temp_suppress=temp_df.loc[temp_df.condition=='suppress']['evidence'].values
+        temp_maintain=temp_df.loc[temp_df.condition=='maintain']['evidence'].values
+        temp_replace=temp_df.loc[temp_df.condition=='replace']['evidence'].values
+
+        _, ttest_sm[f"TR {i}"]=stats.ttest_rel(temp_suppress,temp_maintain)
+        _, ttest_rm[f"TR {i}"]=stats.ttest_rel(temp_replace,temp_maintain)
+        _, ttest_sr[f"TR {i}"]=stats.ttest_rel(temp_suppress,temp_replace)
+
+
+    ttest_sm_values=list(ttest_sm.values())
+    ttest_rm_values=list(ttest_rm.values())
+    ttest_sr_values=list(ttest_sr.values())
+
+    ttest_sm_corrected=multipletests(ttest_sm_values,alpha=0.05,method='fdr_tsbky')
+    ttest_rm_corrected=multipletests(ttest_rm_values,alpha=0.05,method='fdr_tsbky')
+    ttest_sr_corrected=multipletests(ttest_sr_values,alpha=0.05,method='fdr_tsbky')    
+
+
+    return ANOVA_results, ttest_sm, ttest_rm, ttest_sr
