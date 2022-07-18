@@ -757,4 +757,6 @@ def visualize_evidence():
     ax.set_title(f'{space} - Operation Classifier during Suppress (group average): Remember-Forgot', loc='center', wrap=True)
     plt.tight_layout()
     plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_decoding_during_suppress_difference.png'))
-    plt.clf()    
+    plt.clf()
+
+        
