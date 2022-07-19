@@ -759,4 +759,4 @@ def visualize_evidence():
     plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_decoding_during_suppress_difference.png'))
     plt.clf()
 
-        
+         

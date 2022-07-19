@@ -418,7 +418,6 @@ def fit_model(X, Y, groups, save=False, out_fname=None, v=False):
     return scores, auc_scores, cms, trained_models, fprs
 
 def decode(training_runs, train_data, train_labels, test_data, test_labels):
-    print(f"\n ***** Decoding the category content in {task2}")
     print(f"Running model fitting...")
 
     X_train, y_train = subsample_for_training(train_data, train_labels, training_runs, include_rest=True)
@@ -970,3 +969,177 @@ def check_anova_stats():
 
 
     return ANOVA_results, ttest_sm, ttest_rm, ttest_sr
+
+
+#def nminus1():
+    #this is going to be my script to load in the data and then sort similar to how I did before but instead of the current trial, I sort by the previous trial (each run will have 1 operation that doesnt have an N-1)
+    #then it will take the average of the 4-6TR period (the peak of the category evi plot), as a trial datapoint for that subject
+    #the end result will be 3 bar graphs, for the fidelity of the item on the N+1 trial (average data point per subjects, per condition)
+
+def classification_post(subID):
+    #decode the category information during the post-removal phase, looking at the encoding period of each item
+    task = 'preremoval'
+    task2 = 'postremoval'
+    space = 'T1w'
+    ROIs = ['VVS']
+    n_iters = 1
+
+
+    shift_size_TR = 5 
+    rest_tag = 0
+
+    print(f"\n***** Running category level classification for sub {subID} {task} {space} with ROIs {ROIs}...")
+
+    # get data:
+    full_data = load_process_data(subID, task, space, ROIs)
+    print(f"Full_data shape: {full_data.shape}")
+
+    # get labels:
+    label_df = get_shifted_labels(task, shift_size_TR, rest_tag)
+    print(f"Category label shape: {label_df.shape}")
+
+    assert len(full_data) == len(label_df), \
+        f"Length of data ({len(full_data)}) does not match Length of labels ({len(label_df)})!"
+    
+    # cross run xval
+    scores = []
+    auc_scores = []
+    cms = []
+    trained_models=[]
+    fprs=[]
+    run_pairs=[]
+    
+    for X, Y, groups, run_pair in subsample_by_runs(full_data, label_df): 
+        print(f"Running model fitting...")
+        print("shape of X & Y:", X.shape, Y.shape)
+        assert len(X) == len(Y), f"Length of X ({len(X)}) doesn't match length of Y({len(Y)})"
+
+        # model fitting 
+        score, auc_score, cm, trained_model, fpr = fit_model(X, Y, groups, save=False, v=True)
+        
+        scores.append(score)
+        auc_scores.append(auc_score)
+        cms.append(cm)
+        trained_models.append(trained_model)
+        fprs.append(fpr)
+        run_pairs.append(run_pair)
+
+    scores = np.mean(scores,axis=1) #get the mean of each iteration (since theyre in pairs for the train/test pair)
+    auc_scores = np.mean(auc_scores,axis=1) #get the auc mean of each iteration (since theyre in pairs for the train/test pair)
+    cms = np.stack(cms)
+
+    #need to find the highest score/auc_score to maximize decoding. So we want to select the best combo of train/test (since I get scores for each set)
+    best_model=np.where(auc_scores==max(auc_scores))[0][0] #finding the max via auc_score
+    train_pairs=run_pairs[best_model]
+
+    print(f"\n***** Running category level classification for sub {subID} {task2} {space} with ROIs {ROIs}...")
+
+    # get data: all_ROI_vox x all_runs_time
+    full_data2 = load_process_data(subID, task2, space, ROIs)
+    print(f"Full_data shape: {full_data2.shape}")
+
+    # get labels
+    label_df2 = get_shifted_labels(task2, 5, rest_tag) #switched it to 4 since it seemed 1 TR off when looking at the evidence values
+    print(f"Category label shape: {label_df2.shape}") 
+
+
+    print(f"\n ***** Decoding the category content in {task2}")
+
+    #will need to build in a real selection method, but for now can take the first versions
+    predicts, evidence, true = decode(train_pairs, full_data, label_df, full_data2, label_df2) #this will decode the data using the already trained model and feature selection method
+
+    #need to then save the evidence:
+    evidence_df=pd.DataFrame(data=label_df2) #take the study DF for this subject
+    evidence_df.drop(columns=evidence_df.columns[0], axis=1, inplace=True) #now drop the extra index column
+    evidence_df['rest_evi']=evidence[:,0] #add in the evidence values for rest
+    evidence_df['scene_evi']=evidence[:,1] #add in the evidence values for scenes
+    evidence_df['face_evi']=evidence[:,2] #add in the evidence values for faces
+
+    #this will export the subject level evidence to the subject's folder
+    sub_dir = os.path.join(data_dir, f"sub-{subID}")
+    out_fname_template = f"sub-{subID}_{space}_trained-{task}_tested-{task2}_evidence.csv"            
+    print("\n *** Saving evidence values with subject dataframe ***")
+    evidence_df.to_csv(os.path.join(sub_dir,out_fname_template))
+
+    #get the average evidence for items maintained, replaced, suppressed, and preexposed:
+    evidence_df.reset_index(inplace=True,drop=True) #have to reset the index since its wrong after the shift
+    maintain_ind=np.where((evidence_df['old_novel']==1) & (evidence_df['condition']==1) & (evidence_df['stim_present']==1))
+    maintain_df=evidence_df.loc[maintain_ind]
+    maintain_imgs=np.unique(maintain_df['image_id'].values)
+    maintain_post_evi={}
+    for img in maintain_imgs:
+        maintain_post_evi[img]=maintain_df.loc[maintain_df['image_id']==img].scene_evi.mean() #this takes the average of the scene evidence during the 2 TR of viewing
+
+    replace_ind=np.where((evidence_df['old_novel']==1) & (evidence_df['condition']==2) & (evidence_df['stim_present']==1))
+    replace_df=evidence_df.loc[replace_ind]
+    replace_imgs=np.unique(replace_df['image_id'].values)
+    replace_post_evi={}
+    for img in replace_imgs:
+        replace_post_evi[img]=replace_df.loc[replace_df['image_id']==img].scene_evi.mean()
+
+    suppress_ind=np.where((evidence_df['old_novel']==1) & (evidence_df['condition']==3) & (evidence_df['stim_present']==1))
+    suppress_df=evidence_df.loc[suppress_ind]
+    suppress_imgs=np.unique(suppress_df['image_id'].values)
+    suppress_post_evi={}
+    for img in suppress_imgs:
+        suppress_post_evi[img]=suppress_df.loc[suppress_df['image_id']==img].scene_evi.mean()  
+
+    preexp_ind=np.where((evidence_df['old_novel']==3) & (evidence_df['stim_present']==1))
+    preexp_df=evidence_df.loc[preexp_ind]
+    preexp_imgs=np.unique(preexp_df['image_id'].values)
+    preexp_post_evi={}
+    for img in preexp_imgs:
+        preexp_post_evi[img]=preexp_df.loc[preexp_df['image_id']==img].scene_evi.mean()   
+
+    temp_maintain=pd.DataFrame(columns=['image_id','evidence','operation'])
+    temp_maintain['image_id']=maintain_post_evi.keys()
+    temp_maintain['evidence']=maintain_post_evi.values()
+    temp_maintain['operation']='maintain'
+
+    temp_replace=pd.DataFrame(columns=['image_id','evidence','operation'])
+    temp_replace['image_id']=replace_post_evi.keys()
+    temp_replace['evidence']=replace_post_evi.values()
+    temp_replace['operation']='replace'
+
+    temp_suppress=pd.DataFrame(columns=['image_id','evidence','operation'])
+    temp_suppress['image_id']=suppress_post_evi.keys()
+    temp_suppress['evidence']=suppress_post_evi.values()
+    temp_suppress['operation']='suppress'
+
+    temp_preexp=pd.DataFrame(columns=['image_id','evidence','operation'])
+    temp_preexp['image_id']=preexp_post_evi.keys()
+    temp_preexp['evidence']=preexp_post_evi.values()
+    temp_preexp['operation']='preexposed'
+
+    post_removal_df=pd.DataFrame(columns=['image_id','evidence','operation'])
+    post_removal_df=pd.concat([temp_maintain,temp_replace,temp_suppress,temp_preexp])
+
+    sub_dir = os.path.join(data_dir, f"sub-{subID}")
+    out_fname_template = f"sub-{subID}_{space}_trained-{task}_tested-{task2}_evidence_sorted.csv"            
+    print("\n *** Saving evidence values with subject dataframe ***")
+    post_removal_df.to_csv(os.path.join(sub_dir,out_fname_template))
+
+    maintain_avg=sum(maintain_post_evi.values()) / len(maintain_post_evi.values())
+    replace_avg=sum(replace_post_evi.values()) / len(replace_post_evi.values())
+    suppress_avg=sum(suppress_post_evi.values()) / len(suppress_post_evi.values())
+    preexp_avg=sum(preexp_post_evi.values()) / len(preexp_post_evi.values())
+
+    subject_avg={'maintain':maintain_avg,'replace':replace_avg,'suppress':suppress_avg,'pre-exp':preexp_avg}
+
+    return subject_avg
+
+def group_post():
+    group_df=pd.DataFrame()
+    for subID in subIDs:
+        temp_sub_average=classification_post(subID)
+        temp_df=pd.DataFrame(data=temp_sub_average,index=[subID])
+
+        group_df=pd.concat([group_df,temp_df])
+
+    melt_group_df=group_df.melt()
+    melt_group_df.rename(columns={'variable':'operation','value':'evidence'},inplace=True)
+    ax=sns.barplot(data=melt_group_df,x='operation',y='evidence',palette=['green','blue','red','gray'],ci=68)
+    ax.set(xlabel='Operation', ylabel='Category Classifier Evidence', title='T1w - Category Classifier (group average) - Post Removal')
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_during_postremoval.png'))
+    plt.clf()
