@@ -970,12 +970,6 @@ def check_anova_stats():
 
     return ANOVA_results, ttest_sm, ttest_rm, ttest_sr
 
-
-#def nminus1():
-    #this is going to be my script to load in the data and then sort similar to how I did before but instead of the current trial, I sort by the previous trial (each run will have 1 operation that doesnt have an N-1)
-    #then it will take the average of the 4-6TR period (the peak of the category evi plot), as a trial datapoint for that subject
-    #the end result will be 3 bar graphs, for the fidelity of the item on the N+1 trial (average data point per subjects, per condition)
-
 def classification_post(subID):
     #decode the category information during the post-removal phase, looking at the encoding period of each item
     task = 'preremoval'
@@ -1143,3 +1137,149 @@ def group_post():
     plt.tight_layout()
     plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_during_postremoval.png'))
     plt.clf()
+
+def nminus1(subID,save=True):
+    task = 'preremoval'
+    task2 = 'study'
+    space = 'T1w'
+    ROIs = ['VVS']
+
+    print("\n *** loading evidence values from subject dataframe ***")
+
+    sub_dir = os.path.join(data_dir, f"sub-{subID}")
+    in_fname_template = f"sub-{subID}_{space}_trained-{task}_tested-{task2}_evidence.csv"   
+
+    sub_df=pd.read_csv(os.path.join(sub_dir,in_fname_template))  
+    sub_df.drop(columns=sub_df.columns[0], axis=1, inplace=True) #now drop the extra index column
+
+    sub_images,sub_index=np.unique(sub_df['image_id'], return_index=True) #this searches through the dataframe to find each occurance of the image_id. This allows me to find the start of each trial, and linked to the image_ID #
+
+    #now to sort the trials, we need to figure out what the operation performed is:
+    sub_condition_list=sub_df['condition'][sub_index].values.astype(int) #so using the above indices, we will now grab what the condition is of each image
+
+    counter=0
+    maintain_trials={}
+    replace_trials={}
+    suppress_trials={}
+
+    for x in range(len(sub_condition_list)):
+        if x==0:
+            continue
+        i=sub_condition_list[x-1]
+        if i==0: #this is the first rest period (because we had to shift of hemodynamics. So this "0" condition is nothing)
+            print('i==0')
+            continue
+        elif i==1:
+            temp_image=sub_images[x]
+            maintain_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[x]-1:sub_index[x]+2].values
+
+        elif i==2:
+            temp_image=sub_images[x]            
+            replace_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[x]-1:sub_index[x]+2].values
+
+        elif i==3:
+            temp_image=sub_images[x]            
+            suppress_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[x]-1:sub_index[x]+2].values
+
+    #now that the trials are sorted, we need to get the subject average for each condition:
+    avg_maintain=pd.DataFrame(data=np.dstack(maintain_trials.values()).mean(axis=2))
+    avg_replace=pd.DataFrame(data=np.dstack(replace_trials.values()).mean(axis=2))
+    avg_suppress=pd.DataFrame(data=np.dstack(suppress_trials.values()).mean(axis=2))
+
+    avg_maintain_diff=avg_maintain[1]-avg_maintain[2] #want to also look at difference between Scenes and Faces to evaluate fidelity
+    avg_replace_diff=avg_replace[1]-avg_replace[2]
+    avg_suppress_diff=avg_suppress[1]-avg_suppress[2]
+
+    #now I will have to change the structure to be able to plot in seaborn:
+    avg_maintain=avg_maintain.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_maintain['sub']=np.repeat(subID,len(avg_maintain)) #input the subject so I can stack melted dfs
+    avg_maintain['evidence_class']=np.tile(['rest','scenes','faces'],3) #add in the labels so we know what each data point is refering to
+    avg_maintain.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_maintain['condition']='maintain' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_replace=avg_replace.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_replace['sub']=np.repeat(subID,len(avg_replace)) #input the subject so I can stack melted dfs
+    avg_replace['evidence_class']=np.tile(['rest','scenes','faces'],3) #add in the labels so we know what each data point is refering to
+    avg_replace.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_replace['condition']='replace' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_suppress=avg_suppress.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_suppress['sub']=np.repeat(subID,len(avg_suppress)) #input the subject so I can stack melted dfs
+    avg_suppress['evidence_class']=np.tile(['rest','scenes','faces'],3) #add in the labels so we know what each data point is refering to
+    avg_suppress.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_suppress['condition']='suppress' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_subject_df= pd.concat([avg_maintain,avg_replace,avg_suppress], ignore_index=True, sort=False)
+
+###### repeating the above section but for the difference between scenes and faces
+
+    #now I will have to change the structure to be able to plot in seaborn:
+    avg_maintain_diff=pd.DataFrame(data=avg_maintain_diff)
+    avg_maintain_diff=avg_maintain_diff.T.melt()
+    avg_maintain_diff['sub']=np.repeat(subID,len(avg_maintain_diff)) #input the subject so I can stack melted dfs
+    avg_maintain_diff['evidence_class']='diff'
+    avg_maintain_diff.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_maintain_diff['condition']='maintain' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_replace_diff=pd.DataFrame(data=avg_replace_diff)
+    avg_replace_diff=avg_replace_diff.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_replace_diff['sub']=np.repeat(subID,len(avg_replace_diff)) #input the subject so I can stack melted dfs
+    avg_replace_diff['evidence_class']='diff'
+    avg_replace_diff.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_replace_diff['condition']='replace' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_suppress_diff=pd.DataFrame(data=avg_suppress_diff)
+    avg_suppress_diff=avg_suppress_diff.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_suppress_diff['sub']=np.repeat(subID,len(avg_suppress_diff)) #input the subject so I can stack melted dfs
+    avg_suppress_diff['evidence_class']='diff'
+    avg_suppress_diff.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_suppress_diff['condition']='suppress' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_subject_diff_df= pd.concat([avg_maintain_diff,avg_replace_diff,avg_suppress_diff], ignore_index=True, sort=False)
+
+    # save for future use
+    if save: 
+        sub_dir = os.path.join(data_dir, f"sub-{subID}")
+        out_fname_template = f"sub-{subID}_{space}_{task2}_nminus1_evidence_dataframe.csv"  
+        print(f"\n Saving the sorted evidence dataframe for {subID} - phase: {task2} - as {out_fname_template}")
+        avg_subject_df.to_csv(os.path.join(sub_dir,out_fname_template))
+
+        out_fname_template_diff = f"sub-{subID}_{space}_{task2}_nminus1_evidence_difference_dataframe.csv"  
+        print(f"\n Saving the sorted difference evidence dataframe for {subID} - phase: {task2} - as {out_fname_template_diff}")
+        avg_subject_df.to_csv(os.path.join(sub_dir,out_fname_template_diff))        
+    return avg_subject_df, avg_subject_diff_df
+
+def visualize_nminus1_evidence():
+    group_evidence_df=pd.DataFrame()
+    group_evidence_diff_df=pd.DataFrame()
+    for subID in subIDs:
+        temp_subject_df,temp_subject_diff_df=nminus1(subID)
+        group_evidence_df=pd.concat([group_evidence_df,temp_subject_df],ignore_index=True, sort=False)
+        group_evidence_diff_df=pd.concat([group_evidence_diff_df,temp_subject_diff_df],ignore_index=True, sort=False)
+
+
+    ax=sns.barplot(data=group_evidence_df.loc[(group_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',hue='condition' ,ci=68)
+    ax.set(xlabel='TR', ylabel='Category Classifier Evidence', title='T1w - Average Category Classifier evidence of N-1 (group average)')
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_nminus1_TR.png'))
+    plt.clf()
+
+    ax=sns.barplot(data=group_evidence_diff_df.loc[(group_evidence_diff_df['evidence_class']=='diff')], x='TR',y='evidence',hue='condition',ci=68)
+    ax.set(xlabel='TR', ylabel='Category Classifier Evidence (Scenes - Faces)')
+    ax.set_title('T1w - Average Category Classifier evidence of N-1 - Scene minus Face evidence (group average)', loc='center', wrap=True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_nminus1_diff_TR.png'))
+    plt.clf()    
+
+    ax=sns.barplot(data=group_evidence_df.loc[(group_evidence_df['evidence_class']=='scenes')], x='condition',y='evidence',ci=68)
+    ax.set(xlabel='Operation of N-1', ylabel='Category Classifier Evidence', title='T1w - Average Category Classifier evidence of N-1 (group average)')
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_nminus1_avg.png'))
+    plt.clf()
+
+    ax=sns.barplot(data=group_evidence_diff_df.loc[(group_evidence_diff_df['evidence_class']=='diff')], x='condition',y='evidence',ci=68)
+    ax.set(xlabel='Operation of N-1', ylabel='Category Classifier Evidence (Scenes - Faces)')
+    ax.set_title('T1w - Average Category Classifier evidence of N-1 - Scene minus Face evidence (group average)', loc='center', wrap=True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_nminus1_diff_avg.png'))
+    plt.clf()      
