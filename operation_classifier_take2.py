@@ -883,9 +883,7 @@ def post_classification(subID):
     print("\n *** Saving evidence values with subject dataframe ***")
     evidence_df.to_csv(os.path.join(sub_dir,out_fname_template))        
 
-def visualize_post_evidence():
-    space='MNI'
-
+def visualize_post_evidence(space):
     group_evidence_df=pd.DataFrame()
     for subID in subIDs:
         temp_subject_df=organize_evidence(subID,space,'postremoval')   
