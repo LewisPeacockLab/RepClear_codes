@@ -1171,15 +1171,15 @@ def nminus1(subID,save=True):
             continue
         elif i==1:
             temp_image=sub_images[x]
-            maintain_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[x]-1:sub_index[x]+2].values
+            maintain_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[x]-1:sub_index[x]+1].values
 
         elif i==2:
             temp_image=sub_images[x]            
-            replace_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[x]-1:sub_index[x]+2].values
+            replace_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[x]-1:sub_index[x]+1].values
 
         elif i==3:
             temp_image=sub_images[x]            
-            suppress_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[x]-1:sub_index[x]+2].values
+            suppress_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[x]-1:sub_index[x]+1].values
 
     #now that the trials are sorted, we need to get the subject average for each condition:
     avg_maintain=pd.DataFrame(data=np.dstack(maintain_trials.values()).mean(axis=2))
@@ -1193,19 +1193,19 @@ def nminus1(subID,save=True):
     #now I will have to change the structure to be able to plot in seaborn:
     avg_maintain=avg_maintain.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
     avg_maintain['sub']=np.repeat(subID,len(avg_maintain)) #input the subject so I can stack melted dfs
-    avg_maintain['evidence_class']=np.tile(['rest','scenes','faces'],3) #add in the labels so we know what each data point is refering to
+    avg_maintain['evidence_class']=np.tile(['rest','scenes','faces'],2) #add in the labels so we know what each data point is refering to
     avg_maintain.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
     avg_maintain['condition']='maintain' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
 
     avg_replace=avg_replace.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
     avg_replace['sub']=np.repeat(subID,len(avg_replace)) #input the subject so I can stack melted dfs
-    avg_replace['evidence_class']=np.tile(['rest','scenes','faces'],3) #add in the labels so we know what each data point is refering to
+    avg_replace['evidence_class']=np.tile(['rest','scenes','faces'],2) #add in the labels so we know what each data point is refering to
     avg_replace.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
     avg_replace['condition']='replace' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
 
     avg_suppress=avg_suppress.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
     avg_suppress['sub']=np.repeat(subID,len(avg_suppress)) #input the subject so I can stack melted dfs
-    avg_suppress['evidence_class']=np.tile(['rest','scenes','faces'],3) #add in the labels so we know what each data point is refering to
+    avg_suppress['evidence_class']=np.tile(['rest','scenes','faces'],2) #add in the labels so we know what each data point is refering to
     avg_suppress.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
     avg_suppress['condition']='suppress' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
 
