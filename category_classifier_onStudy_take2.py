@@ -1291,7 +1291,15 @@ def nminus1(subID,save=True):
     if suppress_forgot_trials:
         avg_forgot_suppress=pd.DataFrame(data=np.dstack(suppress_forgot_trials.values()).mean(axis=2))
     else: 
-        avg_forgot_suppress=pd.DataFrame()     
+        avg_forgot_suppress=pd.DataFrame()
+
+    avg_remember_maintain_diff=avg_remember_maintain[1]-avg_remember_maintain[2] #want to also look at difference between Scenes and Faces to evaluate fidelity
+    avg_remember_replace_diff=avg_remember_replace[1]-avg_remember_replace[2]
+    avg_remember_suppress_diff=avg_remember_suppress[1]-avg_remember_suppress[2]
+
+    avg_forgot_maintain_diff=avg_forgot_maintain[1]-avg_forgot_maintain[2] #want to also look at difference between Scenes and Faces to evaluate fidelity
+    avg_forgot_replace_diff=avg_forgot_replace[1]-avg_forgot_replace[2]
+    avg_forgot_suppress_diff=avg_forgot_suppress[1]-avg_forgot_suppress[2]
 
     avg_maintain_diff=avg_maintain[1]-avg_maintain[2] #want to also look at difference between Scenes and Faces to evaluate fidelity
     avg_replace_diff=avg_replace[1]-avg_replace[2]
@@ -1345,6 +1353,56 @@ def nminus1(subID,save=True):
     avg_subject_diff_df= pd.concat([avg_maintain_diff,avg_replace_diff,avg_suppress_diff], ignore_index=True, sort=False)
 
 #### repeating above but now sorting for memory:
+
+
+
+    #now I will have to change the structure to be able to plot in seaborn:
+    avg_remember_maintain_diff=pd.DataFrame(data=avg_remember_maintain_diff)
+    avg_remember_maintain_diff=avg_remember_maintain_diff.T.melt()
+    avg_remember_maintain_diff['sub']=np.repeat(subID,len(avg_remember_maintain_diff)) #input the subject so I can stack melted dfs
+    avg_remember_maintain_diff['evidence_class']='diff'
+    avg_remember_maintain_diff.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_remember_maintain_diff['condition']='maintain' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_remember_replace_diff=pd.DataFrame(data=avg_remember_replace_diff)
+    avg_remember_replace_diff=avg_remember_replace_diff.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_remember_replace_diff['sub']=np.repeat(subID,len(avg_remember_replace_diff)) #input the subject so I can stack melted dfs
+    avg_remember_replace_diff['evidence_class']='diff'
+    avg_remember_replace_diff.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_remember_replace_diff['condition']='replace' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_remember_suppress_diff=pd.DataFrame(data=avg_remember_suppress_diff)
+    avg_remember_suppress_diff=avg_remember_suppress_diff.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_remember_suppress_diff['sub']=np.repeat(subID,len(avg_remember_suppress_diff)) #input the subject so I can stack melted dfs
+    avg_remember_suppress_diff['evidence_class']='diff'
+    avg_remember_suppress_diff.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_remember_suppress_diff['condition']='suppress' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_subject_remember_diff_df= pd.concat([avg_remember_maintain_diff,avg_remember_replace_diff,avg_remember_suppress_diff], ignore_index=True, sort=False)    
+
+    avg_forgot_maintain_diff=pd.DataFrame(data=avg_forgot_maintain_diff)
+    avg_forgot_maintain_diff=avg_forgot_maintain_diff.T.melt()
+    avg_forgot_maintain_diff['sub']=np.repeat(subID,len(avg_forgot_maintain_diff)) #input the subject so I can stack melted dfs
+    avg_forgot_maintain_diff['evidence_class']='diff'
+    avg_forgot_maintain_diff.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_forgot_maintain_diff['condition']='maintain' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_forgot_replace_diff=pd.DataFrame(data=avg_forgot_replace_diff)
+    avg_forgot_replace_diff=avg_forgot_replace_diff.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_forgot_replace_diff['sub']=np.repeat(subID,len(avg_forgot_replace_diff)) #input the subject so I can stack melted dfs
+    avg_forgot_replace_diff['evidence_class']='diff'
+    avg_forgot_replace_diff.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_forgot_replace_diff['condition']='replace' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_forgot_suppress_diff=pd.DataFrame(data=avg_forgot_suppress_diff)
+    avg_forgot_suppress_diff=avg_forgot_suppress_diff.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_forgot_suppress_diff['sub']=np.repeat(subID,len(avg_forgot_suppress_diff)) #input the subject so I can stack melted dfs
+    avg_forgot_suppress_diff['evidence_class']='diff'
+    avg_forgot_suppress_diff.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_forgot_suppress_diff['condition']='suppress' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_subject_forgot_diff_df= pd.concat([avg_forgot_maintain_diff,avg_forgot_replace_diff,avg_forgot_suppress_diff], ignore_index=True, sort=False) 
+
     #now I will have to change the structure to be able to plot in seaborn:
     avg_remember_maintain=avg_remember_maintain.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
     avg_remember_maintain['sub']=np.repeat(subID,len(avg_remember_maintain)) #input the subject so I can stack melted dfs
@@ -1398,7 +1456,15 @@ def nminus1(subID,save=True):
 
         out_fname_template_diff = f"sub-{subID}_{space}_{task2}_nminus1_evidence_difference_dataframe.csv"  
         print(f"\n Saving the sorted difference evidence dataframe for {subID} - phase: {task2} - as {out_fname_template_diff}")
-        avg_subject_df.to_csv(os.path.join(sub_dir,out_fname_template_diff))  
+        avg_subject_diff_df.to_csv(os.path.join(sub_dir,out_fname_template_diff))  
+
+        out_fname_template_diff = f"sub-{subID}_{space}_{task2}_nminus1_remember_evidence_difference_dataframe.csv"  
+        print(f"\n Saving the sorted remembered difference evidence dataframe for {subID} - phase: {task2} - as {out_fname_template_diff}")
+        avg_subject_remember_diff_df.to_csv(os.path.join(sub_dir,out_fname_template_diff))  
+
+        out_fname_template_diff = f"sub-{subID}_{space}_{task2}_nminus1_forgot_evidence_difference_dataframe.csv"  
+        print(f"\n Saving the sorted forgot difference evidence dataframe for {subID} - phase: {task2} - as {out_fname_template_diff}")
+        avg_subject_forgot_diff_df.to_csv(os.path.join(sub_dir,out_fname_template_diff))                  
 
         sub_dir = os.path.join(data_dir, f"sub-{subID}")
         out_fname_template = f"sub-{subID}_{space}_{task2}_nminus1_remember_evidence_dataframe.csv"  
@@ -1408,25 +1474,34 @@ def nminus1(subID,save=True):
         out_fname_template2 = f"sub-{subID}_{space}_{task2}_nminus1_forgot_evidence_dataframe.csv"  
         print(f"\n Saving the sorted forgot evidence dataframe for {subID} - phase: {task2} - as {out_fname_template}")
         avg_forgot_subject_df.to_csv(os.path.join(sub_dir,out_fname_template2))                
-    return avg_subject_df, avg_subject_diff_df, avg_remember_subject_df, avg_forgot_subject_df
+    return avg_subject_df, avg_subject_diff_df, avg_remember_subject_df, avg_forgot_subject_df, avg_subject_remember_diff_df, avg_subject_forgot_diff_df
 
 def visualize_nminus1_evidence():
     group_evidence_df=pd.DataFrame()
     group_evidence_diff_df=pd.DataFrame()
     group_remember_evidence_df=pd.DataFrame()
     group_forgot_evidence_df=pd.DataFrame()
+    group_remember_evidence_diff_df=pd.DataFrame()
+    group_forgot_evidence_diff_df=pd.DataFrame()
+
 
     for subID in subIDs:
-        temp_subject_df,temp_subject_diff_df,temp_subject_remember,temp_subject_forgot=nminus1(subID)
+        temp_subject_df,temp_subject_diff_df,temp_subject_remember,temp_subject_forgot,group_remember_evidence_diff,group_forgot_evidence_diff=nminus1(subID)
 
         group_evidence_df=pd.concat([group_evidence_df,temp_subject_df],ignore_index=True, sort=False)
         group_evidence_diff_df=pd.concat([group_evidence_diff_df,temp_subject_diff_df],ignore_index=True, sort=False)
         group_remember_evidence_df=pd.concat([group_remember_evidence_df,temp_subject_remember],ignore_index=True, sort=False)
         group_forgot_evidence_df=pd.concat([group_forgot_evidence_df,temp_subject_forgot],ignore_index=True, sort=False)
+        group_remember_evidence_diff_df=pd.concat([group_remember_evidence_diff_df,group_remember_evidence_diff],ignore_index=True, sort=False)
+        group_forgot_evidence_diff_df=pd.concat([group_forgot_evidence_diff_df,group_forgot_evidence_diff],ignore_index=True, sort=False)
 
     group_remember_evidence_df['memory']='remember'
     group_forgot_evidence_df['memory']='forgot'
     temp_df=pd.concat([group_remember_evidence_df,group_forgot_evidence_df])
+
+    group_remember_evidence_diff_df['memory']='remember'
+    group_forgot_evidence_diff_df['memory']='forgot'
+    temp_diff_df=pd.concat([group_remember_evidence_diff_df,group_forgot_evidence_diff_df])    
 
     ax=sns.barplot(data=group_evidence_df.loc[(group_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',hue='condition' ,ci=68)
     ax.set(xlabel='TR', ylabel='Category Classifier Evidence', title='T1w - Average Category Classifier evidence of N-1 (group average)')
@@ -1460,3 +1535,10 @@ def visualize_nminus1_evidence():
     plt.tight_layout()
     plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_nminus1_memory_avg.png'))
     plt.clf()            
+
+    ax=sns.barplot(data=temp_diff_df.loc[(temp_diff_df['evidence_class']=='diff')], x='condition',y='evidence',hue='memory',ci=68)
+    ax.set(xlabel='Operation of N-1', ylabel='Category Classifier Evidence (Scenes - Faces)')
+    ax.set_title('T1w - Average Category Classifier evidence of N-1 - Scene minus Face evidence - sorted by outcome (group average)', loc='center', wrap=True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_nminus1_diff_memory_avg.png'))
+    plt.clf() 
