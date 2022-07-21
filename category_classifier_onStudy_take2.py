@@ -1354,8 +1354,6 @@ def nminus1(subID,save=True):
 
 #### repeating above but now sorting for memory:
 
-
-
     #now I will have to change the structure to be able to plot in seaborn:
     avg_remember_maintain_diff=pd.DataFrame(data=avg_remember_maintain_diff)
     avg_remember_maintain_diff=avg_remember_maintain_diff.T.melt()
