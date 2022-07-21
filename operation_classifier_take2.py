@@ -27,7 +27,7 @@ from sklearn.preprocessing import StandardScaler
 from nilearn.input_data import NiftiMasker,  MultiNiftiMasker
 from scipy import stats
 from sklearn import preprocessing
-from sklearn.metrics import roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import roc_auc_score, confusion_matrix, ConfusionMatrixDisplay, roc_curve, auc
 from joblib import Parallel, delayed
 from statsmodels.stats.anova import AnovaRM
 from statsmodels.stats.multitest import multipletests
@@ -269,15 +269,16 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False):
     cms = []
     best_Cs = []
     evidences = []
+    roc_aucs=[]
 
     ps = PredefinedSplit(runs)
     for train_inds, test_inds in ps.split():
         X_train, X_test, y_train, y_test = X[train_inds], X[test_inds], Y[train_inds], Y[test_inds]
         
         # feature selection and transformation
-        fpr = SelectFpr(f_classif, alpha=0.01).fit(X_train, y_train)
-        X_train_sub = fpr.transform(X_train)
-        X_test_sub = fpr.transform(X_test)
+        ffpr = SelectFpr(f_classif, alpha=0.01).fit(X_train, y_train)
+        X_train_sub = ffpr.transform(X_train)
+        X_test_sub = ffpr.transform(X_test)
 
         # train & hyperparam tuning
         parameters ={'C':[.001, .01, .1, 1, 10, 100, 1000]}
@@ -293,6 +294,21 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False):
         lr.fit(X_train_sub, y_train)
         # test on held out data
         score = lr.score(X_test_sub, y_test)
+
+        y_score = lr.decision_function(X_test_sub)
+        n_classes=np.unique(y_test).size
+        # Compute ROC curve and ROC area for each class
+        fpr = dict()
+        tpr = dict()
+        roc_auc = dict()
+        for i in range(n_classes):
+            temp_y=np.zeros(y_test.size)
+            label_ind=np.where(y_test==(i+1))
+            temp_y[label_ind]=1
+
+            fpr[i], tpr[i], _ = roc_curve(temp_y, y_score[:, i])
+            roc_auc[i] = auc(fpr[i], tpr[i])
+
         auc_score = roc_auc_score(y_test, lr.predict_proba(X_test_sub), multi_class='ovr')
         preds = lr.predict(X_test_sub)
 
@@ -305,8 +321,10 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False):
         cms.append(cm)
         #calculate evidence values
         evidence=(1. / (1. + np.exp(-lr.decision_function(X_test_sub))))
-        evidences.append(evidence)    
+        evidences.append(evidence) 
+        roc_aucs.append(roc_auc)
 
+    roc_aucs = pd.DataFrame(data=roc_aucs)
     scores = np.asarray(scores)
     auc_scores = np.asarray(auc_scores)
     cms = np.stack(cms)
@@ -319,7 +337,7 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False):
         f"average confution matrix:\n"
         f"{cms.mean(axis=0)}")
 
-    return scores, auc_scores, cms, evidences
+    return scores, auc_scores, cms, evidences, roc_auc
 
 def sample_for_training(full_data, label_df, include_rest=False):
     """
@@ -402,7 +420,7 @@ def classification(subID):
     print(f"Running model fitting and cross-validation...")
 
     # model fitting 
-    score, auc_score, cm, evidence = fit_model(X, Y, runs, save=False, v=True)
+    score, auc_score, cm, evidence, roc_auc = fit_model(X, Y, runs, save=False, v=True)
 
     mean_score=score.mean()
 
@@ -1005,26 +1023,26 @@ def organize_evidence_timewindow(subID,space,task,save=True):
     avg_suppress_late=pd.DataFrame(data=np.dstack(suppress_trials_late.values()).mean(axis=2))
 
     maintain_early_df=pd.DataFrame(data=np.dstack(maintain_trials_early.values())[0],columns=maintain_trials_early.keys())
-    maintain_early_df.drop(index=[1,2],inplace=True,reset_index=True)
+    maintain_early_df.drop(index=[1,2],inplace=True)
     maintain_late_df=pd.DataFrame(data=np.dstack(maintain_trials_late.values())[0],columns=maintain_trials_late.keys())
-    maintain_late_df.drop(index=[1,2],inplace=True,reset_index=True)
+    maintain_late_df.drop(index=[1,2],inplace=True)
 
     replace_early_df=pd.DataFrame(data=np.dstack(replace_trials_early.values())[0],columns=replace_trials_early.keys())
-    replace_early_df.drop(index=[0,2],inplace=True,reset_index=True)    
+    replace_early_df.drop(index=[0,2],inplace=True)    
     replace_late_df=pd.DataFrame(data=np.dstack(replace_trials_late.values())[0],columns=replace_trials_late.keys())
-    replace_late_df.drop(index=[0,2],inplace=True,reset_index=True)    
+    replace_late_df.drop(index=[0,2],inplace=True)    
 
     suppress_early_df=pd.DataFrame(data=np.dstack(suppress_trials_early.values())[0],columns=suppress_trials_early.keys())
-    suppress_early_df.drop(index=[0,1],inplace=True,reset_index=True)        
+    suppress_early_df.drop(index=[0,1],inplace=True)        
     suppress_late_df=pd.DataFrame(data=np.dstack(suppress_trials_late.values())[0],columns=suppress_trials_late.keys())
-    suppress_late_df.drop(index=[0,1],inplace=True,reset_index=True)        
+    suppress_late_df.drop(index=[0,1],inplace=True)        
 
     #now I will have to change the structure to be able to plot in seaborn:
-    avg_maintain=avg_maintain.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
-    avg_maintain['sub']=np.repeat(subID,len(avg_maintain)) #input the subject so I can stack melted dfs
-    avg_maintain['evidence_class']=np.tile(['maintain','replace','suppress'],x) #add in the labels so we know what each data point is refering to
-    avg_maintain.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
-    avg_maintain['condition']='maintain' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+    avg_maintain_early=maintain_early_df.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_maintain_early['sub']=np.repeat(subID,len(avg_maintain_early)) #input the subject so I can stack melted dfs
+    avg_maintain_early['evidence_class']='maintain' #add in the labels so we know what each data point is refering to
+    avg_maintain_early.rename(columns={'variable':'image_id','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_maintain_early['condition']='maintain' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
 
     avg_replace=avg_replace.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
     avg_replace['sub']=np.repeat(subID,len(avg_replace)) #input the subject so I can stack melted dfs
@@ -1039,6 +1057,8 @@ def organize_evidence_timewindow(subID,space,task,save=True):
     avg_suppress['condition']='suppress' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
 
     avg_subject_df= pd.concat([avg_maintain,avg_replace,avg_suppress], ignore_index=True, sort=False)
+
+
 
     # save for future use
     if save: 
