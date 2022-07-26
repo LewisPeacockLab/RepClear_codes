@@ -1093,7 +1093,7 @@ def organize_evidence_timewindow(subID,space,task,save=True):
 def coef_stim_operation(subID,save=True):
     task = 'preremoval'
     task2 = 'study'
-    space = 'T1w'
+    space = 'MNI'
     ROIs = ['VVS']
 
     print("\n *** loading Category evidence values from subject dataframe ***")
@@ -1209,10 +1209,18 @@ def coef_stim_operation(subID,save=True):
         subject_coef_df.to_csv(os.path.join(sub_dir,out_fname_template))      
     return subject_coef_df
 
-def load_coef_dfs():
+def visualize_coef_dfs():
     group_coef_df=pd.DataFrame()
     for subID in subIDs:
         temp_df=coef_stim_operation(subID)
         group_coef_df=pd.concat([group_coef_df,temp_df],ignore_index=True, sort=False)
+
+    ax=sns.barplot(data=group_coef_df,x='condition',y='beta',hue='timing')
+    plt.legend()
+    ax.set(xlabel='Operation on Item', ylabel='Beta', title=f'{space} - Operation prediction on Content Decoding')
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_category_prediction.png'))
+    plt.clf()  
+
 
 

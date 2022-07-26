@@ -453,7 +453,7 @@ def decode(training_runs, train_data, train_labels, test_data, test_labels):
 def classification(subID):
     task = 'preremoval'
     task2 = 'study'
-    space = 'T1w'
+    space = 'MNI'
     ROIs = ['VVS']
     n_iters = 1
 
