@@ -1125,17 +1125,17 @@ def coef_stim_operation(subID,save=True):
             continue
         elif i==1:
             temp_image=sub_images[counter]
-            maintain_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[counter]:sub_index[counter]+5].values.mean(axis=0)[1] #taking the average of the 2 TRs with the item on screen & 4 operation TRs and then only pulling out the scene evidence
+            maintain_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[counter]:sub_index[counter]+4].values.mean(axis=0)[1] #taking the average of the 2 TRs with the item on screen & 4 operation TRs and then only pulling out the scene evidence
             counter+=1
 
         elif i==2:
             temp_image=sub_images[counter]            
-            replace_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[counter]:sub_index[counter]+5].values.mean(axis=0)[1]
+            replace_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[counter]:sub_index[counter]+4].values.mean(axis=0)[1]
             counter+=1
 
         elif i==3:
             temp_image=sub_images[counter]            
-            suppress_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[counter]:sub_index[counter]+5].values.mean(axis=0)[1]
+            suppress_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[counter]:sub_index[counter]+4].values.mean(axis=0)[1]
             counter+=1
 
     #now that the trials are sorted, we need to get the subject average for each condition:
