@@ -1378,7 +1378,7 @@ def organize_memory_evidence_timewindow(subID,space,task,save=True):
 
     avg_replace_overall_r=replace_overall_df_r.melt() #now you get 2 columns: variable (TR) and value (evidence)
     avg_replace_overall_r['sub']=np.repeat(subID,len(avg_replace_overall_r)) #input the subject so I can stack melted dfs
-    avg_replace_overall_r['evidence_class']='maintain' #add in the labels so we know what each data point is refering to
+    avg_replace_overall_r['evidence_class']='replace' #add in the labels so we know what each data point is refering to
     avg_replace_overall_r.rename(columns={'variable':'image_id','value':'evidence'},inplace=True) #renamed the melted column names 
     avg_replace_overall_r['condition']='replace' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
     ### replace - forgot
@@ -1396,7 +1396,7 @@ def organize_memory_evidence_timewindow(subID,space,task,save=True):
 
     avg_replace_overall_f=replace_overall_df_f.melt() #now you get 2 columns: variable (TR) and value (evidence)
     avg_replace_overall_f['sub']=np.repeat(subID,len(avg_replace_overall_f)) #input the subject so I can stack melted dfs
-    avg_replace_overall_f['evidence_class']='maintain' #add in the labels so we know what each data point is refering to
+    avg_replace_overall_f['evidence_class']='replace' #add in the labels so we know what each data point is refering to
     avg_replace_overall_f.rename(columns={'variable':'image_id','value':'evidence'},inplace=True) #renamed the melted column names 
     avg_replace_overall_f['condition']='replace' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
 
@@ -1416,7 +1416,7 @@ def organize_memory_evidence_timewindow(subID,space,task,save=True):
 
     avg_suppress_overall_r=suppress_overall_df_r.melt() #now you get 2 columns: variable (TR) and value (evidence)
     avg_suppress_overall_r['sub']=np.repeat(subID,len(avg_suppress_overall_r)) #input the subject so I can stack melted dfs
-    avg_suppress_overall_r['evidence_class']='maintain' #add in the labels so we know what each data point is refering to
+    avg_suppress_overall_r['evidence_class']='suppress' #add in the labels so we know what each data point is refering to
     avg_suppress_overall_r.rename(columns={'variable':'image_id','value':'evidence'},inplace=True) #renamed the melted column names 
     avg_suppress_overall_r['condition']='suppress' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
     ### suppress - forgot
@@ -1434,7 +1434,7 @@ def organize_memory_evidence_timewindow(subID,space,task,save=True):
 
     avg_suppress_overall_f=suppress_overall_df_f.melt() #now you get 2 columns: variable (TR) and value (evidence)
     avg_suppress_overall_f['sub']=np.repeat(subID,len(avg_suppress_overall_f)) #input the subject so I can stack melted dfs
-    avg_suppress_overall_f['evidence_class']='maintain' #add in the labels so we know what each data point is refering to
+    avg_suppress_overall_f['evidence_class']='suppress' #add in the labels so we know what each data point is refering to
     avg_suppress_overall_f.rename(columns={'variable':'image_id','value':'evidence'},inplace=True) #renamed the melted column names 
     avg_suppress_overall_f['condition']='suppress' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
 
@@ -1611,6 +1611,161 @@ def coef_stim_operation(subID,save=True):
         print(f"\n Saving the beta's from Operation predicting Content for {subID} - space: {space} - as {out_fname_template}")
         subject_coef_df.to_csv(os.path.join(sub_dir,out_fname_template))      
     return subject_coef_df
+
+def coef_stim_memory_operation(subID,save=True):
+    task = 'preremoval'
+    task2 = 'study'
+    space = 'MNI'
+    ROIs = ['VVS']
+
+    print("\n *** loading Category evidence values from subject dataframe ***")
+
+    sub_dir = os.path.join(data_dir, f"sub-{subID}")
+    in_fname_template = f"sub-{subID}_{space}_trained-{task}_tested-{task2}_evidence.csv"   
+
+    sub_df=pd.read_csv(os.path.join(sub_dir,in_fname_template))  
+    sub_df.drop(columns=sub_df.columns[0], axis=1, inplace=True) #now drop the extra index column
+
+    sub_images,sub_index=np.unique(sub_df['image_id'], return_index=True) #this searches through the dataframe to find each occurance of the image_id. This allows me to find the start of each trial, and linked to the image_ID #
+
+    #now to sort the trials, we need to figure out what the operation performed is:
+    sub_condition_list=sub_df['condition'][sub_index].values.astype(int) #so using the above indices, we will now grab what the condition is of each image
+
+    print("\n *** loading Operation evidence values from subject dataframe ***")
+
+    avg_subject_early_remember_df, avg_subject_early_forgot_df, avg_subject_late_remember_df, avg_subject_late_forgot_df, avg_subject_overall_remember_df, avg_subject_overall_forgot_df =organize_memory_evidence_timewindow(subID,space,task2)
+
+    counter=0
+    maintain_trials={}
+    replace_trials={}
+    suppress_trials={}
+
+    for i in sub_condition_list:
+        if i==0: #this is the first rest period (because we had to shift of hemodynamics. So this "0" condition is nothing)
+            print('i==0')
+            counter+=1                         
+            continue
+        elif i==1:
+            temp_image=sub_images[counter]
+            maintain_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[counter]+2:sub_index[counter]+6].values.mean(axis=0)[1] #taking the average of the 4 operation TRs and then only pulling out the scene evidence
+            counter+=1
+
+        elif i==2:
+            temp_image=sub_images[counter]            
+            replace_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[counter]+2:sub_index[counter]+6].values.mean(axis=0)[1]
+            counter+=1
+
+        elif i==3:
+            temp_image=sub_images[counter]            
+            suppress_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[counter]+2:sub_index[counter]+6].values.mean(axis=0)[1]
+            counter+=1
+
+    #now that the trials are sorted, we need to get the subject average for each condition:
+    avg_maintain_df=pd.DataFrame(data=np.dstack(maintain_trials.values())[0],columns=maintain_trials.keys())
+    avg_maintain_df=avg_maintain_df.melt() #now you get 2 columns: variable and value (evidence)
+    avg_maintain_df['sub']=np.repeat(subID,len(avg_maintain_df)) #input the subject so I can stack melted dfs
+    avg_maintain_df['evidence_class']='scene' #add in the labels so we know what each data point is refering to
+    avg_maintain_df.rename(columns={'variable':'image_id','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_maintain_df['condition']='maintain' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_replace_df=pd.DataFrame(data=np.dstack(replace_trials.values())[0],columns=replace_trials.keys())
+    avg_replace_df=avg_replace_df.melt() #now you get 2 columns: variable and value (evidence)
+    avg_replace_df['sub']=np.repeat(subID,len(avg_replace_df)) #input the subject so I can stack melted dfs
+    avg_replace_df['evidence_class']='scene' #add in the labels so we know what each data point is refering to
+    avg_replace_df.rename(columns={'variable':'image_id','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_replace_df['condition']='replace' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_suppress_df=pd.DataFrame(data=np.dstack(suppress_trials.values())[0],columns=suppress_trials.keys())
+    avg_suppress_df=avg_suppress_df.melt() #now you get 2 columns: variable and value (evidence)
+    avg_suppress_df['sub']=np.repeat(subID,len(avg_suppress_df)) #input the subject so I can stack melted dfs
+    avg_suppress_df['evidence_class']='scene' #add in the labels so we know what each data point is refering to
+    avg_suppress_df.rename(columns={'variable':'image_id','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_suppress_df['condition']='suppress' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+    
+    avg_subject_category_df= pd.concat([avg_maintain_df,avg_replace_df,avg_suppress_df], ignore_index=True, sort=False)
+
+
+    ## maintain
+    maintain_early_operation_remember_evi=avg_subject_early_remember_df.loc[avg_subject_early_remember_df['condition']=='maintain']['evidence'].values.reshape(-1,1)
+    maintain_late_operation_remember_evi=avg_subject_late_remember_df.loc[avg_subject_late_remember_df['condition']=='maintain']['evidence'].values.reshape(-1,1)
+    maintain_overall_operation_remember_evi=avg_subject_overall_remember_df.loc[avg_subject_overall_remember_df['condition']=='maintain']['evidence'].values.reshape(-1,1)
+
+    maintain_early_operation_forgot_evi=avg_subject_early_forgot_df.loc[avg_subject_early_forgot_df['condition']=='maintain']['evidence'].values.reshape(-1,1)
+    maintain_late_operation_forgot_evi=avg_subject_late_forgot_df.loc[avg_subject_late_forgot_df['condition']=='maintain']['evidence'].values.reshape(-1,1)
+    maintain_overall_operation_forgot_evi=avg_subject_overall_forgot_df.loc[avg_subject_overall_forgot_df['condition']=='maintain']['evidence'].values.reshape(-1,1)
+
+    maintain_remember_category_evi=avg_maintain_df[avg_subject_category_df.image_id.isin(avg_subject_early_remember_df.loc[avg_subject_early_remember_df['condition']=='maintain'].image_id)]['evidence'].values.reshape(-1,1)
+    maintain_forgot_category_evi=avg_maintain_df[avg_subject_category_df.image_id.isin(avg_subject_early_forgot_df.loc[avg_subject_early_forgot_df['condition']=='maintain'].image_id)]['evidence'].values.reshape(-1,1)
+
+
+    ## replace
+    replace_early_operation_remember_evi=avg_subject_early_remember_df.loc[avg_subject_early_remember_df['condition']=='replace']['evidence'].values.reshape(-1,1)
+    replace_late_operation_remember_evi=avg_subject_late_remember_df.loc[avg_subject_late_remember_df['condition']=='replace']['evidence'].values.reshape(-1,1)
+    replace_overall_operation_remember_evi=avg_subject_overall_remember_df.loc[avg_subject_overall_remember_df['condition']=='replace']['evidence'].values.reshape(-1,1)
+
+    replace_early_operation_forgot_evi=avg_subject_early_forgot_df.loc[avg_subject_early_forgot_df['condition']=='replace']['evidence'].values.reshape(-1,1)
+    replace_late_operation_forgot_evi=avg_subject_late_forgot_df.loc[avg_subject_late_forgot_df['condition']=='replace']['evidence'].values.reshape(-1,1)
+    replace_overall_operation_forgot_evi=avg_subject_overall_forgot_df.loc[avg_subject_overall_forgot_df['condition']=='replace']['evidence'].values.reshape(-1,1)
+
+    replace_remember_category_evi=avg_replace_df[avg_subject_category_df.image_id.isin(avg_subject_early_remember_df.loc[avg_subject_early_remember_df['condition']=='replace'].image_id)]['evidence'].values.reshape(-1,1)
+    replace_forgot_category_evi=avg_replace_df[avg_subject_category_df.image_id.isin(avg_subject_early_forgot_df.loc[avg_subject_early_forgot_df['condition']=='replace'].image_id)]['evidence'].values.reshape(-1,1)
+
+
+    ## suppress
+    suppress_early_operation_remember_evi=avg_subject_early_remember_df.loc[avg_subject_early_remember_df['condition']=='suppress']['evidence'].values.reshape(-1,1)
+    suppress_late_operation_remember_evi=avg_subject_late_remember_df.loc[avg_subject_late_remember_df['condition']=='suppress']['evidence'].values.reshape(-1,1)
+    suppress_overall_operation_remember_evi=avg_subject_overall_remember_df.loc[avg_subject_overall_remember_df['condition']=='suppress']['evidence'].values.reshape(-1,1)
+
+    suppress_early_operation_forgot_evi=avg_subject_early_forgot_df.loc[avg_subject_early_forgot_df['condition']=='suppress']['evidence'].values.reshape(-1,1)
+    suppress_late_operation_forgot_evi=avg_subject_late_forgot_df.loc[avg_subject_late_forgot_df['condition']=='suppress']['evidence'].values.reshape(-1,1)
+    suppress_overall_operation_forgot_evi=avg_subject_overall_forgot_df.loc[avg_subject_overall_forgot_df['condition']=='suppress']['evidence'].values.reshape(-1,1)    
+
+    suppress_remember_category_evi=avg_suppress_df[avg_subject_category_df.image_id.isin(avg_subject_early_remember_df.loc[avg_subject_early_remember_df['condition']=='suppress'].image_id)]['evidence'].values.reshape(-1,1)
+    suppress_forgot_category_evi=avg_suppress_df[avg_subject_category_df.image_id.isin(avg_subject_early_forgot_df.loc[avg_subject_early_forgot_df['condition']=='suppress'].image_id)]['evidence'].values.reshape(-1,1)
+
+
+    ## combine
+    subject_coef_df=pd.DataFrame(columns=['sub','condition','beta','timing'],index=[0,1,2,3,4,5,6,7,8])
+    subject_coef_df['sub']=subID
+    subject_coef_df['condition']=np.repeat(['maintain','replace','suppress'],3)
+
+    #first taking the beta from correlation between early/late operation evidence and category evidence during 2TR
+    maintain_early_lr = LinearRegression().fit(maintain_early_operation_evi,maintain_category_evi)
+    subject_coef_df.loc[0,'beta']=maintain_early_lr.coef_[0][0]
+    subject_coef_df.loc[0,'timing']='early'
+    maintain_late_lr = LinearRegression().fit(maintain_late_operation_evi,maintain_category_evi)
+    subject_coef_df.loc[1,'beta']=maintain_late_lr.coef_[0][0]
+    subject_coef_df.loc[1,'timing']='late'
+    maintain_overall_lr = LinearRegression().fit(maintain_overall_operation_evi,maintain_category_evi)
+    subject_coef_df.loc[2,'beta']=maintain_overall_lr.coef_[0][0]
+    subject_coef_df.loc[2,'timing']='overall'    
+
+    replace_early_lr = LinearRegression().fit(replace_early_operation_evi,replace_category_evi)
+    subject_coef_df.loc[3,'beta']=replace_early_lr.coef_[0][0]
+    subject_coef_df.loc[3,'timing']='early'
+    replace_late_lr = LinearRegression().fit(replace_late_operation_evi,replace_category_evi)
+    subject_coef_df.loc[4,'beta']=replace_late_lr.coef_[0][0]
+    subject_coef_df.loc[4,'timing']='late'
+    replace_overall_lr = LinearRegression().fit(replace_overall_operation_evi,replace_category_evi)
+    subject_coef_df.loc[5,'beta']=replace_overall_lr.coef_[0][0]
+    subject_coef_df.loc[5,'timing']='overall'    
+
+    suppress_early_lr = LinearRegression().fit(suppress_early_operation_evi,suppress_category_evi)
+    subject_coef_df.loc[6,'beta']=suppress_early_lr.coef_[0][0]
+    subject_coef_df.loc[6,'timing']='early'
+    suppress_late_lr = LinearRegression().fit(suppress_late_operation_evi,suppress_category_evi)
+    subject_coef_df.loc[7,'beta']=suppress_late_lr.coef_[0][0]
+    subject_coef_df.loc[7,'timing']='late'
+    suppress_overall_lr = LinearRegression().fit(suppress_overall_operation_evi,suppress_category_evi)
+    subject_coef_df.loc[8,'beta']=suppress_overall_lr.coef_[0][0]
+    subject_coef_df.loc[8,'timing']='overall'
+    # save for future use
+    if save: 
+        sub_dir = os.path.join(data_dir, f"sub-{subID}")
+        out_fname_template = f"sub-{subID}_{space}_{task2}_coef_dataframe.csv"  
+        print(f"\n Saving the beta's from Operation predicting Content for {subID} - space: {space} - as {out_fname_template}")
+        subject_coef_df.to_csv(os.path.join(sub_dir,out_fname_template))      
+    return subject_coef_df    
 
 def visualize_coef_dfs():
     group_coef_df=pd.DataFrame()
