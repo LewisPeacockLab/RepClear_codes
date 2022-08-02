@@ -1725,11 +1725,47 @@ def coef_stim_memory_operation(subID,save=True):
 
 
     ## combine
-    subject_coef_df=pd.DataFrame(columns=['sub','condition','beta','timing'],index=[0,1,2,3,4,5,6,7,8])
-    subject_coef_df['sub']=subID
-    subject_coef_df['condition']=np.repeat(['maintain','replace','suppress'],3)
+    subject_coef_remember_df=pd.DataFrame(columns=['sub','condition','beta','timing'],index=[0,1,2,3,4,5,6,7,8])
+    subject_coef_remember_df['sub']=subID
+    subject_coef_remember_df['condition']=np.repeat(['maintain','replace','suppress'],3)
 
-    #first taking the beta from correlation between early/late operation evidence and category evidence during 2TR
+    subject_coef_forgot_df=pd.DataFrame(columns=['sub','condition','beta','timing'],index=[0,1,2,3,4,5,6,7,8])
+    subject_coef_forgot_df['sub']=subID
+    subject_coef_forgot_df['condition']=np.repeat(['maintain','replace','suppress'],3)    
+
+    #first taking the beta from correlation between early/late operation evidence and category evidence
+    ## Remember
+    maintain_early_lr = LinearRegression().fit(maintain_remember_early_operation_evi,maintain_remember_category_evi)
+    subject_coef_remember_df.loc[0,'beta']=maintain_early_lr.coef_[0][0]
+    subject_coef_remember_df.loc[0,'timing']='early'
+    maintain_late_lr = LinearRegression().fit(maintain_remember_late_operation_evi,maintain_remember_category_evi)
+    subject_coef_remember_df.loc[1,'beta']=maintain_late_lr.coef_[0][0]
+    subject_coef_remember_df.loc[1,'timing']='late'
+    maintain_overall_lr = LinearRegression().fit(maintain_remember_overall_operation_evi,maintain_remember_category_evi)
+    subject_coef_remember_df.loc[2,'beta']=maintain_overall_lr.coef_[0][0]
+    subject_coef_remember_df.loc[2,'timing']='overall'    
+
+    replace_early_lr = LinearRegression().fit(replace_remember_early_operation_evi,replace_remember_category_evi)
+    subject_coef_remember_df.loc[3,'beta']=replace_early_lr.coef_[0][0]
+    subject_coef_remember_df.loc[3,'timing']='early'
+    replace_late_lr = LinearRegression().fit(replace_remember_late_operation_evi,replace_remember_category_evi)
+    subject_coef_remember_df.loc[4,'beta']=replace_late_lr.coef_[0][0]
+    subject_coef_remember_df.loc[4,'timing']='late'
+    replace_overall_lr = LinearRegression().fit(replace_remember_overall_operation_evi,replace_remember_category_evi)
+    subject_coef_remember_df.loc[5,'beta']=replace_overall_lr.coef_[0][0]
+    subject_coef_remember_df.loc[5,'timing']='overall'    
+
+    suppress_early_lr = LinearRegression().fit(suppress_remember_early_operation_evi,suppress_remember_category_evi)
+    subject_coef_remember_df.loc[6,'beta']=suppress_early_lr.coef_[0][0]
+    subject_coef_remember_df.loc[6,'timing']='early'
+    suppress_late_lr = LinearRegression().fit(suppress_remember_late_operation_evi,suppress_remember_category_evi)
+    subject_coef_remember_df.loc[7,'beta']=suppress_late_lr.coef_[0][0]
+    subject_coef_remember_df.loc[7,'timing']='late'
+    suppress_overall_lr = LinearRegression().fit(suppress_remember_overall_operation_evi,suppress_remember_category_evi)
+    subject_coef_remember_df.loc[8,'beta']=suppress_overall_lr.coef_[0][0]
+    subject_coef_remember_df.loc[8,'timing']='overall'
+
+    ## Forgot
     maintain_early_lr = LinearRegression().fit(maintain_early_operation_evi,maintain_category_evi)
     subject_coef_df.loc[0,'beta']=maintain_early_lr.coef_[0][0]
     subject_coef_df.loc[0,'timing']='early'
@@ -1758,7 +1794,7 @@ def coef_stim_memory_operation(subID,save=True):
     subject_coef_df.loc[7,'timing']='late'
     suppress_overall_lr = LinearRegression().fit(suppress_overall_operation_evi,suppress_category_evi)
     subject_coef_df.loc[8,'beta']=suppress_overall_lr.coef_[0][0]
-    subject_coef_df.loc[8,'timing']='overall'
+    subject_coef_df.loc[8,'timing']='overall'    
     # save for future use
     if save: 
         sub_dir = os.path.join(data_dir, f"sub-{subID}")
