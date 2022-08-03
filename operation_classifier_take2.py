@@ -271,6 +271,10 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False):
     evidences = []
     roc_aucs=[]
 
+    tested_labels=[]
+    pred_probs=[]
+    y_scores=[]
+
     ps = PredefinedSplit(runs)
     for train_inds, test_inds in ps.split():
         X_train, X_test, y_train, y_test = X[train_inds], X[test_inds], Y[train_inds], Y[test_inds]
@@ -311,7 +315,7 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False):
 
         auc_score = roc_auc_score(y_test, lr.predict_proba(X_test_sub), multi_class='ovr')
         preds = lr.predict(X_test_sub)
-
+        pred_prob=lr.predict_proba(X_test_sub)
         # confusion matrix
         true_counts = np.asarray([np.sum(y_test == i) for i in [1,2,3]])
         cm = confusion_matrix(y_test, preds, labels=list([1,2,3])) / true_counts[:,None] * 100
@@ -324,11 +328,19 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False):
         evidences.append(evidence) 
         roc_aucs.append(roc_auc)
 
+        tested_labels.append(y_test)
+        pred_probs.append(pred_prob)
+        y_scores.append(y_score)
+
     roc_aucs = pd.DataFrame(data=roc_aucs)
     scores = np.asarray(scores)
     auc_scores = np.asarray(auc_scores)
     cms = np.stack(cms)
     evidences = np.stack(evidences)
+
+    tested_labels=np.stack(tested_labels)
+    pred_probs=np.stack(pred_probs)
+    y_scores=np.stack(y_scores)
 
     if v: print(f"\nClassifier score: \n"
         f"scores: {scores.mean()} +/- {scores.std()}\n"
@@ -337,7 +349,7 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False):
         f"average confution matrix:\n"
         f"{cms.mean(axis=0)}")
 
-    return scores, auc_scores, cms, evidences, roc_auc
+    return scores, auc_scores, cms, evidences, roc_auc, tested_labels, y_scores
 
 def sample_for_training(full_data, label_df, include_rest=False):
     """
@@ -420,7 +432,7 @@ def classification(subID):
     print(f"Running model fitting and cross-validation...")
 
     # model fitting 
-    score, auc_score, cm, evidence, roc_auc = fit_model(X, Y, runs, save=False, v=True)
+    score, auc_score, cm, evidence, roc_auc, tested_labels, y_scores = fit_model(X, Y, runs, save=False, v=True)
 
     mean_score=score.mean()
 
@@ -1615,7 +1627,7 @@ def coef_stim_operation(subID,save=True):
 def coef_stim_memory_operation(subID,save=True):
     task = 'preremoval'
     task2 = 'study'
-    space = 'T1w'
+    space = 'MNI'
     ROIs = ['VVS']
 
     print("\n *** loading Category evidence values from subject dataframe ***")
