@@ -1253,7 +1253,7 @@ def organize_memory_evidence_timewindow(subID,space,task,save=True):
         maintain_early_df_f=pd.DataFrame(data=np.dstack(maintain_trials_early_f.values())[0],columns=maintain_trials_early_f.keys())
         maintain_early_df_f.drop(index=[1,2],inplace=True)
     else:
-        maintain_trials_early_f=pd.DataFrame()
+        maintain_early_df_f=pd.DataFrame()
 
     maintain_late_df_r=pd.DataFrame(data=np.dstack(maintain_trials_late_r.values())[0],columns=maintain_trials_late_r.keys())
     maintain_late_df_r.drop(index=[1,2],inplace=True)
@@ -1615,7 +1615,7 @@ def coef_stim_operation(subID,save=True):
 def coef_stim_memory_operation(subID,save=True):
     task = 'preremoval'
     task2 = 'study'
-    space = 'MNI'
+    space = 'T1w'
     ROIs = ['VVS']
 
     print("\n *** loading Category evidence values from subject dataframe ***")
@@ -1694,8 +1694,8 @@ def coef_stim_memory_operation(subID,save=True):
     maintain_late_operation_forgot_evi=avg_subject_late_forgot_df.loc[avg_subject_late_forgot_df['condition']=='maintain']['evidence'].values.reshape(-1,1)
     maintain_overall_operation_forgot_evi=avg_subject_overall_forgot_df.loc[avg_subject_overall_forgot_df['condition']=='maintain']['evidence'].values.reshape(-1,1)
 
-    maintain_remember_category_evi=avg_maintain_df[avg_subject_category_df.image_id.isin(avg_subject_early_remember_df.loc[avg_subject_early_remember_df['condition']=='maintain'].image_id)]['evidence'].values.reshape(-1,1)
-    maintain_forgot_category_evi=avg_maintain_df[avg_subject_category_df.image_id.isin(avg_subject_early_forgot_df.loc[avg_subject_early_forgot_df['condition']=='maintain'].image_id)]['evidence'].values.reshape(-1,1)
+    maintain_remember_category_evi=avg_maintain_df[avg_maintain_df.image_id.isin(avg_subject_early_remember_df.loc[avg_subject_early_remember_df['condition']=='maintain'].image_id)]['evidence'].values.reshape(-1,1)
+    maintain_forgot_category_evi=avg_maintain_df[avg_maintain_df.image_id.isin(avg_subject_early_forgot_df.loc[avg_subject_early_forgot_df['condition']=='maintain'].image_id)]['evidence'].values.reshape(-1,1)
 
 
     ## replace
@@ -1707,8 +1707,8 @@ def coef_stim_memory_operation(subID,save=True):
     replace_late_operation_forgot_evi=avg_subject_late_forgot_df.loc[avg_subject_late_forgot_df['condition']=='replace']['evidence'].values.reshape(-1,1)
     replace_overall_operation_forgot_evi=avg_subject_overall_forgot_df.loc[avg_subject_overall_forgot_df['condition']=='replace']['evidence'].values.reshape(-1,1)
 
-    replace_remember_category_evi=avg_replace_df[avg_subject_category_df.image_id.isin(avg_subject_early_remember_df.loc[avg_subject_early_remember_df['condition']=='replace'].image_id)]['evidence'].values.reshape(-1,1)
-    replace_forgot_category_evi=avg_replace_df[avg_subject_category_df.image_id.isin(avg_subject_early_forgot_df.loc[avg_subject_early_forgot_df['condition']=='replace'].image_id)]['evidence'].values.reshape(-1,1)
+    replace_remember_category_evi=avg_replace_df[avg_replace_df.image_id.isin(avg_subject_early_remember_df.loc[avg_subject_early_remember_df['condition']=='replace'].image_id)]['evidence'].values.reshape(-1,1)
+    replace_forgot_category_evi=avg_replace_df[avg_replace_df.image_id.isin(avg_subject_early_forgot_df.loc[avg_subject_early_forgot_df['condition']=='replace'].image_id)]['evidence'].values.reshape(-1,1)
 
 
     ## suppress
@@ -1720,8 +1720,8 @@ def coef_stim_memory_operation(subID,save=True):
     suppress_late_operation_forgot_evi=avg_subject_late_forgot_df.loc[avg_subject_late_forgot_df['condition']=='suppress']['evidence'].values.reshape(-1,1)
     suppress_overall_operation_forgot_evi=avg_subject_overall_forgot_df.loc[avg_subject_overall_forgot_df['condition']=='suppress']['evidence'].values.reshape(-1,1)    
 
-    suppress_remember_category_evi=avg_suppress_df[avg_subject_category_df.image_id.isin(avg_subject_early_remember_df.loc[avg_subject_early_remember_df['condition']=='suppress'].image_id)]['evidence'].values.reshape(-1,1)
-    suppress_forgot_category_evi=avg_suppress_df[avg_subject_category_df.image_id.isin(avg_subject_early_forgot_df.loc[avg_subject_early_forgot_df['condition']=='suppress'].image_id)]['evidence'].values.reshape(-1,1)
+    suppress_remember_category_evi=avg_suppress_df[avg_suppress_df.image_id.isin(avg_subject_early_remember_df.loc[avg_subject_early_remember_df['condition']=='suppress'].image_id)]['evidence'].values.reshape(-1,1)
+    suppress_forgot_category_evi=avg_suppress_df[avg_suppress_df.image_id.isin(avg_subject_early_forgot_df.loc[avg_subject_early_forgot_df['condition']=='suppress'].image_id)]['evidence'].values.reshape(-1,1)
 
 
     ## combine
@@ -1735,73 +1735,106 @@ def coef_stim_memory_operation(subID,save=True):
 
     #first taking the beta from correlation between early/late operation evidence and category evidence
     ## Remember
-    maintain_early_lr = LinearRegression().fit(maintain_remember_early_operation_evi,maintain_remember_category_evi)
+    maintain_early_lr = LinearRegression().fit(maintain_early_operation_remember_evi,maintain_remember_category_evi)
     subject_coef_remember_df.loc[0,'beta']=maintain_early_lr.coef_[0][0]
     subject_coef_remember_df.loc[0,'timing']='early'
-    maintain_late_lr = LinearRegression().fit(maintain_remember_late_operation_evi,maintain_remember_category_evi)
+    maintain_late_lr = LinearRegression().fit(maintain_late_operation_remember_evi,maintain_remember_category_evi)
     subject_coef_remember_df.loc[1,'beta']=maintain_late_lr.coef_[0][0]
     subject_coef_remember_df.loc[1,'timing']='late'
-    maintain_overall_lr = LinearRegression().fit(maintain_remember_overall_operation_evi,maintain_remember_category_evi)
+    maintain_overall_lr = LinearRegression().fit(maintain_overall_operation_remember_evi,maintain_remember_category_evi)
     subject_coef_remember_df.loc[2,'beta']=maintain_overall_lr.coef_[0][0]
     subject_coef_remember_df.loc[2,'timing']='overall'    
 
-    replace_early_lr = LinearRegression().fit(replace_remember_early_operation_evi,replace_remember_category_evi)
+    replace_early_lr = LinearRegression().fit(replace_early_operation_remember_evi,replace_remember_category_evi)
     subject_coef_remember_df.loc[3,'beta']=replace_early_lr.coef_[0][0]
     subject_coef_remember_df.loc[3,'timing']='early'
-    replace_late_lr = LinearRegression().fit(replace_remember_late_operation_evi,replace_remember_category_evi)
+    replace_late_lr = LinearRegression().fit(replace_late_operation_remember_evi,replace_remember_category_evi)
     subject_coef_remember_df.loc[4,'beta']=replace_late_lr.coef_[0][0]
     subject_coef_remember_df.loc[4,'timing']='late'
-    replace_overall_lr = LinearRegression().fit(replace_remember_overall_operation_evi,replace_remember_category_evi)
+    replace_overall_lr = LinearRegression().fit(replace_overall_operation_remember_evi,replace_remember_category_evi)
     subject_coef_remember_df.loc[5,'beta']=replace_overall_lr.coef_[0][0]
     subject_coef_remember_df.loc[5,'timing']='overall'    
 
-    suppress_early_lr = LinearRegression().fit(suppress_remember_early_operation_evi,suppress_remember_category_evi)
+    suppress_early_lr = LinearRegression().fit(suppress_early_operation_remember_evi,suppress_remember_category_evi)
     subject_coef_remember_df.loc[6,'beta']=suppress_early_lr.coef_[0][0]
     subject_coef_remember_df.loc[6,'timing']='early'
-    suppress_late_lr = LinearRegression().fit(suppress_remember_late_operation_evi,suppress_remember_category_evi)
+    suppress_late_lr = LinearRegression().fit(suppress_late_operation_remember_evi,suppress_remember_category_evi)
     subject_coef_remember_df.loc[7,'beta']=suppress_late_lr.coef_[0][0]
     subject_coef_remember_df.loc[7,'timing']='late'
-    suppress_overall_lr = LinearRegression().fit(suppress_remember_overall_operation_evi,suppress_remember_category_evi)
+    suppress_overall_lr = LinearRegression().fit(suppress_overall_operation_remember_evi,suppress_remember_category_evi)
     subject_coef_remember_df.loc[8,'beta']=suppress_overall_lr.coef_[0][0]
     subject_coef_remember_df.loc[8,'timing']='overall'
 
     ## Forgot
-    maintain_early_lr = LinearRegression().fit(maintain_early_operation_evi,maintain_category_evi)
-    subject_coef_df.loc[0,'beta']=maintain_early_lr.coef_[0][0]
-    subject_coef_df.loc[0,'timing']='early'
-    maintain_late_lr = LinearRegression().fit(maintain_late_operation_evi,maintain_category_evi)
-    subject_coef_df.loc[1,'beta']=maintain_late_lr.coef_[0][0]
-    subject_coef_df.loc[1,'timing']='late'
-    maintain_overall_lr = LinearRegression().fit(maintain_overall_operation_evi,maintain_category_evi)
-    subject_coef_df.loc[2,'beta']=maintain_overall_lr.coef_[0][0]
-    subject_coef_df.loc[2,'timing']='overall'    
+    #some subjects did not forget items, so need to have contingency code:
+    try:
+        maintain_early_lr = LinearRegression().fit(maintain_early_operation_forgot_evi,maintain_forgot_category_evi)
+        subject_coef_forgot_df.loc[0,'beta']=maintain_early_lr.coef_[0][0]
+        subject_coef_forgot_df.loc[0,'timing']='early'
+        maintain_late_lr = LinearRegression().fit(maintain_late_operation_forgot_evi,maintain_forgot_category_evi)
+        subject_coef_forgot_df.loc[1,'beta']=maintain_late_lr.coef_[0][0]
+        subject_coef_forgot_df.loc[1,'timing']='late'
+        maintain_overall_lr = LinearRegression().fit(maintain_overall_operation_forgot_evi,maintain_forgot_category_evi)
+        subject_coef_forgot_df.loc[2,'beta']=maintain_overall_lr.coef_[0][0]
+        subject_coef_forgot_df.loc[2,'timing']='overall'    
+    except:
+        print('No maintain trials forgotten!')
+        subject_coef_forgot_df.loc[0,'beta']=0
+        subject_coef_forgot_df.loc[0,'timing']='early'
+        subject_coef_forgot_df.loc[1,'beta']=0
+        subject_coef_forgot_df.loc[1,'timing']='late'        
+        subject_coef_forgot_df.loc[2,'beta']=0
+        subject_coef_forgot_df.loc[2,'timing']='overall'
 
-    replace_early_lr = LinearRegression().fit(replace_early_operation_evi,replace_category_evi)
-    subject_coef_df.loc[3,'beta']=replace_early_lr.coef_[0][0]
-    subject_coef_df.loc[3,'timing']='early'
-    replace_late_lr = LinearRegression().fit(replace_late_operation_evi,replace_category_evi)
-    subject_coef_df.loc[4,'beta']=replace_late_lr.coef_[0][0]
-    subject_coef_df.loc[4,'timing']='late'
-    replace_overall_lr = LinearRegression().fit(replace_overall_operation_evi,replace_category_evi)
-    subject_coef_df.loc[5,'beta']=replace_overall_lr.coef_[0][0]
-    subject_coef_df.loc[5,'timing']='overall'    
+    try:
+        replace_early_lr = LinearRegression().fit(replace_early_operation_forgot_evi,replace_forgot_category_evi)
+        subject_coef_forgot_df.loc[3,'beta']=replace_early_lr.coef_[0][0]
+        subject_coef_forgot_df.loc[3,'timing']='early'
+        replace_late_lr = LinearRegression().fit(replace_late_operation_forgot_evi,replace_forgot_category_evi)
+        subject_coef_forgot_df.loc[4,'beta']=replace_late_lr.coef_[0][0]
+        subject_coef_forgot_df.loc[4,'timing']='late'
+        replace_overall_lr = LinearRegression().fit(replace_overall_operation_forgot_evi,replace_forgot_category_evi)
+        subject_coef_forgot_df.loc[5,'beta']=replace_overall_lr.coef_[0][0]
+        subject_coef_forgot_df.loc[5,'timing']='overall'    
+    except:
+        print('No replace trials forgotten!')        
+        subject_coef_forgot_df.loc[3,'beta']=0
+        subject_coef_forgot_df.loc[3,'timing']='early'
+        subject_coef_forgot_df.loc[4,'beta']=0
+        subject_coef_forgot_df.loc[4,'timing']='late'
+        subject_coef_forgot_df.loc[5,'beta']=0
+        subject_coef_forgot_df.loc[5,'timing']='overall'   
 
-    suppress_early_lr = LinearRegression().fit(suppress_early_operation_evi,suppress_category_evi)
-    subject_coef_df.loc[6,'beta']=suppress_early_lr.coef_[0][0]
-    subject_coef_df.loc[6,'timing']='early'
-    suppress_late_lr = LinearRegression().fit(suppress_late_operation_evi,suppress_category_evi)
-    subject_coef_df.loc[7,'beta']=suppress_late_lr.coef_[0][0]
-    subject_coef_df.loc[7,'timing']='late'
-    suppress_overall_lr = LinearRegression().fit(suppress_overall_operation_evi,suppress_category_evi)
-    subject_coef_df.loc[8,'beta']=suppress_overall_lr.coef_[0][0]
-    subject_coef_df.loc[8,'timing']='overall'    
+    try:
+        suppress_early_lr = LinearRegression().fit(suppress_early_operation_forgot_evi,suppress_forgot_category_evi)
+        subject_coef_forgot_df.loc[6,'beta']=suppress_early_lr.coef_[0][0]
+        subject_coef_forgot_df.loc[6,'timing']='early'
+        suppress_late_lr = LinearRegression().fit(suppress_late_operation_forgot_evi,suppress_forgot_category_evi)
+        subject_coef_forgot_df.loc[7,'beta']=suppress_late_lr.coef_[0][0]
+        subject_coef_forgot_df.loc[7,'timing']='late'
+        suppress_overall_lr = LinearRegression().fit(suppress_overall_operation_forgot_evi,suppress_forgot_category_evi)
+        subject_coef_forgot_df.loc[8,'beta']=suppress_overall_lr.coef_[0][0]
+        subject_coef_forgot_df.loc[8,'timing']='overall'    
+    except:
+        print('No suppress trials forgotten!')                
+        subject_coef_forgot_df.loc[6,'beta']=0
+        subject_coef_forgot_df.loc[6,'timing']='early'
+        subject_coef_forgot_df.loc[7,'beta']=0
+        subject_coef_forgot_df.loc[7,'timing']='late'
+        subject_coef_forgot_df.loc[8,'beta']=0
+        subject_coef_forgot_df.loc[8,'timing']='overall'  
+
     # save for future use
     if save: 
         sub_dir = os.path.join(data_dir, f"sub-{subID}")
-        out_fname_template = f"sub-{subID}_{space}_{task2}_coef_dataframe.csv"  
-        print(f"\n Saving the beta's from Operation predicting Content for {subID} - space: {space} - as {out_fname_template}")
-        subject_coef_df.to_csv(os.path.join(sub_dir,out_fname_template))      
-    return subject_coef_df    
+        out_fname_template = f"sub-{subID}_{space}_{task2}_coef_remember_dataframe.csv"  
+        print(f"\n Saving the remembered beta's from Operation predicting Content for {subID} - space: {space} - as {out_fname_template}")
+        subject_coef_remember_df.to_csv(os.path.join(sub_dir,out_fname_template))      
+
+        out_fname_template = f"sub-{subID}_{space}_{task2}_coef_forgot_dataframe.csv"  
+        print(f"\n Saving the forgotten beta's from Operation predicting Content for {subID} - space: {space} - as {out_fname_template}")
+        subject_coef_forgot_df.to_csv(os.path.join(sub_dir,out_fname_template))            
+    return subject_coef_remember_df, subject_coef_forgot_df
 
 def visualize_coef_dfs():
     group_coef_df=pd.DataFrame()
@@ -1817,5 +1850,24 @@ def visualize_coef_dfs():
     plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_category_prediction.png'))
     plt.clf()  
 
+def visualize_coef_dfs_memory():
+    group_coef_remember_df=pd.DataFrame()
+    group_coef_forgot_df=pd.DataFrame()
+    for subID in subIDs:
+        temp_r_df, temp_f_df=coef_stim_memory_operation(subID)
+        group_coef_remember_df=pd.concat([group_coef_remember_df,temp_r_df],ignore_index=True, sort=False)
+        group_coef_forgot_df=pd.concat([group_coef_forgot_df,temp_f_df],ignore_index=True, sort=False)
 
+    ax=sns.barplot(data=group_coef_remember_df,x='condition',y='beta',hue='timing')
+    plt.legend()
+    ax.set(xlabel='Operation on Item', ylabel='Beta', title=f'{space} - Operation prediction on Remembered Content Decoding')
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_remembered_category_prediction.png'))
+    plt.clf()  
 
+    ax=sns.barplot(data=group_coef_forgot_df,x='condition',y='beta',hue='timing')
+    plt.legend()
+    ax.set(xlabel='Operation on Item', ylabel='Beta', title=f'{space} - Operation prediction on Forgotten Content Decoding')
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_forgotten_category_prediction.png'))
+    plt.clf()  
