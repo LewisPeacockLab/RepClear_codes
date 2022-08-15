@@ -349,7 +349,7 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False):
         f"average confution matrix:\n"
         f"{cms.mean(axis=0)}")
 
-    return scores, auc_scores, cms, evidences, roc_auc, tested_labels, y_scores
+    return scores, auc_scores, cms, evidences, roc_aucs, tested_labels, y_scores
 
 def sample_for_training(full_data, label_df, include_rest=False):
     """
@@ -437,6 +437,18 @@ def classification(subID):
     mean_score=score.mean()
 
     print(f"\n***** Average results for sub {subID} - {task} - {space}: Score={mean_score} ")
+
+    #want to save the AUC results in such a way that I can also add in the content average later:
+    auc_df=pd.DataFrame(columns=['AUC','Content','Sub'],index=['Maintain','Replace','Suppress'])
+    auc_df.loc['Maintain']['AUC']=roc_auc.loc[:,0].mean() #Because the above script calculates these based on a leave-one-run-out. We will have an AUC for Maintain, Replace and Suppress per iteration (3 total). So taking the mean of each operation
+    auc_df.loc['Replace']['AUC']=roc_auc.loc[:,1].mean()
+    auc_df.loc['Suppress']['AUC']=roc_auc.loc[:,2].mean()
+    auc_df['Sub']=subID
+
+    sub_dir = os.path.join(data_dir, f"sub-{subID}")
+    out_fname_template_auc = f"sub-{subID}_{space}_{task}_operation_auc.csv"            
+    print("\n *** Saving AUC values with subject dataframe ***")
+    auc_df.to_csv(os.path.join(sub_dir,out_fname_template_auc))    
 
     #need to then save the evidence:
     evidence_df=pd.DataFrame(columns=['runs','operation','image_id']) #take the study DF for this subject
@@ -1538,6 +1550,10 @@ def coef_stim_operation(subID,save=True):
             temp_image=sub_images[counter]            
             suppress_trials[temp_image]=sub_df[['rest_evi','scene_evi','face_evi']][sub_index[counter]+2:sub_index[counter]+6].values.mean(axis=0)[1]
             counter+=1
+
+    print("\n *** loading Operation AUC values from subject dataframe ***")
+
+    auc_df=pd.read_csv(f"sub-{subID}_{space}_{task2}_operation_auc.csv")    
 
     #now that the trials are sorted, we need to get the subject average for each condition:
     avg_maintain_df=pd.DataFrame(data=np.dstack(maintain_trials.values())[0],columns=maintain_trials.keys())
