@@ -1900,9 +1900,9 @@ def bootstrap_auc():
     replace_df=group_auc_df.loc['Replace'][['AUC','Content']]
     suppress_df=group_auc_df.loc['Suppress'][['AUC','Content']]
 
-    maintain_bootstrap={}
-    replace_bootstrap={}
-    suppress_bootstrap={}
+    maintain_bootstrap=[]
+    replace_bootstrap=[]
+    suppress_bootstrap=[]
 
     for i in range(0,1000):
         maintain_itr=resample(maintain_df.values)
@@ -1916,11 +1916,17 @@ def bootstrap_auc():
         replace_itr_content=replace_itr[:,1].reshape(-1,1)
 
         suppress_itr_auc=suppress_itr[:,0].reshape(-1,1)
-        suppress_itr_content=suppress_itr[:,1].reshape(-1,1)        
+        suppress_itr_content=suppress_itr[:,1].reshape(-1,1)
 
-        maintain_bootstrap[i]=LinearRegression().fit(maintain_itr_auc,maintain_itr_content).coef_[0][0]
-        replace_bootstrap[i]=LinearRegression().fit(replace_itr_auc,replace_itr_content).coef_[0][0]
-        suppress_bootstrap[i]=LinearRegression().fit(suppress_itr_auc,suppress_itr_content).coef_[0][0]
+        maintain_bootstrap=np.append(maintain_bootstrap,LinearRegression().fit(maintain_itr_auc,maintain_itr_content).coef_[0][0])
+        replace_bootstrap=np.append(replace_bootstrap,LinearRegression().fit(replace_itr_auc,replace_itr_content).coef_[0][0])
+        suppress_bootstrap=np.append(suppress_bootstrap,LinearRegression().fit(suppress_itr_auc,suppress_itr_content).coef_[0][0])
+
+    true_maintain_beta=LinearRegression().fit(maintain_df['AUC'].values.reshape(-1,1),maintain_df['Content'].values.reshape(-1,1)).coef_[0][0]
+    true_replace_beta=LinearRegression().fit(replace_df['AUC'].values.reshape(-1,1),replace_df['Content'].values.reshape(-1,1)).coef_[0][0]
+    true_suppress_beta=LinearRegression().fit(suppress_df['AUC'].values.reshape(-1,1),suppress_df['Content'].values.reshape(-1,1)).coef_[0][0]
+
+    
 
 
 def visualize_coef_dfs_memory():
