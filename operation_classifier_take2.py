@@ -1552,8 +1552,10 @@ def coef_stim_operation(subID,save=True):
             counter+=1
 
     print("\n *** loading Operation AUC values from subject dataframe ***")
-
-    auc_df=pd.read_csv(f"sub-{subID}_{space}_{task2}_operation_auc.csv")    
+    sub_dir = os.path.join(data_dir, f"sub-{subID}")
+    out_fname_template_auc = f"sub-{subID}_{space}_{task}_operation_auc.csv"            
+ 
+    auc_df=pd.read_csv(os.path.join(sub_dir,f"sub-{subID}_{space}_{task2}_operation_auc.csv"),index_col=0) 
 
     #now that the trials are sorted, we need to get the subject average for each condition:
     avg_maintain_df=pd.DataFrame(data=np.dstack(maintain_trials.values())[0],columns=maintain_trials.keys())
@@ -1577,6 +1579,10 @@ def coef_stim_operation(subID,save=True):
     avg_suppress_df.rename(columns={'variable':'image_id','value':'evidence'},inplace=True) #renamed the melted column names 
     avg_suppress_df['condition']='suppress' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
     
+    #use these above arrays to get the operation average for the removal period content evidence:
+    auc_df.loc['Maintain','Content']=avg_maintain_df['evidence'].mean()
+    auc_df.loc['Replace','Content']=avg_replace_df['evidence'].mean()
+    auc_df.loc['Suppress','Content']=avg_suppress_df['evidence'].mean()
 
     avg_subject_category_df= pd.concat([avg_maintain_df,avg_replace_df,avg_suppress_df], ignore_index=True, sort=False)
 
@@ -1638,7 +1644,12 @@ def coef_stim_operation(subID,save=True):
         out_fname_template = f"sub-{subID}_{space}_{task2}_coef_dataframe.csv"  
         print(f"\n Saving the beta's from Operation predicting Content for {subID} - space: {space} - as {out_fname_template}")
         subject_coef_df.to_csv(os.path.join(sub_dir,out_fname_template))      
-    return subject_coef_df
+
+        out_fname_template_auc = f"sub-{subID}_{space}_{task2}_auc_dataframe.csv"  
+        print(f"\n Saving the AUC's from Operation along w/ Content evidence for {subID} - space: {space} - as {out_fname_template_auc}")
+        auc_df.to_csv(os.path.join(sub_dir,out_fname_template_auc))
+
+    return subject_coef_df, auc_df
 
 def coef_stim_memory_operation(subID,save=True):
     task = 'preremoval'
@@ -1867,7 +1878,7 @@ def coef_stim_memory_operation(subID,save=True):
 def visualize_coef_dfs():
     group_coef_df=pd.DataFrame()
     for subID in subIDs:
-        temp_df=coef_stim_operation(subID)
+        temp_df, _=coef_stim_operation(subID)
         group_coef_df=pd.concat([group_coef_df,temp_df],ignore_index=True, sort=False)
 
     ax=sns.barplot(data=group_coef_df,x='condition',y='beta',hue='timing')
