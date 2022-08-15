@@ -144,14 +144,14 @@ for num in subs:
 
             f_replace_evi['trial %s' % i]=temp[:11]
 
-        normalize=temp[:2].mean() #normalize values to first 2 TRs
-        replace_evi['trial %s' % i]=temp[:11]-normalize #only grabs the first 11 TRs so that everything is equal, across jittered ITIs
-        del temp,normalize, trial_id, trial_mem
+        #normalize=temp[:2].mean() #normalize values to first 2 TRs
+        replace_evi['trial %s' % i]=temp[:11] #-normalize #only grabs the first 11 TRs so that everything is equal, across jittered ITIs
+        del temp, trial_id, trial_mem
 
         temp2 = evi_df['faces'][replace_inds].values
-        normalize2=temp2[:2].mean()
-        other_replace_evi['trial %s' % i]=temp2[:11]-normalize2
-        del temp2,normalize2
+        #normalize2=temp2[:2].mean()
+        other_replace_evi['trial %s' % i]=temp2[:11] #-normalize2
+        del temp2
         ####################
 
         #MAINTAIN########
@@ -180,9 +180,9 @@ for num in subs:
 
             mem_maintain_evi=mem_maintain_evi.append(temp_df,ignore_index=True)
 
-        normalize=temp[:2].mean()
-        maintain_evi['trial %s' % i]=temp[:11]-normalize
-        del temp,normalize, trial_id, trial_mem
+        #normalize=temp[:2].mean()
+        maintain_evi['trial %s' % i]=temp[:11] #-normalize
+        del temp, trial_id, trial_mem
         ####################
 
         #SUPPRESS############
@@ -212,14 +212,14 @@ for num in subs:
 
             mem_suppress_evi=mem_suppress_evi.append(temp_df,ignore_index=True)  
 
-        normalize=temp[:2].mean()
-        suppress_evi['trial %s' % i]=temp[:11]-normalize
-        del temp,normalize, trial_id, trial_mem
+        #normalize=temp[:2].mean()
+        suppress_evi['trial %s' % i]=temp[:11] #-normalize
+        del temp, trial_id, trial_mem
 
         temp2 = evi_df['rest'][suppress_inds].values
-        normalize2=temp2[:2].mean()
-        baseline_evi['trial %s' % i]=temp2[:11]-normalize2
-        del temp2,normalize2
+        #normalize2=temp2[:2].mean()
+        baseline_evi['trial %s' % i]=temp2[:11] #-normalize2
+        del temp2
 
         # else:
         #     suppress_evi['trial %s' % i]=evi_df['scenes'][suppress_inds].values
@@ -230,25 +230,25 @@ for num in subs:
     plot_otherreplace_df=pd.DataFrame(columns=['x','y','l'])
     plot_baseline_df=pd.DataFrame(columns=['x','y','l'])
 
-    plot_replace_df['x']=np.repeat(range(0,14),30)
+    plot_replace_df['x']=np.repeat(range(0,11),30)
     plot_replace_df['y']=replace_evi.values.flatten()
-    plot_replace_df['l']=np.tile(replace_evi.columns,14)
+    plot_replace_df['l']=np.tile(replace_evi.columns,11)
 
-    plot_otherreplace_df['x']=np.repeat(range(0,14),30)
+    plot_otherreplace_df['x']=np.repeat(range(0,11),30)
     plot_otherreplace_df['y']=other_replace_evi.values.flatten()
-    plot_otherreplace_df['l']=np.tile(other_replace_evi.columns,14)    
+    plot_otherreplace_df['l']=np.tile(other_replace_evi.columns,11)    
 
-    plot_maintain_df['x']=np.repeat(range(0,14),30)
+    plot_maintain_df['x']=np.repeat(range(0,11),30)
     plot_maintain_df['y']=maintain_evi.values.flatten()
-    plot_maintain_df['l']=np.tile(maintain_evi.columns,14)
+    plot_maintain_df['l']=np.tile(maintain_evi.columns,11)
 
-    plot_suppress_df['x']=np.repeat(range(0,14),30)
+    plot_suppress_df['x']=np.repeat(range(0,11),30)
     plot_suppress_df['y']=suppress_evi.values.flatten()
-    plot_suppress_df['l']=np.tile(suppress_evi.columns,14)
+    plot_suppress_df['l']=np.tile(suppress_evi.columns,11)
 
-    plot_baseline_df['x']=np.repeat(range(0,14),30)
+    plot_baseline_df['x']=np.repeat(range(0,11),30)
     plot_baseline_df['y']=baseline_evi.values.flatten()
-    plot_baseline_df['l']=np.tile(baseline_evi.columns,14)
+    plot_baseline_df['l']=np.tile(baseline_evi.columns,11)
 
     ax=sns.lineplot(data=plot_replace_df,x='x',y='y',color='blue',label='Replace-old',ci=68)
     ax=sns.lineplot(data=plot_otherreplace_df,x='x',y='y',color='skyblue',label='Replace-new',ci=68)
@@ -257,9 +257,9 @@ for num in subs:
     ax=sns.lineplot(data=plot_baseline_df,x='x',y='y',color='gray',label='Baseline',ci=68)
 
 
-    ax.set(xlabel='TR (unshfited)', ylabel='Category Evidence', title='%s %s Category Decoding during Operations' % (brain_flag,sub))
+    ax.set(xlabel='TR', ylabel='Category Evidence', title='%s %s Category Decoding during Operations' % (brain_flag,sub))
 
-    plt.savefig(os.path.join(container_path,sub,'%s_%s_category_decoding_during_study.png' % (brain_flag,sub)))
+    plt.savefig(os.path.join(container_path,sub,'%s_%s_category_decoding_during_study_test.png' % (brain_flag,sub)))
     plt.clf()
 ############
 
@@ -289,13 +289,13 @@ for num in subs:
     plot_diffreplace_df=pd.DataFrame(columns=['x','y','l'])
     plot_diffsuppress_df=pd.DataFrame(columns=['x','y','l'])
 
-    plot_diffreplace_df['x']=np.repeat(range(0,14),30)
+    plot_diffreplace_df['x']=np.repeat(range(0,11),30)
     plot_diffreplace_df['y']=replace_evi.sub(maintain_evi.mean(axis=1),axis=0).values.flatten()
-    plot_diffreplace_df['l']=np.tile(replace_evi.columns,14)
+    plot_diffreplace_df['l']=np.tile(replace_evi.columns,11)
     
-    plot_diffsuppress_df['x']=np.repeat(range(0,14),30)
+    plot_diffsuppress_df['x']=np.repeat(range(0,11),30)
     plot_diffsuppress_df['y']=suppress_evi.sub(maintain_evi.mean(axis=1),axis=0).values.flatten()
-    plot_diffsuppress_df['l']=np.tile(suppress_evi.columns,14)
+    plot_diffsuppress_df['l']=np.tile(suppress_evi.columns,11)
 
     ax=sns.lineplot(data=plot_diffreplace_df,x='x',y='y',color='blue',label='Replace',ci=68)
     ax=sns.lineplot(data=plot_diffsuppress_df,x='x',y='y',color='red',label='Suppress',ci=68)
@@ -317,83 +317,83 @@ for num in subs:
 ###########
 
 
-group_mem_plot.to_csv(os.path.join(container_path,'%s_evidence_for_memory_subset.csv' % (brain_flag)))
-group_stim_evi.to_csv(os.path.join(container_path,'%s_evidence_for_stimuli_subset.csv' % (brain_flag)))
+group_mem_plot.to_csv(os.path.join(container_path,'%s_evidence_for_memory.csv' % (brain_flag)))
+group_stim_evi.to_csv(os.path.join(container_path,'%s_evidence_for_stimuli.csv' % (brain_flag)))
 
 
-sns.lmplot(data=group_mem_plot,y='memory',x='category_evi',hue='condition',logistic=True, y_jitter=0.03)
-plt.savefig(os.path.join(container_path,'%s_evidence_for_memory(by_condition)_subset.png' % (brain_flag)))
-plt.clf()    
+# sns.lmplot(data=group_mem_plot,y='memory',x='category_evi',hue='condition',logistic=True, y_jitter=0.03)
+# plt.savefig(os.path.join(container_path,'%s_evidence_for_memory(by_condition)_subset.png' % (brain_flag)))
+# plt.clf()    
 
-sns.lmplot(data=group_mem_plot,y='memory',x='category_evi',logistic=True, y_jitter=0.03)
-plt.savefig(os.path.join(container_path,'%s_evidence_for_memory(combined)_subset.png' % (brain_flag)))
-plt.clf()   
+# sns.lmplot(data=group_mem_plot,y='memory',x='category_evi',logistic=True, y_jitter=0.03)
+# plt.savefig(os.path.join(container_path,'%s_evidence_for_memory(combined)_subset.png' % (brain_flag)))
+# plt.clf()   
 
-group_replace_evi.to_csv(os.path.join(container_path,'%s_group_category_decoding_replace_subset.csv' % brain_flag))
-group_other_replace_evi.to_csv(os.path.join(container_path,'%s_group_category_decoding_replace_new_subset.csv' % brain_flag))
-group_maintain_evi.to_csv(os.path.join(container_path,'%s_group_category_decoding_maintain_subset.csv' % brain_flag))
-group_suppress_evi.to_csv(os.path.join(container_path,'%s_group_category_decoding_suppress_subset.csv' % brain_flag))   
-group_baseline_evi.to_csv(os.path.join(container_path,'%s_group_category_decoding_baseline_subset.csv' % brain_flag))   
-
-
-plot_group_replace_df=pd.DataFrame(columns=['x','y','l'])
-plot_group_suppress_df=pd.DataFrame(columns=['x','y','l'])
-plot_group_maintain_df=pd.DataFrame(columns=['x','y','l'])
-plot_group_otherreplace_df=pd.DataFrame(columns=['x','y','l'])
-plot_group_baseline_df=pd.DataFrame(columns=['x','y','l'])
+# group_replace_evi.to_csv(os.path.join(container_path,'%s_group_category_decoding_replace_subset.csv' % brain_flag))
+# group_other_replace_evi.to_csv(os.path.join(container_path,'%s_group_category_decoding_replace_new_subset.csv' % brain_flag))
+# group_maintain_evi.to_csv(os.path.join(container_path,'%s_group_category_decoding_maintain_subset.csv' % brain_flag))
+# group_suppress_evi.to_csv(os.path.join(container_path,'%s_group_category_decoding_suppress_subset.csv' % brain_flag))   
+# group_baseline_evi.to_csv(os.path.join(container_path,'%s_group_category_decoding_baseline_subset.csv' % brain_flag))   
 
 
-plot_group_replace_df['x']=np.repeat(range(0,14),len(subs))
-plot_group_replace_df['y']=group_replace_evi.values.flatten()
-plot_group_replace_df['l']=np.tile(group_replace_evi.columns,14)
-
-plot_group_otherreplace_df['x']=np.repeat(range(0,14),len(subs))
-plot_group_otherreplace_df['y']=group_other_replace_evi.values.flatten()
-plot_group_otherreplace_df['l']=np.tile(group_other_replace_evi.columns,14)
-
-plot_group_maintain_df['x']=np.repeat(range(0,14),len(subs))
-plot_group_maintain_df['y']=group_maintain_evi.values.flatten()
-plot_group_maintain_df['l']=np.tile(group_maintain_evi.columns,14)
-
-plot_group_suppress_df['x']=np.repeat(range(0,14),len(subs))
-plot_group_suppress_df['y']=group_suppress_evi.values.flatten()
-plot_group_suppress_df['l']=np.tile(group_suppress_evi.columns,14)
-
-plot_group_baseline_df['x']=np.repeat(range(0,14),len(subs))
-plot_group_baseline_df['y']=group_baseline_evi.values.flatten()
-plot_group_baseline_df['l']=np.tile(group_baseline_evi.columns,14)
-
-ax=sns.lineplot(data=plot_group_replace_df,x='x',y='y',color='blue',label='Replace-old',ci=68)
-
-ax=sns.lineplot(data=plot_group_otherreplace_df,x='x',y='y',color='skyblue',label='Replace-new',ci=68)
-
-ax=sns.lineplot(data=plot_group_maintain_df,x='x',y='y',color='green',label='Maintain',ci=68)
-
-ax=sns.lineplot(data=plot_group_suppress_df,x='x',y='y',color='red',label='Suppress',ci=68)
-
-ax=sns.lineplot(data=plot_group_baseline_df,x='x',y='y',color='gray',label='Baseline',ci=68)
-
-ax.set(xlabel='TR (unshfited)', ylabel='Category Evidence', title='%s Group-Level Category Decoding during Operations' % brain_flag)
+# plot_group_replace_df=pd.DataFrame(columns=['x','y','l'])
+# plot_group_suppress_df=pd.DataFrame(columns=['x','y','l'])
+# plot_group_maintain_df=pd.DataFrame(columns=['x','y','l'])
+# plot_group_otherreplace_df=pd.DataFrame(columns=['x','y','l'])
+# plot_group_baseline_df=pd.DataFrame(columns=['x','y','l'])
 
 
-plt.savefig(os.path.join(container_path,'%s_group_category_decoding_during_study_subset.png' % brain_flag))
-plt.clf()
+# plot_group_replace_df['x']=np.repeat(range(0,14),len(subs))
+# plot_group_replace_df['y']=group_replace_evi.values.flatten()
+# plot_group_replace_df['l']=np.tile(group_replace_evi.columns,14)
 
-plot_group_diffreplace_df=pd.DataFrame(columns=['x','y','l'])
-plot_group_diffsuppress_df=pd.DataFrame(columns=['x','y','l'])
+# plot_group_otherreplace_df['x']=np.repeat(range(0,14),len(subs))
+# plot_group_otherreplace_df['y']=group_other_replace_evi.values.flatten()
+# plot_group_otherreplace_df['l']=np.tile(group_other_replace_evi.columns,14)
 
-plot_group_diffreplace_df['x']=np.repeat(range(0,14),len(subs))
-plot_group_diffreplace_df['y']=group_diffreplace_df.values.flatten()
-plot_group_diffreplace_df['l']=np.tile(group_replace_evi.columns,14)
+# plot_group_maintain_df['x']=np.repeat(range(0,14),len(subs))
+# plot_group_maintain_df['y']=group_maintain_evi.values.flatten()
+# plot_group_maintain_df['l']=np.tile(group_maintain_evi.columns,14)
 
-plot_group_diffsuppress_df['x']=np.repeat(range(0,14),len(subs))
-plot_group_diffsuppress_df['y']=group_diffsuppress_df.values.flatten()
-plot_group_diffsuppress_df['l']=np.tile(group_suppress_evi.columns,14)
+# plot_group_suppress_df['x']=np.repeat(range(0,14),len(subs))
+# plot_group_suppress_df['y']=group_suppress_evi.values.flatten()
+# plot_group_suppress_df['l']=np.tile(group_suppress_evi.columns,14)
 
-ax=sns.lineplot(data=plot_group_diffreplace_df,x='x',y='y',color='blue',label='Replace',ci=68)
-ax=sns.lineplot(data=plot_group_diffsuppress_df,x='x',y='y',color='red',label='Suppress',ci=68)
+# plot_group_baseline_df['x']=np.repeat(range(0,14),len(subs))
+# plot_group_baseline_df['y']=group_baseline_evi.values.flatten()
+# plot_group_baseline_df['l']=np.tile(group_baseline_evi.columns,14)
 
-ax.set(xlabel='TR (unshfited)', ylabel='Category Evidence (removal - maintain)', title='%s Group-Level Category Decoding during Operations' % brain_flag)
+# ax=sns.lineplot(data=plot_group_replace_df,x='x',y='y',color='blue',label='Replace-old',ci=68)
 
-plt.savefig(os.path.join(container_path,'%s_group_category_decoding_minusMaintain_during_study_subset.png' % brain_flag))
-plt.clf()
+# ax=sns.lineplot(data=plot_group_otherreplace_df,x='x',y='y',color='skyblue',label='Replace-new',ci=68)
+
+# ax=sns.lineplot(data=plot_group_maintain_df,x='x',y='y',color='green',label='Maintain',ci=68)
+
+# ax=sns.lineplot(data=plot_group_suppress_df,x='x',y='y',color='red',label='Suppress',ci=68)
+
+# ax=sns.lineplot(data=plot_group_baseline_df,x='x',y='y',color='gray',label='Baseline',ci=68)
+
+# ax.set(xlabel='TR (unshfited)', ylabel='Category Evidence', title='%s Group-Level Category Decoding during Operations' % brain_flag)
+
+
+# plt.savefig(os.path.join(container_path,'%s_group_category_decoding_during_study_subset.png' % brain_flag))
+# plt.clf()
+
+# plot_group_diffreplace_df=pd.DataFrame(columns=['x','y','l'])
+# plot_group_diffsuppress_df=pd.DataFrame(columns=['x','y','l'])
+
+# plot_group_diffreplace_df['x']=np.repeat(range(0,14),len(subs))
+# plot_group_diffreplace_df['y']=group_diffreplace_df.values.flatten()
+# plot_group_diffreplace_df['l']=np.tile(group_replace_evi.columns,14)
+
+# plot_group_diffsuppress_df['x']=np.repeat(range(0,14),len(subs))
+# plot_group_diffsuppress_df['y']=group_diffsuppress_df.values.flatten()
+# plot_group_diffsuppress_df['l']=np.tile(group_suppress_evi.columns,14)
+
+# ax=sns.lineplot(data=plot_group_diffreplace_df,x='x',y='y',color='blue',label='Replace',ci=68)
+# ax=sns.lineplot(data=plot_group_diffsuppress_df,x='x',y='y',color='red',label='Suppress',ci=68)
+
+# ax.set(xlabel='TR (unshfited)', ylabel='Category Evidence (removal - maintain)', title='%s Group-Level Category Decoding during Operations' % brain_flag)
+
+# plt.savefig(os.path.join(container_path,'%s_group_category_decoding_minusMaintain_during_study_subset.png' % brain_flag))
+# plt.clf()
