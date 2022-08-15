@@ -24,6 +24,7 @@ from sklearn.linear_model import LogisticRegression, LogisticRegressionCV, Linea
 from sklearn.model_selection import GridSearchCV, LeaveOneGroupOut, PredefinedSplit  #train_test_split, PredefinedSplit, cross_validate, cross_val_predict, 
 from sklearn.feature_selection import SelectFpr, f_classif  #VarianceThreshold, SelectKBest, 
 from sklearn.preprocessing import StandardScaler
+from sklearn.utils import resample
 from nilearn.input_data import NiftiMasker,  MultiNiftiMasker
 from scipy import stats
 from sklearn import preprocessing
@@ -1888,6 +1889,39 @@ def visualize_coef_dfs():
     plt.tight_layout()
     plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_category_prediction.png'))
     plt.clf()  
+
+def bootstrap_auc():
+    group_auc_df=pd.DataFrame()
+    for subID in subIDs:
+        _, temp_df=coef_stim_operation(subID)
+        group_auc_df=pd.concat([group_auc_df,temp_df], sort=False)
+
+    maintain_df=group_auc_df.loc['Maintain'][['AUC','Content']]
+    replace_df=group_auc_df.loc['Replace'][['AUC','Content']]
+    suppress_df=group_auc_df.loc['Suppress'][['AUC','Content']]
+
+    maintain_bootstrap={}
+    replace_bootstrap={}
+    suppress_bootstrap={}
+
+    for i in range(0,1000):
+        maintain_itr=resample(maintain_df.values)
+        replace_itr=resample(replace_df.values)
+        suppress_itr=resample(suppress_df.values)
+
+        maintain_itr_auc=maintain_itr[:,0].reshape(-1,1)
+        maintain_itr_content=maintain_itr[:,1].reshape(-1,1)
+
+        replace_itr_auc=replace_itr[:,0].reshape(-1,1)
+        replace_itr_content=replace_itr[:,1].reshape(-1,1)
+
+        suppress_itr_auc=suppress_itr[:,0].reshape(-1,1)
+        suppress_itr_content=suppress_itr[:,1].reshape(-1,1)        
+
+        maintain_bootstrap[i]=LinearRegression().fit(maintain_itr_auc,maintain_itr_content).coef_[0][0]
+        replace_bootstrap[i]=LinearRegression().fit(replace_itr_auc,replace_itr_content).coef_[0][0]
+        suppress_bootstrap[i]=LinearRegression().fit(suppress_itr_auc,suppress_itr_content).coef_[0][0]
+
 
 def visualize_coef_dfs_memory():
     group_coef_remember_df=pd.DataFrame()
