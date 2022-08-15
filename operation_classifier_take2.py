@@ -1926,6 +1926,13 @@ def bootstrap_auc():
     true_replace_beta=LinearRegression().fit(replace_df['AUC'].values.reshape(-1,1),replace_df['Content'].values.reshape(-1,1)).coef_[0][0]
     true_suppress_beta=LinearRegression().fit(suppress_df['AUC'].values.reshape(-1,1),suppress_df['Content'].values.reshape(-1,1)).coef_[0][0]
 
+    ax=sns.histplot(maintain_bootstrap)
+    ax.axvline(np.percentile(maintain_bootstrap,97.5),0,ax.get_ylim()[1],color='k', linestyle='dashed')
+    ax.set(xlabel='AUC vs. Content Betas', ylabel='Frequency', title=f'Super Subject - Maintian AUC predicting Content Decoding')
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','Super_subject_operation_auc_content_prediction.png'))
+    plt.clf()
+
     
 
 
