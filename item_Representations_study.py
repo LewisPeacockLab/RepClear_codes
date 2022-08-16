@@ -43,7 +43,7 @@ def pad_contrast(contrast_, n_columns):
     return np.hstack((contrast_, np.zeros(n_columns - len(contrast_))))
 
 def confound_cleaner(confounds):
-    COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
+    COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_04','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
     for _c in confounds.columns:
         if 'cosine' in _c:
             COI.append(_c)
@@ -97,7 +97,7 @@ def item_representation_study(subID):
     
     #load in category mask that was created from the first GLM  
     #load data if it already exists, otherwise load it directly:
-    if os.path.exists(os.path.join(bold_path,'sub-0%s_%s_study.nii.gz' % (subID,brain_flag))):
+    if os.path.exists(os.path.join(bold_path,'sub-0%s_%s_studyX.nii.gz' % (subID,brain_flag))): #adding an X at the end to force it into the else to recreate the files
             
         img=nib.load(os.path.join(bold_path,'sub-0%s_%s_study.nii.gz' % (subID,brain_flag)))
         print('%s Concatenated Study BOLD Loaded...' % (brain_flag))
@@ -143,7 +143,7 @@ def item_representation_study(subID):
 
     run_list=np.concatenate((run1,run2,run3))    
     #clean data ahead of slicing the data up
-    if os.path.exists(os.path.join(bold_path,'sub-0%s_%s_study_%s_cleaned.nii.gz' % (subID,brain_flag,mask_flag))):
+    if os.path.exists(os.path.join(bold_path,'sub-0%s_%s_study_%s_cleanedX.nii.gz' % (subID,brain_flag,mask_flag))):
         
         img_clean=nib.load(os.path.join(bold_path,'sub-0%s_%s_study_%s_cleaned.nii.gz' % (subID,brain_flag,mask_flag)))
 
@@ -216,4 +216,4 @@ def item_representation_study(subID):
 
         del trial_pattern, trial_pattern_nii, affine_mat, onset, out_folder, output_name, hdr, removal_timecourse, removal_pattern_nii, removal_output_name
 
-Parallel(n_jobs=4)(delayed(item_representation_study)(i) for i in subs)
+Parallel(n_jobs=2)(delayed(item_representation_study)(i) for i in subs)
