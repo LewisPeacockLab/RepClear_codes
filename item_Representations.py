@@ -27,9 +27,9 @@ from sklearn.metrics import roc_auc_score
 from joblib import Parallel, delayed
 
 
-# subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
-subs=['12','13','14','15','16','17','18','20','23','24','25','26']
-brain_flag='MNI' #T1w
+subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
+#subs=['12','13','14','15','16','17','18','20','23','24','25','26']
+brain_flag='T1w' #T1w
 
 #code for the item level voxel activity for faces and scenes
 
@@ -43,8 +43,7 @@ def pad_contrast(contrast_, n_columns):
     """A small routine to append zeros in contrast vectors"""
     return np.hstack((contrast_, np.zeros(n_columns - len(contrast_))))
 
-def confound_cleaner(confounds):
-    COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
+    COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_04','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
     for _c in confounds.columns:
         if 'cosine' in _c:
             COI.append(_c)

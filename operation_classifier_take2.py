@@ -1927,13 +1927,31 @@ def bootstrap_auc():
     true_suppress_beta=LinearRegression().fit(suppress_df['AUC'].values.reshape(-1,1),suppress_df['Content'].values.reshape(-1,1)).coef_[0][0]
 
     ax=sns.histplot(maintain_bootstrap)
-    ax.axvline(np.percentile(maintain_bootstrap,97.5),0,ax.get_ylim()[1],color='k', linestyle='dashed')
+    ax.axvline(np.percentile(maintain_bootstrap,97.5),0,ax.get_ylim()[1],color='k', linestyle='dashed', label='97.5% Boundary')
     ax.set(xlabel='AUC vs. Content Betas', ylabel='Frequency', title=f'Super Subject - Maintian AUC predicting Content Decoding')
+    ax.axvline(true_maintain_beta,0,ax.get_ylim()[1],color='g', label='True Maintain Beta')    
+    ax.legend()    
     plt.tight_layout()
-    plt.savefig(os.path.join(data_dir,'figs','Super_subject_operation_auc_content_prediction.png'))
+    plt.savefig(os.path.join(data_dir,'figs','Super_subject_maintain_auc_content_prediction.png'))
     plt.clf()
 
-    
+    ax=sns.histplot(replace_bootstrap)
+    ax.axvline(np.percentile(replace_bootstrap,97.5),0,ax.get_ylim()[1],color='k', linestyle='dashed', label='97.5% Boundary')
+    ax.set(xlabel='AUC vs. Content Betas', ylabel='Frequency', title=f'Super Subject - Replace AUC predicting Content Decoding')
+    ax.axvline(true_suppress_beta,0,ax.get_ylim()[1],color='b', label='True Replace Beta')    
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','Super_subject_replace_auc_content_prediction.png'))
+    plt.clf()
+
+    ax=sns.histplot(suppress_bootstrap)
+    ax.axvline(np.percentile(suppress_bootstrap,97.5),0,ax.get_ylim()[1],color='k', linestyle='dashed', label='97.5% Boundary')
+    ax.axvline(true_suppress_beta,0,ax.get_ylim()[1],color='r', label='True Suppress Beta')
+    ax.set(xlabel='AUC vs. Content Betas', ylabel='Frequency', title=f'Super Subject - Suppress AUC predicting Content Decoding')
+    ax.legend()    
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','Super_subject_suppress_auc_content_prediction.png'))
+    plt.clf()    
 
 
 def visualize_coef_dfs_memory():
