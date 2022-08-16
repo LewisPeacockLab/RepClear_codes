@@ -155,9 +155,12 @@ for subID in subs:
             all_bolds_2[cateID] = cate_bolds_2
 
             bolds_arr_2.append(np.stack( [ cate_bolds_2[i] for i in sorted(cate_bolds_2.keys()) ] ))
+
+
         except:
             print('no %s trials' % cateID)
     bolds_arr_2 = np.vstack(bolds_arr_2)
+    #this now means that the study data is a stack of arrays, from trial 1 to trial 90 in order
     print("bolds for study - shape: ", bolds_arr_2.shape)
 
     # apply VTC mask on prelocalizer BOLD
@@ -253,7 +256,7 @@ for subID in subs:
                             #study_scene_order (again sorted for subcate)
    
 
-    item_repress_study_comp=np.zeros_like(item_repress_pre[:90,:]) #set up this array in the same size as the pre, so I can size things in the correct trial order
+    item_repress_study_comp=np.zeros_like(masked_bolds_arr_1[:90,:]) #set up this array in the same size as the pre, so I can size things in the correct trial order
     item_repress_pre_comp=np.zeros_like(item_repress_study_comp)
 
     non_weight_study_comp=np.zeros_like(item_repress_study_comp)
@@ -276,42 +279,40 @@ for subID in subs:
     s_counter=0
     r_counter=0
 
-    m_item_repress_study_comp=np.zeros_like(item_repress_pre[:30,:])
-    m_item_repress_pre_comp=np.zeros_like(item_repress_pre[:30,:])
-    m_item_repress_removal_comp={}
-    r_item_repress_study_comp=np.zeros_like(item_repress_pre[:30,:])
-    r_item_repress_pre_comp=np.zeros_like(item_repress_pre[:30,:])
-    r_item_repress_removal_comp={}
-    s_item_repress_study_comp=np.zeros_like(item_repress_pre[:30,:])
-    s_item_repress_pre_comp=np.zeros_like(item_repress_pre[:30,:])
-    s_item_repress_removal_comp={}
+    m_item_repress_study_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
+    m_item_repress_pre_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
+
+    r_item_repress_study_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
+    r_item_repress_pre_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
+
+    s_item_repress_study_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
+    s_item_repress_pre_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
 
 
-    for trial in study_scene_order['trial_id'].values: 
 
-        study_trial_index=study_scene_order.index[study_scene_order['trial_id']==trial].tolist()[0] #find the order 
-        study_image_id=study_scene_order.loc[study_trial_index,'image_id'] #this now uses the index of the dataframe to find the image_id
-        #study_trial_num=study_scene_order.loc[study_trial_index,'trial_id'] #now we used the image ID to find the proper trial in the post condition to link to
+    for trial in sorted_study_scene_order['trial_id'].values: 
+
+        #Bolds_arr_2 is in trial order
+        study_image_id=sorted_study_scene_order[sorted_study_scene_order['trial_id']==trial]['image_id'].tolist()[0] #this now uses the trial_id (study) to find the image_id (study)
+        if trial==1:
+            continue
+        image_condition=sorted_study_scene_order[sorted_study_scene_order['trial_id']==(trial-1)]['condition'].tolist()[0]
 
         pre_trial_index=pre_scene_order.index[pre_scene_order['image_id']==study_image_id].tolist()[0] #find the index in the pre for this study trial
         pre_trial_num = pre_scene_order.loc[pre_trial_index,'trial_id']
-        image_condition=  pre_scene_order.loc[pre_scene_order['trial_id']==pre_trial_num]['condition'].values[0]
         pre_trial_subcat = pre_scene_order.loc[pre_trial_index,'subcategory']
 
         if image_condition==1:
-            m_item_repress_study_comp[m_counter]=np.multiply(masked_bolds_arr_2[trial-1,:], masked_weights_arr[pre_trial_num-1,:])
-            m_item_repress_removal_comp[m_counter]=np.multiply(masked_bolds_arr_4[:,:,trial-1], masked_weights_arr[pre_trial_num-1,:].reshape((1, masked_weights_arr[pre_trial_num-1,:].size)))
-            m_item_repress_pre_comp[m_counter]=item_repress_pre[pre_trial_num-1,:]
+            m_item_repress_study_comp[m_counter]=masked_bolds_arr_2[trial-1,:]
+            m_item_repress_pre_comp[m_counter]=masked_bolds_arr_1[pre_trial_num-1,:]
             m_counter=m_counter+1
         elif image_condition==2:
-            r_item_repress_study_comp[r_counter]=np.multiply(masked_bolds_arr_2[trial-1,:], masked_weights_arr[pre_trial_num-1,:])
-            r_item_repress_removal_comp[r_counter]=np.multiply(masked_bolds_arr_4[:,:,trial-1], masked_weights_arr[pre_trial_num-1,:].reshape((1, masked_weights_arr[pre_trial_num-1,:].size)))
-            r_item_repress_pre_comp[r_counter]=item_repress_pre[pre_trial_num-1,:]
+            r_item_repress_study_comp[r_counter]=masked_bolds_arr_2[trial-1,:]
+            r_item_repress_pre_comp[r_counter]=masked_bolds_arr_1[pre_trial_num-1,:]
             r_counter=r_counter+1    
         elif image_condition==3:
-            s_item_repress_study_comp[s_counter]=np.multiply(masked_bolds_arr_2[trial-1,:], masked_weights_arr[pre_trial_num-1,:])
-            s_item_repress_removal_comp[s_counter]=np.multiply(masked_bolds_arr_4[:,:,trial-1], masked_weights_arr[pre_trial_num-1,:].reshape((1, masked_weights_arr[pre_trial_num-1,:].size)))   
-            s_item_repress_pre_comp[s_counter]=item_repress_pre[pre_trial_num-1,:]
+            s_item_repress_study_comp[s_counter]=masked_bolds_arr_2[trial-1,:]
+            s_item_repress_pre_comp[s_counter]=masked_bolds_arr_1[pre_trial_num-1,:]
             s_counter=s_counter+1                  
 
 
