@@ -456,7 +456,7 @@ if not os.path.exists(os.path.join(container_path,"group_model","Proactive_inter
 #plot and save the figures 
 fig=sns.barplot(data=group_fidelity,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
 fig.set_xlabel('Operations')
-fig.set_ylabel('Fidelity (same - Different')
+fig.set_ylabel('Fidelity (Same - Different (within condition))')
 fig.set_title('Unweighted (Group Level) - Proactive Interference')  
 fig, test_results = add_stat_annotation(fig, data=group_fidelity, x='Operation', y='Fidelity',
                                    box_pairs=[("Maintain", "Replace"), ("Maintain", "Suppress"), ("Suppress", "Replace")],
@@ -466,9 +466,9 @@ plt.clf()
 
 fig=sns.barplot(data=group_all_fidelity,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
 fig.set_xlabel('Operations')
-fig.set_ylabel('Fidelity (same - Different')
+fig.set_ylabel('Fidelity (Same - Different(all other stims))')
 fig.set_title('Unweighted (Group Level) - Proactive Interference (compared to all stims)')  
-fig, test_results = add_stat_annotation(fig, data=group_fidelity, x='Operation', y='Fidelity',
+fig, test_results = add_stat_annotation(fig, data=group_all_fidelity, x='Operation', y='Fidelity',
                                    box_pairs=[("Maintain", "Replace"), ("Maintain", "Suppress"), ("Suppress", "Replace")],
                                    test='t-test_ind', text_format='star',loc='inside', verbose=2) 
 plt.savefig(os.path.join(container_path,"group_model","Proactive_interference_%s" % brain_flag,'Group_unweighted_proactive_interference_all_stims.png'))
