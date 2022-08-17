@@ -102,7 +102,7 @@ for subID in subs:
     study_scene_order = tim_df2[tim_df2["category"]==1][["trial_id","image_id","condition","subcategory"]]
 
 
-    print(f"Running RSA - Proactive Interference (Version 1) analysis for sub0{subID}...")
+    print(f"Running RSA - Proactive Interference (Version 1 & 2) analysis for sub0{subID}...")
 
     # ===== load mask for BOLD
     if brain_flag=='MNI':
