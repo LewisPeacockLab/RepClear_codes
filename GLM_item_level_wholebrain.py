@@ -10,6 +10,8 @@ import fnmatch
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
+from datetime import date
+from pathlib import Path
 
 
 subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
@@ -45,6 +47,13 @@ def find(pattern, path): #find the pattern we're looking for
                 result.append(os.path.join(root, name))
         return result
 
+def is_file_newer_than (file, delta): 
+    cutoff = datetime.utcnow() - delta
+    mtime = datetime.utcfromtimestamp(os.path.getmtime(file))
+    if mtime < cutoff:
+        return False
+    return True
+
 
 #LSA
 def GLM_item_level(subID):
@@ -57,10 +66,10 @@ def GLM_item_level(subID):
     bold_path=os.path.join(container_path,sub,'func/')
     os.chdir(bold_path)
   
-    # #check to see if this subject was run already or not
-    # if os.path.exists(os.path.join(container_path,sub,'preremoval_item_level_%s' % brain_flag,'scene_trial120_%s_full_report.html' % brain_flag)):
-    #     print('sub-0%s already ran! moving to the next sub' % subID)
-    #     continue
+    #check to see if this subject was run already or not
+    if os.path.exists(os.path.join(container_path,sub,'preremoval_item_level_%s' % brain_flag,'scene_trial120_%s_full_report.html' % brain_flag)) and is_file_newer_than(os.path.join(container_path,sub,'preremoval_item_level_%s' % brain_flag,'scene_trial120_%s_full_report.html' % brain_flag), timedelta(days=14)):
+        print('sub-0%s already ran! moving to the next sub' % subID)
+        continue
 
     #set up the path to the files and then moved into that directory
 
