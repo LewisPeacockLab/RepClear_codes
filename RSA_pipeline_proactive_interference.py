@@ -336,6 +336,11 @@ for subID in subs:
 
     all_item_pre_study_comp=np.corrcoef(all_item_repress_pre_comp,all_item_repress_study_comp)
     all_uw_proactive_interference=np.zeros(84)
+
+    all_uw_maintain_target_RSA=np.zeros(28)
+    all_uw_replace_target_RSA=np.zeros(28)
+    all_uw_suppress_target_RSA=np.zeros(28)
+
     trials=list(range(0,84))
     for i in trials:
         index_interest=i+84
@@ -344,6 +349,7 @@ for subID in subs:
         temp_different=diff_array.mean()
         pro_intr=temp_same-temp_different
         all_uw_proactive_interference[i]=pro_intr
+
 
     all_pro_inter_df=pd.DataFrame(data=all_uw_proactive_interference,columns=['Fidelity'])
     all_pro_inter_df['Operation']=np.repeat(['Maintain','Replace','Suppress'],28)    
@@ -358,6 +364,7 @@ for subID in subs:
         temp_different=diff_array.mean()
         pro_intr=temp_same-temp_different
         m_uw_proactive_interference[i]=pro_intr
+        all_uw_maintain_target_RSA[i]=temp_same        
 
     r_item_pre_study_comp=np.corrcoef(r_item_repress_pre_comp,r_item_repress_study_comp)
     r_uw_proactive_interference=np.zeros(28)
@@ -369,6 +376,7 @@ for subID in subs:
         temp_different=diff_array.mean()
         pro_intr=temp_same-temp_different
         r_uw_proactive_interference[i]=pro_intr        
+        all_uw_replace_target_RSA[i]=temp_same        
 
     s_item_pre_study_comp=np.corrcoef(s_item_repress_pre_comp,s_item_repress_study_comp)
     s_uw_proactive_interference=np.zeros(28)
@@ -380,6 +388,7 @@ for subID in subs:
         temp_different=diff_array.mean()
         pro_intr=temp_same-temp_different        
         s_uw_proactive_interference[i]=temp_different   
+        all_uw_suppress_target_RSA[i]=temp_same
 
     temp_df=pd.DataFrame(data=m_uw_proactive_interference,columns=['Fidelity'])
     temp_df['Sub']=subID
@@ -396,6 +405,21 @@ for subID in subs:
     temp_df['Sub']=subID
     temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'suppress_proactive_interference_unweighted.csv'))
     del temp_df             
+
+    temp_df=pd.DataFrame(data=all_uw_maintain_target_RSA,columns=['Fidelity'])
+    temp_df['Sub']=subID
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'maintain_unweighted_target_RSA.csv'))
+    del temp_df   
+
+    temp_df=pd.DataFrame(data=all_uw_replace_target_RSA,columns=['Fidelity'])
+    temp_df['Sub']=subID
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'replace_unweighted_target_RSA.csv'))
+    del temp_df   
+
+    temp_df=pd.DataFrame(data=all_uw_suppress_target_RSA,columns=['Fidelity'])
+    temp_df['Sub']=subID
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'suppress_unweighted_target_RSA.csv'))
+    del temp_df  
 
     all_pro_inter_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'all_proactive_interference_unweighted.csv'))
     all_pro_inter_mean_df=all_pro_inter_df.groupby(by='Operation').mean()
@@ -421,7 +445,7 @@ for subID in subs:
 #now I want to take the subject level "fidelity" results and look at it on a group level
 group_fidelity=pd.DataFrame()
 group_all_fidelity=pd.DataFrame()
-
+group_all_target_RSA=pd.DataFrame()
 
 for subID in subs:
     data_path=os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag)
@@ -452,11 +476,32 @@ for subID in subs:
     group_fidelity=group_fidelity.append(temp_df2,ignore_index=True)
     del temp_df, temp_df2        
 
+    maintain_target=os.path.join(data_path,'maintain_unweighted_target_RSA.csv')
+    temp_df=pd.read_csv(maintain_target,usecols=[1])
+    temp_df2=temp_df.mean()  
+    temp_df2['Operation']='Maintain'  
+    group_all_target_RSA=group_all_target_RSA.append(temp_df2,ignore_index=True)
+    del temp_df, temp_df2
+
+    replace_target=os.path.join(data_path,'replace_unweighted_target_RSA.csv')
+    temp_df=pd.read_csv(replace_target,usecols=[1])
+    temp_df2=temp_df.mean()  
+    temp_df2['Operation']='Replace'  
+    group_all_target_RSA=group_all_target_RSA.append(temp_df2,ignore_index=True)
+    del temp_df, temp_df2    
+
+    suppress_target=os.path.join(data_path,'suppress_unweighted_target_RSA.csv')
+    temp_df=pd.read_csv(suppress_target,usecols=[1])
+    temp_df2=temp_df.mean()  
+    temp_df2['Operation']='Suppress'  
+    group_all_target_RSA=group_all_target_RSA.append(temp_df2,ignore_index=True)
+    del temp_df, temp_df2      
+
 if not os.path.exists(os.path.join(container_path,"group_model","Proactive_interference_%s" % brain_flag)): os.makedirs(os.path.join(container_path,"group_model","Proactive_interference_%s" % brain_flag),exist_ok=True)
 #plot and save the figures 
 fig=sns.barplot(data=group_fidelity,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
 fig.set_xlabel('Operations')
-fig.set_ylabel('Fidelity (Same - Different (within condition))')
+fig.set_ylabel('Fidelity (Target - Related (within condition))')
 fig.set_title('Unweighted (Group Level) - Proactive Interference')  
 fig, test_results = add_stat_annotation(fig, data=group_fidelity, x='Operation', y='Fidelity',
                                    box_pairs=[("Maintain", "Replace"), ("Maintain", "Suppress"), ("Suppress", "Replace")],
@@ -466,10 +511,20 @@ plt.clf()
 
 fig=sns.barplot(data=group_all_fidelity,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
 fig.set_xlabel('Operations')
-fig.set_ylabel('Fidelity (Same - Different(all other stims))')
+fig.set_ylabel('Fidelity (Target - Related (all other stims))')
 fig.set_title('Unweighted (Group Level) - Proactive Interference (compared to all stims)')  
 fig, test_results = add_stat_annotation(fig, data=group_all_fidelity, x='Operation', y='Fidelity',
                                    box_pairs=[("Maintain", "Replace"), ("Maintain", "Suppress"), ("Suppress", "Replace")],
                                    test='t-test_ind', text_format='star',loc='inside', verbose=2) 
 plt.savefig(os.path.join(container_path,"group_model","Proactive_interference_%s" % brain_flag,'Group_unweighted_proactive_interference_all_stims.png'))
+plt.clf() 
+
+fig=sns.barplot(data=group_all_target_RSA,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
+fig.set_xlabel('Operations')
+fig.set_ylabel('Target-RSA')
+fig.set_title('Unweighted (Group Level) - target-RSA')  
+fig, test_results = add_stat_annotation(fig, data=group_all_target_RSA, x='Operation', y='Fidelity',
+                                   box_pairs=[("Maintain", "Replace"), ("Maintain", "Suppress"), ("Suppress", "Replace")],
+                                   test='t-test_ind', text_format='star',loc='inside', verbose=2) 
+plt.savefig(os.path.join(container_path,"group_model","Proactive_interference_%s" % brain_flag,'Group_unweighted_target_RSA.png'))
 plt.clf() 
