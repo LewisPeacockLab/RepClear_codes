@@ -47,8 +47,8 @@ def find(pattern, path): #find the pattern we're looking for
 
 
 #LSA
-# def GLM_item_level(subID):
-for subID in subs:
+def GLM_item_level(subID):
+# for subID in subs:
     print('Running sub-0%s...' %subID)
     #define the subject
     sub = ('sub-0%s' % subID)
@@ -82,15 +82,12 @@ for subID in subs:
     localizer_files.sort()
 
     if brain_flag=='MNI':
-
         vtc_mask_path=os.path.join('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_MNI_VTC_mask.nii.gz') #VTC
 
     else:
         vtc_mask_path=os.path.join('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/',sub,'new_mask','VVS_preremoval_%s_mask.nii.gz' % brain_flag)
 
-
     vtc_mask=nib.load(vtc_mask_path)   
-
 
     localizer_run1=load_img(localizer_files[0])
     localizer_run2=load_img(localizer_files[1])
@@ -111,7 +108,6 @@ for subID in subs:
     localizer_confounds_5=find('*preremoval*5*confounds*.tsv',bold_path)
     localizer_confounds_6=find('*preremoval*6*confounds*.tsv',bold_path)
 
-    
     confound_run1 = pd.read_csv(localizer_confounds_1[0],sep='\t')
     confound_run2 = pd.read_csv(localizer_confounds_2[0],sep='\t')
     confound_run3 = pd.read_csv(localizer_confounds_3[0],sep='\t')
@@ -300,7 +296,6 @@ for subID in subs:
             if not os.path.exists(out_folder): os.makedirs(out_folder,exist_ok=True)
 
         #as of now it is labeling the trial estimates by the trial number, which is helpful since I can look at their individual design matricies to see which stim that is
-        #but another way could be to load in the list for that sub right here, grab the number or name of that stim from the trial index and use that to save the name
 
         '''compute and save the contrasts'''
         for contrast in contrasts:
