@@ -181,69 +181,45 @@ for subID in subs:
     sorted_study_scene_order=study_scene_order.sort_values(by=['trial_id']) #this organizes the trials based on the trial_id, since we will need this to assess the condition on the N-1 trial to sort
 
 
-    ####### FOR NOW WE ARE DROPPING THE WEIGHTS AND WILL ADD THEM BACK IN LATER #############
-    # # ===== load weights
-    # print(f"Loading weights...")
-    # # prelocalizer
-    # if brain_flag=='MNI':
-    #     cate_weights_dir = os.path.join(f'/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/sub-0{subID}','preremoval_lvl1_%s/scene_stimuli_MNI_zmap.nii.gz' % brain_flag)
-    #     item_weights_dir = os.path.join(container_path, f"sub-0{subID}", "preremoval_item_level_MNI")
-    # else:
-    #     cate_weights_dir = os.path.join(f'/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/sub-0{subID}','preremoval_lvl1_%s/scene_stimuli_T1w_zmap.nii.gz' % brain_flag)
-    #     item_weights_dir = os.path.join(container_path, f"sub-0{subID}", "preremoval_item_level_T1w")        
+    ###### FOR NOW WE ARE DROPPING THE WEIGHTS AND WILL ADD THEM BACK IN LATER #############
+    # ===== load weights
+    print(f"Loading weights...")
+    # prelocalizer
+    if brain_flag=='MNI':
+        item_weights_dir = os.path.join(container_path, f"sub-0{subID}", "preremoval_item_level_MNI")
+    else:
+        item_weights_dir = os.path.join(container_path, f"sub-0{subID}", "preremoval_item_level_T1w")        
 
-    # #prelocalizer weights (category and item) get applied to study/post representations
+    #prelocalizer weights (category and item) get applied to study/post representations
 
-    # all_weights={}
-    # weights_arr=[]
+    all_weights={}
+    weights_arr=[]
 
-    # #load in all the item specific weights, which come from the LSA contrasts per subject
-    # for cateID in sub_cates.keys():
-    #     item_weights_fnames = glob.glob(f"{item_weights_dir}/{cateID}*full*zmap*")
-    #     print(cateID, len(item_weights_fnames))
-    #     item_weights = {}
+    #load in all the item specific weights, which come from the LSA contrasts per subject
+    for cateID in sub_cates.keys():
+        item_weights_fnames = glob.glob(f"{item_weights_dir}/{cateID}*full*zmap*")
+        print(cateID, len(item_weights_fnames))
+        item_weights = {}
 
-    #     for fname in item_weights_fnames:
-    #         trialID = fname.split("/")[-1].split("_")[1]  # "trial1"
-    #         trialID = int(trialID[5:])
-    #         item_weights[trialID] = nib.load(fname).get_fdata()
-    #     item_weights = {i: item_weights[i] for i in sorted(item_weights.keys())}
-    #     all_weights[cateID] = item_weights  
-    #     weights_arr.append(np.stack( [ item_weights[i] for i in sorted(item_weights.keys()) ] ))
+        for fname in item_weights_fnames:
+            trialID = fname.split("/")[-1].split("_")[1]  # "trial1"
+            trialID = int(trialID[5:])
+            item_weights[trialID] = nib.load(fname).get_fdata()
+        item_weights = {i: item_weights[i] for i in sorted(item_weights.keys())}
+        all_weights[cateID] = item_weights  
+        weights_arr.append(np.stack( [ item_weights[i] for i in sorted(item_weights.keys()) ] ))
 
-    # #this now masks the item weights to ensure that they are all in the same ROI (group VTC):
-    # weights_arr = np.vstack(weights_arr)
-    # print("weights shape: ", weights_arr.shape)
-    # # apply mask on BOLD
-    # masked_weights_arr = []
-    # for weight in weights_arr:
-    #     masked_weights_arr.append(apply_mask(mask=mask.get_fdata(), target=weight).flatten())
-    # masked_weights_arr = np.vstack(masked_weights_arr)
-    # print("masked item weights arr shape: ", masked_weights_arr.shape)          
+    #this now masks the item weights to ensure that they are all in the same ROI (group VTC):
+    weights_arr = np.vstack(weights_arr)
+    print("weights shape: ", weights_arr.shape)
+    # apply mask on BOLD
+    masked_weights_arr = []
+    for weight in weights_arr:
+        masked_weights_arr.append(apply_mask(mask=mask.get_fdata(), target=weight).flatten())
+    masked_weights_arr = np.vstack(masked_weights_arr)
+    print("masked item weights arr shape: ", masked_weights_arr.shape)          
 
-    # #this masks the category weight from the group results:
-    # cate_weights_arr = nib.load(cate_weights_dir)
-    # masked_cate_weights_arr = apply_mask(mask=mask.get_fdata(), target=cate_weights_arr.get_fdata()).flatten()
-    # print("masked category weight arr shape: ", masked_cate_weights_arr.shape) #so this is just 1D of the voxels in the VTC mask
-
-    # # ===== multiply
-    # #prelocalizer patterns and prelocalizer item weights
-    # item_repress_pre = np.multiply(masked_bolds_arr_1, masked_weights_arr) #these are lined up since the trials goes to correct trials
-    
-    # #study patterns, prelocalizer item weights and postlocalizer    
-    # #this has to come in the loop below to make sure I am weighting the correct trial with the correct item weights
-
-    # print("item representations pre shape: ", item_repress_pre.shape)
-
-    # #these work right out the box since there is only 1 "category" weighting we are using, and that can be applied to all scene trials in both pre and study (and post)
-    # cate_repress_pre = np.multiply(masked_bolds_arr_1,masked_cate_weights_arr) #these are multiplied elementwise
-    # cate_repress_study = np.multiply(masked_bolds_arr_2,masked_cate_weights_arr) #since there is only 1 cate_weight, this multiplies all of masked_bold_arr_2 with the cate_weights
-    # cate_repress_post = np.multiply(masked_bolds_arr_3,masked_cate_weights_arr) #weight the post representations with category weights
-
-    # print("category representations pre shape: ", cate_repress_pre.shape)
-    # print("category representations study shape: ", cate_repress_study.shape)
-    # print("category representations post shape: ", cate_repress_post.shape)
-
+    # ===== multiply
 
     #the way the data is currently sorted is by the index:
     #pre-localizer: 0-59 = Face trial 1 - 60 | 60-179 = Scene trial 1 - 120
@@ -279,6 +255,7 @@ for subID in subs:
     s_counter=0
     r_counter=0
 
+    #unweighted
     m_item_repress_study_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
     m_item_repress_pre_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
 
@@ -287,8 +264,16 @@ for subID in subs:
 
     s_item_repress_study_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
     s_item_repress_pre_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
+    
+    #Item weighted
+    m_item_weighted_study_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
+    m_item_weighted_pre_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
 
+    r_item_weighted_study_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
+    r_item_weighted_pre_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
 
+    s_item_weighted_study_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
+    s_item_weighted_pre_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
 
     for trial in sorted_study_scene_order['trial_id'].values: 
 
@@ -305,14 +290,24 @@ for subID in subs:
         if image_condition==1:
             m_item_repress_study_comp[m_counter]=masked_bolds_arr_2[trial-1,:]
             m_item_repress_pre_comp[m_counter]=masked_bolds_arr_1[pre_trial_num-1,:]
+
+            m_item_weighted_study_comp=np.multiply(masked_bolds_arr_2[trial-1,:],masked_weights_arr[pre_trial_num-1,:])
+            m_item_weighted_pre_comp=np.multiply(masked_bolds_arr_1[pre_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])
+
             m_counter=m_counter+1
         elif image_condition==2:
             r_item_repress_study_comp[r_counter]=masked_bolds_arr_2[trial-1,:]
             r_item_repress_pre_comp[r_counter]=masked_bolds_arr_1[pre_trial_num-1,:]
+
+            r_item_weighted_study_comp=np.multiply(masked_bolds_arr_2[trial-1,:],masked_weights_arr[pre_trial_num-1,:])
+            r_item_weighted_pre_comp=np.multiply(masked_bolds_arr_1[pre_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])
             r_counter=r_counter+1    
         elif image_condition==3:
             s_item_repress_study_comp[s_counter]=masked_bolds_arr_2[trial-1,:]
             s_item_repress_pre_comp[s_counter]=masked_bolds_arr_1[pre_trial_num-1,:]
+
+            s_item_weighted_study_comp=np.multiply(masked_bolds_arr_2[trial-1,:],masked_weights_arr[pre_trial_num-1,:])
+            s_item_weighted_pre_comp=np.multiply(masked_bolds_arr_1[pre_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])            
             s_counter=s_counter+1                  
 
     #so based on the design, and sorting by the operation on the previous trials we are left with 30 suppress trials, 29 replace and 28 maintain
@@ -329,66 +324,143 @@ for subID in subs:
 
     s_item_repress_pre_comp=s_item_repress_pre_comp[:28]
 
+    m_item_weighted_study_comp=m_item_weighted_study_comp[:28]
+
+    m_item_weighted_pre_comp=m_item_weighted_pre_comp[:28]
+
+    r_item_weighted_study_comp=r_item_weighted_study_comp[:28]
+
+    r_item_weighted_pre_comp=r_item_weighted_pre_comp[:28]
+
+    s_item_weighted_study_comp=s_item_weighted_study_comp[:28]
+
+    s_item_weighted_pre_comp=s_item_weighted_pre_comp[:28]    
+
     #also want to combine across the conditions so we can look at corr across all items and not just same operation
 
     all_item_repress_study_comp=np.vstack((m_item_repress_study_comp,r_item_repress_study_comp,s_item_repress_study_comp))
     all_item_repress_pre_comp=np.vstack((m_item_repress_pre_comp,r_item_repress_pre_comp,s_item_repress_pre_comp))
 
+    all_item_weighted_study_comp=np.vstack((m_item_weighted_study_comp,r_item_weighted_study_comp,s_item_weighted_study_comp))
+    all_item_weighted_pre_comp=np.vstack((m_item_weighted_pre_comp,r_item_weighted_pre_comp,s_item_weighted_pre_comp))
+
     all_item_pre_study_comp=np.corrcoef(all_item_repress_pre_comp,all_item_repress_study_comp)
+    all_item_weighted_pre_study_comp=np.corrcoef(all_item_weighted_pre_comp,all_item_weighted_study_comp)
+
+    all_iw_proactive_interference=np.zeroes(84)
+
     all_uw_proactive_interference=np.zeros(84)
 
     all_uw_maintain_target_RSA=np.zeros(28)
     all_uw_replace_target_RSA=np.zeros(28)
     all_uw_suppress_target_RSA=np.zeros(28)
 
+    all_iw_maintain_target_RSA=np.zeros(28)
+    all_iw_replace_target_RSA=np.zeros(28)
+    all_iw_suppress_target_RSA=np.zeros(28)    
+
     trials=list(range(0,84))
     for i in trials:
         index_interest=i+84
         temp_same=all_item_pre_study_comp[i][index_interest]
+        temp_iw_same=all_item_weighted_pre_study_comp[i][index_interest]
+
         diff_array=np.append((all_item_pre_study_comp[i][84:index_interest]), (all_item_pre_study_comp[i][index_interest+1:]))
+        diff_iw_array=np.append((all_item_weighted_pre_study_comp[i][84:index_interest]), (all_item_weighted_pre_study_comp[i][index_interest+1]))
+
         temp_different=diff_array.mean()
+        temp_iw_different=diff_iw_array.mean()
+
         pro_intr=temp_same-temp_different
+        pro_iw_intr=temp_iw_same-temp_iw_different
+
         all_uw_proactive_interference[i]=pro_intr
+        all_iw_proactive_interference[i]=pro_iw_intr
 
 
     all_pro_inter_df=pd.DataFrame(data=all_uw_proactive_interference,columns=['Fidelity'])
     all_pro_inter_df['Operation']=np.repeat(['Maintain','Replace','Suppress'],28)    
 
+    all_iw_pro_inter_df=pd.DataFrame(data=all_iw_proactive_interference,columns=['Fidelity'])
+    all_iw_pro_inter_df['Operation']=np.repeat(['Maintain','Replace','Suppress'],28)   
+
     m_item_pre_study_comp=np.corrcoef(m_item_repress_pre_comp,m_item_repress_study_comp)
     m_uw_proactive_interference=np.zeros(28)
+
+    m_item_weighted_pre_study_comp=np.corrcoef(m_item_weighted_pre_comp,m_item_weighted_study_comp)
+    m_iw_proactive_interference=np.zeros(28)    
     trials=list(range(0,28))
     for i in trials:
         index_interest=i+28
         temp_same=m_item_pre_study_comp[i][index_interest]
+        temp_iw_same=m_item_weighted_pre_study_comp[i][index_interest]
+
         diff_array=np.append((m_item_pre_study_comp[i][28:index_interest]), (m_item_pre_study_comp[i][index_interest+1:]))
+        diff_iw_array=np.append((m_item_weighted_pre_study_comp[i][28:index_interest]),(m_item_weighted_pre_study_comp[i][index_interest+1:]))
+
         temp_different=diff_array.mean()
+        temp_iw_different=diff_iw_array.mean()
+
         pro_intr=temp_same-temp_different
+        pro_iw_intr=temp_iw_same-temp_iw_different 
+
         m_uw_proactive_interference[i]=pro_intr
-        all_uw_maintain_target_RSA[i]=temp_same        
+        m_iw_proactive_interference[i]=pro_iw_intr
+
+        all_uw_maintain_target_RSA[i]=temp_same   
+        all_iw_maintain_target_RSA[i]=temp_iw_same
 
     r_item_pre_study_comp=np.corrcoef(r_item_repress_pre_comp,r_item_repress_study_comp)
     r_uw_proactive_interference=np.zeros(28)
+
+    r_item_weighted_pre_study_comp=np.corrcoef(r_item_weighted_pre_comp,r_item_weighted_study_comp)
+    r_iw_proactive_interference=np.zeros(28)    
     trials=list(range(0,28))
     for i in trials:
         index_interest=i+28
         temp_same=r_item_pre_study_comp[i][index_interest]
+        temp_iw_same=r_item_weighted_pre_study_comp[i][index_interest]
+
         diff_array=np.append((r_item_pre_study_comp[i][28:index_interest]), (r_item_pre_study_comp[i][index_interest+1:]))
+        diff_iw_array=np.append((r_item_weighted_pre_study_comp[i][28:index_interest]),(r_item_weighted_pre_study_comp[i][index_interest+1:]))
+
         temp_different=diff_array.mean()
+        temp_iw_different=diff_iw_array.mean()
+
         pro_intr=temp_same-temp_different
-        r_uw_proactive_interference[i]=pro_intr        
-        all_uw_replace_target_RSA[i]=temp_same        
+        pro_iw_intr=temp_iw_same-temp_iw_different 
+
+        r_uw_proactive_interference[i]=pro_intr 
+        r_iw_proactive_interference[i]=pro_iw_intr
+
+        all_uw_replace_target_RSA[i]=temp_same
+        all_iw_replace_target_RSA[i]=temp_iw_same        
 
     s_item_pre_study_comp=np.corrcoef(s_item_repress_pre_comp,s_item_repress_study_comp)
     s_uw_proactive_interference=np.zeros(28)
+
+    s_item_weighted_pre_study_comp=np.corrcoef(s_item_weighted_pre_comp,s_item_weighted_study_comp)
+    s_iw_proactive_interference=np.zeros(28)    
     trials=list(range(0,28))
     for i in trials:
         index_interest=i+28
         temp_same=s_item_pre_study_comp[i][index_interest]
+        temp_iw_same=s_item_weighted_pre_study_comp[i][index_interest]
+
         diff_array=np.append((s_item_pre_study_comp[i][28:index_interest]), (s_item_pre_study_comp[i][index_interest+1:]))
+        diff_iw_array=np.append((s_item_weighted_pre_study_comp[i][28:index_interest]),(s_item_weighted_pre_study_comp[i][index_interest+1:]))
+
         temp_different=diff_array.mean()
-        pro_intr=temp_same-temp_different        
-        s_uw_proactive_interference[i]=temp_different   
+        temp_iw_different=diff_iw_array.mean()
+
+        pro_intr=temp_same-temp_different 
+        pro_iw_intr=temp_iw_same-temp_iw_different 
+
+        s_uw_proactive_interference[i]=pro_intr   
+        s_iw_proactive_interference[i]=pro_iw_intr   
+
         all_uw_suppress_target_RSA[i]=temp_same
+        all_iw_suppress_target_RSA[i]=temp_iw_same                
 
     temp_df=pd.DataFrame(data=m_uw_proactive_interference,columns=['Fidelity'])
     temp_df['Sub']=subID
@@ -420,10 +492,45 @@ for subID in subs:
     temp_df['Sub']=subID
     temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'suppress_unweighted_target_RSA.csv'))
     del temp_df  
+    
+    ###Item-Weighted###
+    temp_df=pd.DataFrame(data=m_iw_proactive_interference,columns=['Fidelity'])
+    temp_df['Sub']=subID
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'maintain_proactive_interference_itemweighted.csv'))
+    del temp_df   
+
+    temp_df=pd.DataFrame(data=r_iw_proactive_interference,columns=['Fidelity'])
+    temp_df['Sub']=subID
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'replace_proactive_interference_itemweighted.csv'))
+    del temp_df   
+
+    temp_df=pd.DataFrame(data=s_iw_proactive_interference,columns=['Fidelity'])
+    temp_df['Sub']=subID
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'suppress_proactive_interference_itemweighted.csv'))
+    del temp_df             
+
+    temp_df=pd.DataFrame(data=all_iw_maintain_target_RSA,columns=['Fidelity'])
+    temp_df['Sub']=subID
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'maintain_itemweighted_target_RSA.csv'))
+    del temp_df   
+
+    temp_df=pd.DataFrame(data=all_iw_replace_target_RSA,columns=['Fidelity'])
+    temp_df['Sub']=subID
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'replace_itemweighted_target_RSA.csv'))
+    del temp_df   
+
+    temp_df=pd.DataFrame(data=all_iw_suppress_target_RSA,columns=['Fidelity'])
+    temp_df['Sub']=subID
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'suppress_itemweighted_target_RSA.csv'))
+    del temp_df  
 
     all_pro_inter_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'all_proactive_interference_unweighted.csv'))
     all_pro_inter_mean_df=all_pro_inter_df.groupby(by='Operation').mean()
     all_pro_inter_mean_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'all_proactive_interference_mean_unweighted.csv'))
+
+    all_iw_pro_inter_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'all_proactive_interference_itemweighted.csv'))
+    all_iw_pro_inter_mean_df=all_pro_inter_df.groupby(by='Operation').mean()
+    all_iw_pro_inter_mean_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'all_proactive_interference_mean_itemweighted.csv'))
 
     temp_df=pd.DataFrame(data=m_item_pre_study_comp)
     temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'maintain_corrcoef_unweighted.csv'))
@@ -437,7 +544,18 @@ for subID in subs:
     temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'suppress_corrcoef_unweighted.csv'))
     del temp_df 
 
+    ###Item-Weoghted###
+    temp_df=pd.DataFrame(data=m_item_weighted_pre_study_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'maintain_corrcoef_itemweighted.csv'))
+    del temp_df  
 
+    temp_df=pd.DataFrame(data=r_item_weighted_pre_study_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'replace_corrcoef_itemweighted.csv'))
+    del temp_df   
+
+    temp_df=pd.DataFrame(data=s_item_weighted_pre_study_comp)
+    temp_df.to_csv(os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag,'suppress_corrcoef_itemweighted.csv'))
+    del temp_df 
 
     print("Subject is done... saving everything")
     print("===============================================================================")    
@@ -446,7 +564,14 @@ for subID in subs:
 group_fidelity=pd.DataFrame()
 group_all_fidelity=pd.DataFrame()
 group_all_target_RSA=pd.DataFrame()
+group_fidelity_all_trials=pd.DataFrame()
 
+iw_group_fidelity=pd.DataFrame()
+iw_group_all_fidelity=pd.DataFrame()
+iw_group_all_target_RSA=pd.DataFrame()
+iw_group_fidelity_all_trials=pd.DataFrame()
+
+### Unweighted ###
 for subID in subs:
     data_path=os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag)
 
@@ -458,6 +583,8 @@ for subID in subs:
     maintain_proactive=os.path.join(data_path,'maintain_proactive_interference_unweighted.csv')
     temp_df=pd.read_csv(maintain_proactive,usecols=[1])
     temp_df2=temp_df.mean()  
+    temp_df['Operation']='Maintain'    
+    group_fidelity_all_trials=group_fidelity_all_trials.append(temp_df,ignore_index=True)
     temp_df2['Operation']='Maintain'  
     group_fidelity=group_fidelity.append(temp_df2,ignore_index=True)
     del temp_df, temp_df2
@@ -465,6 +592,8 @@ for subID in subs:
     replace_proactive=os.path.join(data_path,'replace_proactive_interference_unweighted.csv')
     temp_df=pd.read_csv(replace_proactive,usecols=[1])
     temp_df2=temp_df.mean()  
+    temp_df['Operation']='Replace'    
+    group_fidelity_all_trials=group_fidelity_all_trials.append(temp_df,ignore_index=True)
     temp_df2['Operation']='Replace'  
     group_fidelity=group_fidelity.append(temp_df2,ignore_index=True)
     del temp_df, temp_df2    
@@ -472,6 +601,8 @@ for subID in subs:
     suppress_proactive=os.path.join(data_path,'suppress_proactive_interference_unweighted.csv')
     temp_df=pd.read_csv(suppress_proactive,usecols=[1])
     temp_df2=temp_df.mean()  
+    temp_df['Operation']='Suppress'    
+    group_fidelity_all_trials=group_fidelity_all_trials.append(temp_df,ignore_index=True)
     temp_df2['Operation']='Suppress'  
     group_fidelity=group_fidelity.append(temp_df2,ignore_index=True)
     del temp_df, temp_df2        
@@ -497,6 +628,64 @@ for subID in subs:
     group_all_target_RSA=group_all_target_RSA.append(temp_df2,ignore_index=True)
     del temp_df, temp_df2      
 
+### Item-Weighted ###
+for subID in subs:
+    data_path=os.path.join(container_path,"sub-0%s"  % subID,"Proactive_interference_%s" % brain_flag)
+
+    all_mean_proactive=os.path.join(data_path,'all_proactive_interference_mean_itemweighted.csv')
+    temp_df=pd.read_csv(all_mean_proactive)
+    iw_group_all_fidelity=iw_group_all_fidelity.append(temp_df,ignore_index=True)
+    del temp_df
+
+    maintain_proactive=os.path.join(data_path,'maintain_proactive_interference_itemweighted.csv')
+    temp_df=pd.read_csv(maintain_proactive,usecols=[1])
+    temp_df2=temp_df.mean()  
+    temp_df['Operation']='Maintain'    
+    iw_group_fidelity_all_trials=iw_group_fidelity_all_trials.append(temp_df,ignore_index=True)
+    temp_df2['Operation']='Maintain'  
+    iw_group_fidelity=iw_group_fidelity.append(temp_df2,ignore_index=True)
+    del temp_df, temp_df2
+
+    replace_proactive=os.path.join(data_path,'replace_proactive_interference_itemweighted.csv')
+    temp_df=pd.read_csv(replace_proactive,usecols=[1])
+    temp_df2=temp_df.mean()  
+    temp_df['Operation']='Replace'    
+    iw_group_fidelity_all_trials=iw_group_fidelity_all_trials.append(temp_df,ignore_index=True)
+    temp_df2['Operation']='Replace'  
+    iw_group_fidelity=iw_group_fidelity.append(temp_df2,ignore_index=True)
+    del temp_df, temp_df2    
+
+    iw_suppress_proactive=os.path.join(data_path,'suppress_proactive_interference_itemweighted.csv')
+    temp_df=pd.read_csv(iw_suppress_proactive,usecols=[1])
+    temp_df2=temp_df.mean()  
+    temp_df['Operation']='Suppress'    
+    iw_group_fidelity_all_trials=iw_group_fidelity_all_trials.append(temp_df,ignore_index=True)
+    temp_df2['Operation']='Suppress'  
+    iw_group_fidelity=iw_group_fidelity.append(temp_df2,ignore_index=True)
+    del temp_df, temp_df2        
+
+    maintain_target=os.path.join(data_path,'maintain_itemweighted_target_RSA.csv')
+    temp_df=pd.read_csv(maintain_target,usecols=[1])
+    temp_df2=temp_df.mean()  
+    temp_df2['Operation']='Maintain'  
+    group_all_target_RSA=group_all_target_RSA.append(temp_df2,ignore_index=True)
+    del temp_df, temp_df2
+
+    replace_target=os.path.join(data_path,'replace_itemweighted_target_RSA.csv')
+    temp_df=pd.read_csv(replace_target,usecols=[1])
+    temp_df2=temp_df.mean()  
+    temp_df2['Operation']='Replace'  
+    group_all_target_RSA=group_all_target_RSA.append(temp_df2,ignore_index=True)
+    del temp_df, temp_df2    
+
+    suppress_target=os.path.join(data_path,'suppress_itemweighted_target_RSA.csv')
+    temp_df=pd.read_csv(suppress_target,usecols=[1])
+    temp_df2=temp_df.mean()  
+    temp_df2['Operation']='Suppress'  
+    group_all_target_RSA=group_all_target_RSA.append(temp_df2,ignore_index=True)
+    del temp_df, temp_df2      
+
+
 if not os.path.exists(os.path.join(container_path,"group_model","Proactive_interference_%s" % brain_flag)): os.makedirs(os.path.join(container_path,"group_model","Proactive_interference_%s" % brain_flag),exist_ok=True)
 #plot and save the figures 
 fig=sns.barplot(data=group_fidelity,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
@@ -507,6 +696,16 @@ fig, test_results = add_stat_annotation(fig, data=group_fidelity, x='Operation',
                                    box_pairs=[("Maintain", "Replace"), ("Maintain", "Suppress"), ("Suppress", "Replace")],
                                    test='t-test_ind', text_format='star',loc='inside', verbose=2) 
 plt.savefig(os.path.join(container_path,"group_model","Proactive_interference_%s" % brain_flag,'Group_unweighted_proactive_interference.png'))
+plt.clf() 
+
+fig=sns.barplot(data=group_fidelity_all_trials,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity (Target - Related (within condition))')
+fig.set_title('Unweighted (all trials) - Proactive Interference')  
+fig, test_results = add_stat_annotation(fig, data=group_fidelity_all_trials, x='Operation', y='Fidelity',
+                                   box_pairs=[("Maintain", "Replace"), ("Maintain", "Suppress"), ("Suppress", "Replace")],
+                                   test='t-test_ind', text_format='star',loc='inside', verbose=2) 
+plt.savefig(os.path.join(container_path,"group_model","Proactive_interference_%s" % brain_flag,'Group_unweighted_proactive_interference_all_trials.png'))
 plt.clf() 
 
 fig=sns.barplot(data=group_all_fidelity,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
