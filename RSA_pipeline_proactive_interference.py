@@ -181,13 +181,12 @@ for subID in subs:
     sorted_study_scene_order=study_scene_order.sort_values(by=['trial_id']) #this organizes the trials based on the trial_id, since we will need this to assess the condition on the N-1 trial to sort
 
 
-    ###### FOR NOW WE ARE DROPPING THE WEIGHTS AND WILL ADD THEM BACK IN LATER #############
     # ===== load weights
     print(f"Loading weights...")
     # prelocalizer
     if brain_flag=='MNI':
         item_weights_dir = os.path.join(container_path, f"sub-0{subID}", "preremoval_item_level_MNI")
-    else:
+    elif brain_flag=='T1w':
         item_weights_dir = os.path.join(container_path, f"sub-0{subID}", "preremoval_item_level_T1w")        
 
     #prelocalizer weights (category and item) get applied to study/post representations
@@ -291,23 +290,23 @@ for subID in subs:
             m_item_repress_study_comp[m_counter]=masked_bolds_arr_2[trial-1,:]
             m_item_repress_pre_comp[m_counter]=masked_bolds_arr_1[pre_trial_num-1,:]
 
-            m_item_weighted_study_comp=np.multiply(masked_bolds_arr_2[trial-1,:],masked_weights_arr[pre_trial_num-1,:])
-            m_item_weighted_pre_comp=np.multiply(masked_bolds_arr_1[pre_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])
+            m_item_weighted_study_comp[m_counter]=np.multiply(masked_bolds_arr_2[trial-1,:],masked_weights_arr[pre_trial_num-1,:])
+            m_item_weighted_pre_comp[m_counter]=np.multiply(masked_bolds_arr_1[pre_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])
 
             m_counter=m_counter+1
         elif image_condition==2:
             r_item_repress_study_comp[r_counter]=masked_bolds_arr_2[trial-1,:]
             r_item_repress_pre_comp[r_counter]=masked_bolds_arr_1[pre_trial_num-1,:]
 
-            r_item_weighted_study_comp=np.multiply(masked_bolds_arr_2[trial-1,:],masked_weights_arr[pre_trial_num-1,:])
-            r_item_weighted_pre_comp=np.multiply(masked_bolds_arr_1[pre_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])
+            r_item_weighted_study_comp[r_counter]=np.multiply(masked_bolds_arr_2[trial-1,:],masked_weights_arr[pre_trial_num-1,:])
+            r_item_weighted_pre_comp[r_counter]=np.multiply(masked_bolds_arr_1[pre_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])
             r_counter=r_counter+1    
         elif image_condition==3:
             s_item_repress_study_comp[s_counter]=masked_bolds_arr_2[trial-1,:]
             s_item_repress_pre_comp[s_counter]=masked_bolds_arr_1[pre_trial_num-1,:]
 
-            s_item_weighted_study_comp=np.multiply(masked_bolds_arr_2[trial-1,:],masked_weights_arr[pre_trial_num-1,:])
-            s_item_weighted_pre_comp=np.multiply(masked_bolds_arr_1[pre_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])            
+            s_item_weighted_study_comp[s_counter]=np.multiply(masked_bolds_arr_2[trial-1,:],masked_weights_arr[pre_trial_num-1,:])
+            s_item_weighted_pre_comp[s_counter]=np.multiply(masked_bolds_arr_1[pre_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])            
             s_counter=s_counter+1                  
 
     #so based on the design, and sorting by the operation on the previous trials we are left with 30 suppress trials, 29 replace and 28 maintain
@@ -347,7 +346,7 @@ for subID in subs:
     all_item_pre_study_comp=np.corrcoef(all_item_repress_pre_comp,all_item_repress_study_comp)
     all_item_weighted_pre_study_comp=np.corrcoef(all_item_weighted_pre_comp,all_item_weighted_study_comp)
 
-    all_iw_proactive_interference=np.zeroes(84)
+    all_iw_proactive_interference=np.zeros(84)
 
     all_uw_proactive_interference=np.zeros(84)
 
@@ -366,7 +365,7 @@ for subID in subs:
         temp_iw_same=all_item_weighted_pre_study_comp[i][index_interest]
 
         diff_array=np.append((all_item_pre_study_comp[i][84:index_interest]), (all_item_pre_study_comp[i][index_interest+1:]))
-        diff_iw_array=np.append((all_item_weighted_pre_study_comp[i][84:index_interest]), (all_item_weighted_pre_study_comp[i][index_interest+1]))
+        diff_iw_array=np.append((all_item_weighted_pre_study_comp[i][84:index_interest]), (all_item_weighted_pre_study_comp[i][index_interest+1:]))
 
         temp_different=diff_array.mean()
         temp_iw_different=diff_iw_array.mean()
@@ -668,26 +667,27 @@ for subID in subs:
     temp_df=pd.read_csv(maintain_target,usecols=[1])
     temp_df2=temp_df.mean()  
     temp_df2['Operation']='Maintain'  
-    group_all_target_RSA=group_all_target_RSA.append(temp_df2,ignore_index=True)
+    iw_group_all_target_RSA=iw_group_all_target_RSA.append(temp_df2,ignore_index=True)
     del temp_df, temp_df2
 
     replace_target=os.path.join(data_path,'replace_itemweighted_target_RSA.csv')
     temp_df=pd.read_csv(replace_target,usecols=[1])
     temp_df2=temp_df.mean()  
     temp_df2['Operation']='Replace'  
-    group_all_target_RSA=group_all_target_RSA.append(temp_df2,ignore_index=True)
+    iw_group_all_target_RSA=iw_group_all_target_RSA.append(temp_df2,ignore_index=True)
     del temp_df, temp_df2    
 
     suppress_target=os.path.join(data_path,'suppress_itemweighted_target_RSA.csv')
     temp_df=pd.read_csv(suppress_target,usecols=[1])
     temp_df2=temp_df.mean()  
     temp_df2['Operation']='Suppress'  
-    group_all_target_RSA=group_all_target_RSA.append(temp_df2,ignore_index=True)
+    iw_group_all_target_RSA=iw_group_all_target_RSA.append(temp_df2,ignore_index=True)
     del temp_df, temp_df2      
 
 
 if not os.path.exists(os.path.join(container_path,"group_model","Proactive_interference_%s" % brain_flag)): os.makedirs(os.path.join(container_path,"group_model","Proactive_interference_%s" % brain_flag),exist_ok=True)
 #plot and save the figures 
+### Unweighted ###
 fig=sns.barplot(data=group_fidelity,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity (Target - Related (within condition))')
@@ -726,4 +726,45 @@ fig, test_results = add_stat_annotation(fig, data=group_all_target_RSA, x='Opera
                                    box_pairs=[("Maintain", "Replace"), ("Maintain", "Suppress"), ("Suppress", "Replace")],
                                    test='t-test_ind', text_format='star',loc='inside', verbose=2) 
 plt.savefig(os.path.join(container_path,"group_model","Proactive_interference_%s" % brain_flag,'Group_unweighted_target_RSA.png'))
+plt.clf() 
+
+### Item-Weighted ###
+fig=sns.barplot(data=iw_group_fidelity,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity (Target - Related (within condition))')
+fig.set_title('Unweighted (Group Level) - Proactive Interference')  
+fig, test_results = add_stat_annotation(fig, data=iw_group_fidelity, x='Operation', y='Fidelity',
+                                   box_pairs=[("Maintain", "Replace"), ("Maintain", "Suppress"), ("Suppress", "Replace")],
+                                   test='t-test_ind', text_format='star',loc='inside', verbose=2) 
+plt.savefig(os.path.join(container_path,"group_model","Proactive_interference_%s" % brain_flag,'Group_itemweighted_proactive_interference.png'))
+plt.clf() 
+
+fig=sns.barplot(data=iw_group_fidelity_all_trials,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity (Target - Related (within condition))')
+fig.set_title('Unweighted (all trials) - Proactive Interference')  
+fig, test_results = add_stat_annotation(fig, data=iw_group_fidelity_all_trials, x='Operation', y='Fidelity',
+                                   box_pairs=[("Maintain", "Replace"), ("Maintain", "Suppress"), ("Suppress", "Replace")],
+                                   test='t-test_ind', text_format='star',loc='inside', verbose=2) 
+plt.savefig(os.path.join(container_path,"group_model","Proactive_interference_%s" % brain_flag,'Group_itemweighted_proactive_interference_all_trials.png'))
+plt.clf() 
+
+fig=sns.barplot(data=iw_group_all_fidelity,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity (Target - Related (all other stims))')
+fig.set_title('Unweighted (Group Level) - Proactive Interference (compared to all stims)')  
+fig, test_results = add_stat_annotation(fig, data=iw_group_all_fidelity, x='Operation', y='Fidelity',
+                                   box_pairs=[("Maintain", "Replace"), ("Maintain", "Suppress"), ("Suppress", "Replace")],
+                                   test='t-test_ind', text_format='star',loc='inside', verbose=2) 
+plt.savefig(os.path.join(container_path,"group_model","Proactive_interference_%s" % brain_flag,'Group_itemweighted_proactive_interference_all_stims.png'))
+plt.clf() 
+
+fig=sns.barplot(data=iw_group_all_target_RSA,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
+fig.set_xlabel('Operations')
+fig.set_ylabel('Target-RSA')
+fig.set_title('Unweighted (Group Level) - target-RSA')  
+fig, test_results = add_stat_annotation(fig, data=iw_group_all_target_RSA, x='Operation', y='Fidelity',
+                                   box_pairs=[("Maintain", "Replace"), ("Maintain", "Suppress"), ("Suppress", "Replace")],
+                                   test='t-test_ind', text_format='star',loc='inside', verbose=2) 
+plt.savefig(os.path.join(container_path,"group_model","Proactive_interference_%s" % brain_flag,'Group_itemweighted_target_RSA.png'))
 plt.clf() 

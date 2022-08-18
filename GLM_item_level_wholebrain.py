@@ -13,7 +13,7 @@ from joblib import Parallel, delayed
 
 
 subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
-brain_flag='MNI'
+brain_flag='T1w'
 
 #code for the item level weighting for faces and scenes
 
@@ -28,7 +28,7 @@ def pad_contrast(contrast_, n_columns):
     return np.hstack((contrast_, np.zeros(n_columns - len(contrast_))))
 
 def confound_cleaner(confounds):
-    COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
+    COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_04','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
     for _c in confounds.columns:
         if 'cosine' in _c:
             COI.append(_c)
@@ -57,10 +57,10 @@ for subID in subs:
     bold_path=os.path.join(container_path,sub,'func/')
     os.chdir(bold_path)
   
-    #check to see if this subject was run already or not
-    if os.path.exists(os.path.join(container_path,sub,'preremoval_item_level_%s' % brain_flag,'scene_trial120_%s_full_report.html' % brain_flag)):
-        print('sub-0%s already ran! moving to the next sub' % subID)
-        continue
+    # #check to see if this subject was run already or not
+    # if os.path.exists(os.path.join(container_path,sub,'preremoval_item_level_%s' % brain_flag,'scene_trial120_%s_full_report.html' % brain_flag)):
+    #     print('sub-0%s already ran! moving to the next sub' % subID)
+    #     continue
 
     #set up the path to the files and then moved into that directory
 
