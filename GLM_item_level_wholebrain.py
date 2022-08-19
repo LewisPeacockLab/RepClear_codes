@@ -10,7 +10,8 @@ import fnmatch
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from datetime import date
+from datetime import datetime
+from datetime import timedelta
 from pathlib import Path
 
 
@@ -69,7 +70,7 @@ def GLM_item_level(subID):
     #check to see if this subject was run already or not
     if os.path.exists(os.path.join(container_path,sub,'preremoval_item_level_%s' % brain_flag,'scene_trial120_%s_full_report.html' % brain_flag)) and is_file_newer_than(os.path.join(container_path,sub,'preremoval_item_level_%s' % brain_flag,'scene_trial120_%s_full_report.html' % brain_flag), timedelta(days=14)):
         print('sub-0%s already ran! moving to the next sub' % subID)
-        continue
+        return
 
     #set up the path to the files and then moved into that directory
 
