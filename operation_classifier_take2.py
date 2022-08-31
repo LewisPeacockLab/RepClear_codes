@@ -1504,7 +1504,7 @@ def organize_memory_evidence_timewindow(subID,space,task,save=True):
 
     return avg_subject_early_remember_df, avg_subject_early_forgot_df, avg_subject_late_remember_df, avg_subject_late_forgot_df, avg_subject_remember_df, avg_subject_forgot_df
 
-def coef_stim_operation(subID,save=True):
+def coef_stim_operation(subID,save=True,content_oper=False):
     task = 'preremoval'
     task2 = 'study'
     space = 'MNI'
@@ -1609,6 +1609,25 @@ def coef_stim_operation(subID,save=True):
     subject_coef_df['sub']=subID
     subject_coef_df['condition']=np.repeat(['maintain','replace','suppress'],3)
 
+
+    #want to create and export a subject df for maintain/replace/suppress (both content and operation decoding)
+
+    sub_maintain_df=pd.DataFrame(columns=['sub','content','operation'])
+    sub_replace_df=pd.DataFrame(columns=['sub','content','operation'])
+    sub_suppress_df=pd.DataFrame(columns=['sub','content','operation'])
+
+    sub_maintain_df['content']=maintain_category_evi.reshape(1,-1)[0]
+    sub_replace_df['content']=replace_category_evi.reshape(1,-1)[0]
+    sub_suppress_df['content']=suppress_category_evi.reshape(1,-1)[0]
+
+    sub_maintain_df['operation']=maintain_overall_operation_evi.reshape(1,-1)[0]
+    sub_replace_df['operation']=replace_overall_operation_evi.reshape(1,-1)[0]
+    sub_suppress_df['operation']=suppress_overall_operation_evi.reshape(1,-1)[0]    
+
+    sub_maintain_df['sub']=subID
+    sub_replace_df['sub']=subID
+    sub_suppress_df['sub']=subID
+
     #first taking the beta from correlation between early/late operation evidence and category evidence during 2TR
     maintain_early_lr = LinearRegression().fit(maintain_early_operation_evi,maintain_category_evi)
     subject_coef_df.loc[0,'beta']=maintain_early_lr.coef_[0][0]
@@ -1650,7 +1669,10 @@ def coef_stim_operation(subID,save=True):
         print(f"\n Saving the AUC's from Operation along w/ Content evidence for {subID} - space: {space} - as {out_fname_template_auc}")
         auc_df.to_csv(os.path.join(sub_dir,out_fname_template_auc))
 
-    return subject_coef_df, auc_df
+    if content_oper:
+        return sub_maintain_df, sub_replace_df, sub_suppress_df
+    else:
+        return subject_coef_df, auc_df
 
 def coef_stim_memory_operation(subID,save=True):
     task = 'preremoval'
@@ -1975,3 +1997,190 @@ def visualize_coef_dfs_memory():
     plt.tight_layout()
     plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_forgotten_category_prediction.png'))
     plt.clf()  
+
+def permute_empericialnull():
+    group_auc_df=pd.DataFrame()
+    for subID in subIDs:
+        _, temp_df=coef_stim_operation(subID)
+        group_auc_df=pd.concat([group_auc_df,temp_df], sort=False)
+
+    maintain_auc_df=group_auc_df.loc['Maintain'][['AUC']]
+    replace_auc_df=group_auc_df.loc['Replace'][['AUC']]
+    suppress_auc_df=group_auc_df.loc['Suppress'][['AUC']]
+
+    maintain_content_df=group_auc_df.loc['Maintain'][['Content']]
+    replace_content_df=group_auc_df.loc['Replace'][['Content']]
+    suppress_content_df=group_auc_df.loc['Suppress'][['Content']]    
+
+    maintain_bootstrap=[]
+    replace_bootstrap=[]
+    suppress_bootstrap=[]
+
+    for i in range(0,10000):
+
+        maintain_itr_auc=resample(maintain_auc_df.values).reshape(-1,1)
+        maintain_itr_content=resample(maintain_content_df.values).reshape(-1,1)
+
+        replace_itr_auc=resample(replace_auc_df.values).reshape(-1,1)
+        replace_itr_content=resample(replace_content_df.values).reshape(-1,1)
+
+        suppress_itr_auc=resample(suppress_auc_df.values).reshape(-1,1)
+        suppress_itr_content=resample(suppress_content_df.values).reshape(-1,1)
+
+        maintain_bootstrap=np.append(maintain_bootstrap,LinearRegression().fit(maintain_itr_auc,maintain_itr_content).coef_[0][0])
+        replace_bootstrap=np.append(replace_bootstrap,LinearRegression().fit(replace_itr_auc,replace_itr_content).coef_[0][0])
+        suppress_bootstrap=np.append(suppress_bootstrap,LinearRegression().fit(suppress_itr_auc,suppress_itr_content).coef_[0][0])
+
+    true_maintain_beta=LinearRegression().fit(maintain_auc_df['AUC'].values.reshape(-1,1),maintain_content_df['Content'].values.reshape(-1,1)).coef_[0][0]
+    true_replace_beta=LinearRegression().fit(replace_auc_df['AUC'].values.reshape(-1,1),replace_content_df['Content'].values.reshape(-1,1)).coef_[0][0]
+    true_suppress_beta=LinearRegression().fit(suppress_auc_df['AUC'].values.reshape(-1,1),suppress_content_df['Content'].values.reshape(-1,1)).coef_[0][0]
+
+    ax=sns.histplot(maintain_bootstrap)
+    ax.axvline(np.percentile(maintain_bootstrap,97.5),0,ax.get_ylim()[1],color='k', linestyle='dashed', label='97.5% Boundary')
+    ax.set(xlabel='AUC vs. Content Betas', ylabel='Frequency')
+    ax.set_title(f'Emperical Null Distribution - Maintain AUC predicting Content Decoding',loc='center', wrap=True)
+    ax.axvline(true_maintain_beta,0,ax.get_ylim()[1],color='g', label='True Maintain Beta')    
+    ax.legend()    
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','null_dist_maintain_auc_content_prediction.png'))
+    plt.clf()
+
+    ax=sns.histplot(replace_bootstrap)
+    ax.axvline(np.percentile(replace_bootstrap,97.5),0,ax.get_ylim()[1],color='k', linestyle='dashed', label='97.5% Boundary')
+    ax.set(xlabel='AUC vs. Content Betas', ylabel='Frequency')
+    ax.set_title(f'Emperical Null Distribution - Replace AUC predicting Content Decoding',loc='center', wrap=True)
+    ax.axvline(true_suppress_beta,0,ax.get_ylim()[1],color='b', label='True Replace Beta')    
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','null_dist_replace_auc_content_prediction.png'))
+    plt.clf()
+
+    ax=sns.histplot(suppress_bootstrap)
+    ax.axvline(np.percentile(suppress_bootstrap,97.5),0,ax.get_ylim()[1],color='k', linestyle='dashed', label='97.5% Boundary')
+    ax.axvline(true_suppress_beta,0,ax.get_ylim()[1],color='r', label='True Suppress Beta')
+    ax.set(xlabel='AUC vs. Content Betas', ylabel='Frequency')
+    ax.set_title(f'Emperical Null Distribution - Suppress AUC predicting Content Decoding',loc='center', wrap=True)
+    ax.legend()    
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','null_dist_suppress_auc_content_prediction.png'))
+    plt.clf()    
+
+def bootstrap_content_oper():
+    group_maintain_df=pd.DataFrame()
+    group_replace_df=pd.DataFrame()
+    group_suppress_df=pd.DataFrame()
+    for subID in subIDs:
+        maintain_df,replace_df,suppress_df=coef_stim_operation(subID,content_oper=True)
+        group_maintain_df=pd.concat([group_maintain_df,maintain_df], sort=False)
+        group_replace_df=pd.concat([group_replace_df,replace_df], sort=False)
+        group_suppress_df=pd.concat([group_suppress_df,suppress_df], sort=False)        
+
+
+    maintain_operation_df=group_maintain_df[['operation']]
+    replace_operation_df=group_replace_df[['operation']]
+    suppress_operation_df=group_suppress_df[['operation']]
+
+    maintain_content_df=group_maintain_df[['content']]
+    replace_content_df=group_replace_df[['content']]
+    suppress_content_df=group_suppress_df[['content']]
+
+    maintain_itr_beta=[]
+    replace_itr_beta=[]
+    suppress_itr_beta=[]
+
+    for i in range(0,1000):
+        maintain_bootstrap_content=pd.DataFrame()
+        replace_bootstrap_content=pd.DataFrame()
+        suppress_bootstrap_content=pd.DataFrame()
+
+        maintain_bootstrap_operation=pd.DataFrame()
+        replace_bootstrap_operation=pd.DataFrame()
+        suppress_bootstrap_operation=pd.DataFrame()
+        for x in range(0,22):
+
+            maintain_itr_operation=resample(maintain_operation_df.values,n_samples=30).reshape(-1,1)
+            maintain_itr_content=resample(maintain_content_df.values,n_samples=30).reshape(-1,1)
+
+            replace_itr_operation=resample(replace_operation_df.values,n_samples=30).reshape(-1,1)
+            replace_itr_content=resample(replace_content_df.values,n_samples=30).reshape(-1,1)
+
+            suppress_itr_operation=resample(suppress_operation_df.values,n_samples=30).reshape(-1,1)
+            suppress_itr_content=resample(suppress_content_df.values,n_samples=30).reshape(-1,1)
+
+            maintain_itr=resample(group_maintain_df[['content','operation']],n_samples=30)
+            replace_itr=resample(group_replace_df[['content','operation']],n_samples=30)
+            suppress_itr=resample(group_suppress_df[['content','operation']],n_samples=30)
+
+            maintain_bootstrap_content=pd.concat((maintain_bootstrap_content,maintain_itr['content'].reset_index(drop=True)),axis=1,ignore_index=True)
+            replace_bootstrap_content=pd.concat((replace_bootstrap_content,replace_itr['content'].reset_index(drop=True)),axis=1,ignore_index=True)
+            suppress_bootstrap_content=pd.concat((suppress_bootstrap_content,suppress_itr['content'].reset_index(drop=True)),axis=1,ignore_index=True)
+
+            maintain_bootstrap_operation=pd.concat((maintain_bootstrap_operation,maintain_itr['operation'].reset_index(drop=True)),axis=1,ignore_index=True)
+            replace_bootstrap_operation=pd.concat((replace_bootstrap_operation,replace_itr['operation'].reset_index(drop=True)),axis=1,ignore_index=True)
+            suppress_bootstrap_operation=pd.concat((suppress_bootstrap_operation,suppress_itr['operation'].reset_index(drop=True)),axis=1,ignore_index=True)
+
+        maintain_itr_beta=np.append(maintain_itr_beta,LinearRegression().fit(maintain_bootstrap_operation.values.reshape(-1,1),maintain_bootstrap_content.values.reshape(-1,1)).coef_[0][0])
+        replace_itr_beta=np.append(replace_itr_beta,LinearRegression().fit(replace_bootstrap_operation.values.reshape(-1,1),replace_bootstrap_content.values.reshape(-1,1)).coef_[0][0])
+        suppress_itr_beta=np.append(suppress_itr_beta,LinearRegression().fit(suppress_bootstrap_operation.values.reshape(-1,1),suppress_bootstrap_content.values.reshape(-1,1)).coef_[0][0])
+
+    # group_true_maintain_beta=[]
+    # group_true_replace_beta=[]
+    # group_true_suppress_beta=[]
+    # for subID in subIDs:
+    #     true_maintain_beta=LinearRegression().fit(group_maintain_df[group_maintain_df['sub']==subID]['operation'].values.reshape(-1,1),group_maintain_df[group_maintain_df['sub']==subID]['content'].values.reshape(-1,1)).coef_[0][0]
+    #     true_replace_beta=LinearRegression().fit(group_replace_df[group_replace_df['sub']==subID]['operation'].values.reshape(-1,1),group_replace_df[group_replace_df['sub']==subID]['content'].values.reshape(-1,1)).coef_[0][0]
+    #     true_suppress_beta=LinearRegression().fit(group_suppress_df[group_suppress_df['sub']==subID]['operation'].values.reshape(-1,1),group_suppress_df[group_suppress_df['sub']==subID]['content'].values.reshape(-1,1)).coef_[0][0]
+
+    #     group_true_maintain_beta=np.append(group_true_maintain_beta,true_maintain_beta)
+    #     group_true_replace_beta=np.append(group_true_replace_beta,true_replace_beta)
+    #     group_true_suppress_beta=np.append(group_true_suppress_beta,true_suppress_beta)
+
+    true_maintain_beta=LinearRegression().fit(group_maintain_df['operation'].values.reshape(-1,1),group_maintain_df['content'].values.reshape(-1,1)).coef_[0][0]
+    true_replace_beta=LinearRegression().fit(group_replace_df['operation'].values.reshape(-1,1),group_replace_df['content'].values.reshape(-1,1)).coef_[0][0]
+    true_suppress_beta=LinearRegression().fit(group_suppress_df['operation'].values.reshape(-1,1),group_suppress_df['content'].values.reshape(-1,1)).coef_[0][0]
+
+
+    ax=sns.histplot(maintain_itr_beta)
+    ax.axvline(0,0,ax.get_ylim()[1],color='k', linestyle='dashed')
+    ax.set(xlabel='Operation vs. Content Betas', ylabel='Frequency')
+    ax.set_title(f'SuperSub Bootstrap - Maintain Evidence predicting Content Decoding',loc='center', wrap=True)
+    ax.axvline(true_maintain_beta,0,ax.get_ylim()[1],color='g', label='True Maintain Beta')    
+    ax.legend()    
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','supersub_maintain_operation_content_prediction.png'))
+    plt.clf()
+
+    ax=sns.histplot(replace_itr_beta)
+    ax.axvline(0,0,ax.get_ylim()[1],color='k', linestyle='dashed')
+    ax.set(xlabel='Operation vs. Content Betas', ylabel='Frequency')
+    ax.set_title(f'SuperSub Bootstrap - Replace Evidence predicting Content Decoding',loc='center', wrap=True)
+    ax.axvline(true_replace_beta,0,ax.get_ylim()[1],color='b', label='True Replace Beta')    
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','supersub_replace_operation_content_prediction.png'))
+    plt.clf()
+
+    ax=sns.histplot(suppress_itr_beta)
+    ax.axvline(0,0,ax.get_ylim()[1],color='k', linestyle='dashed')
+    ax.axvline(true_suppress_beta.mean(),0,ax.get_ylim()[1],color='r', label='True Suppress Beta')
+    ax.set(xlabel='Operation vs. Content Betas', ylabel='Frequency')
+    ax.set_title(f'SuperSub Bootstrap - Suppress Evidence predicting Content Decoding',loc='center', wrap=True)
+    ax.legend()    
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','supersub_suppress_operation_content_prediction.png'))
+    plt.clf()    
+
+    maintain_prop=sum(maintain_itr_beta>0)/len(maintain_itr_beta)
+    replace_prop=sum(replace_itr_beta>0)/len(replace_itr_beta)
+    suppress_prop=sum(suppress_itr_beta>0)/len(suppress_itr_beta)
+
+    proportion_df=pd.DataFrame(columns=['proportion','operation'])
+    proportion_df['operation']=['maintain','replace','suppress']
+    proportion_df['proportion']=[maintain_prop,replace_prop,suppress_prop]
+
+    ax=sns.barplot(data=proportion_df, x='operation', y='proportion', palette=['green','blue','red'])
+    ax.set(xlabel='Operation', ylabel='Proportion of Iterations >0')
+    ax.set_title('Proportion of bootstrapped iterations >0 Beta (Operation vs. Content Decoding)', loc='center',wrap=True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','proportion_bootstrapping_prediction.png'))
+

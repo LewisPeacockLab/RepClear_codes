@@ -732,7 +732,7 @@ plt.clf()
 fig=sns.barplot(data=iw_group_fidelity,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity (Target - Related (within condition))')
-fig.set_title('Unweighted (Group Level) - Proactive Interference')  
+fig.set_title('Item-weighted (Group Level) - Proactive Interference')  
 fig, test_results = add_stat_annotation(fig, data=iw_group_fidelity, x='Operation', y='Fidelity',
                                    box_pairs=[("Maintain", "Replace"), ("Maintain", "Suppress"), ("Suppress", "Replace")],
                                    test='t-test_ind', text_format='star',loc='inside', verbose=2) 
@@ -742,7 +742,7 @@ plt.clf()
 fig=sns.barplot(data=iw_group_fidelity_all_trials,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity (Target - Related (within condition))')
-fig.set_title('Unweighted (all trials) - Proactive Interference')  
+fig.set_title('Item-weighted (all trials) - Proactive Interference')  
 fig, test_results = add_stat_annotation(fig, data=iw_group_fidelity_all_trials, x='Operation', y='Fidelity',
                                    box_pairs=[("Maintain", "Replace"), ("Maintain", "Suppress"), ("Suppress", "Replace")],
                                    test='t-test_ind', text_format='star',loc='inside', verbose=2) 
@@ -752,7 +752,7 @@ plt.clf()
 fig=sns.barplot(data=iw_group_all_fidelity,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
 fig.set_xlabel('Operations')
 fig.set_ylabel('Fidelity (Target - Related (all other stims))')
-fig.set_title('Unweighted (Group Level) - Proactive Interference (compared to all stims)')  
+fig.set_title('Item-weighted (Group Level) - Proactive Interference (compared to all stims)')  
 fig, test_results = add_stat_annotation(fig, data=iw_group_all_fidelity, x='Operation', y='Fidelity',
                                    box_pairs=[("Maintain", "Replace"), ("Maintain", "Suppress"), ("Suppress", "Replace")],
                                    test='t-test_ind', text_format='star',loc='inside', verbose=2) 
@@ -762,7 +762,7 @@ plt.clf()
 fig=sns.barplot(data=iw_group_all_target_RSA,x='Operation',y='Fidelity',ci=95,palette=['green','blue','red'])
 fig.set_xlabel('Operations')
 fig.set_ylabel('Target-RSA')
-fig.set_title('Unweighted (Group Level) - target-RSA')  
+fig.set_title('Item-weighted (Group Level) - target-RSA')  
 fig, test_results = add_stat_annotation(fig, data=iw_group_all_target_RSA, x='Operation', y='Fidelity',
                                    box_pairs=[("Maintain", "Replace"), ("Maintain", "Suppress"), ("Suppress", "Replace")],
                                    test='t-test_ind', text_format='star',loc='inside', verbose=2) 
