@@ -274,6 +274,10 @@ for subID in subs:
     s_item_weighted_study_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
     s_item_weighted_pre_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
 
+    maintain_subcate=np.zeros_like(masked_bolds_arr_1[:30,:])
+    replace_subcate=np.zeros_like(masked_bolds_arr_1[:30,:])
+    suppress_subcate=np.zeros_like(masked_bolds_arr_1[:30,:])
+
     for trial in sorted_study_scene_order['trial_id'].values: 
 
         #Bolds_arr_2 is in trial order
@@ -293,6 +297,8 @@ for subID in subs:
             m_item_weighted_study_comp[m_counter]=np.multiply(masked_bolds_arr_2[trial-1,:],masked_weights_arr[pre_trial_num-1,:])
             m_item_weighted_pre_comp[m_counter]=np.multiply(masked_bolds_arr_1[pre_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])
 
+            maintain_subcate[m_counter]=pre_trial_subcat
+
             m_counter=m_counter+1
         elif image_condition==2:
             r_item_repress_study_comp[r_counter]=masked_bolds_arr_2[trial-1,:]
@@ -300,13 +306,19 @@ for subID in subs:
 
             r_item_weighted_study_comp[r_counter]=np.multiply(masked_bolds_arr_2[trial-1,:],masked_weights_arr[pre_trial_num-1,:])
             r_item_weighted_pre_comp[r_counter]=np.multiply(masked_bolds_arr_1[pre_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])
+
+            replace_subcate[r_counter]=pre_trial_subcat
+
             r_counter=r_counter+1    
         elif image_condition==3:
             s_item_repress_study_comp[s_counter]=masked_bolds_arr_2[trial-1,:]
             s_item_repress_pre_comp[s_counter]=masked_bolds_arr_1[pre_trial_num-1,:]
 
             s_item_weighted_study_comp[s_counter]=np.multiply(masked_bolds_arr_2[trial-1,:],masked_weights_arr[pre_trial_num-1,:])
-            s_item_weighted_pre_comp[s_counter]=np.multiply(masked_bolds_arr_1[pre_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])            
+            s_item_weighted_pre_comp[s_counter]=np.multiply(masked_bolds_arr_1[pre_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])     
+
+            suppress_subcate[s_counter]=pre_trial_subcat
+       
             s_counter=s_counter+1                  
 
     #so based on the design, and sorting by the operation on the previous trials we are left with 30 suppress trials, 29 replace and 28 maintain
@@ -334,6 +346,10 @@ for subID in subs:
     s_item_weighted_study_comp=s_item_weighted_study_comp[:28]
 
     s_item_weighted_pre_comp=s_item_weighted_pre_comp[:28]    
+
+    maintain_subcate=maintain_subcate[:28]
+    replace_subcate=replace_subcate[:28]
+    suppress_subcate=suppress_subcate[:28]
 
     #also want to combine across the conditions so we can look at corr across all items and not just same operation
 
@@ -394,6 +410,9 @@ for subID in subs:
         temp_same=m_item_pre_study_comp[i][index_interest]
         temp_iw_same=m_item_weighted_pre_study_comp[i][index_interest]
 
+        #need to update this code to check for that trial's subcategory, and derive the "diff_array" from the index of the other subcategory items
+        curr_subcate=maintain_subcate[i]
+
         diff_array=np.append((m_item_pre_study_comp[i][28:index_interest]), (m_item_pre_study_comp[i][index_interest+1:]))
         diff_iw_array=np.append((m_item_weighted_pre_study_comp[i][28:index_interest]),(m_item_weighted_pre_study_comp[i][index_interest+1:]))
 
@@ -420,6 +439,9 @@ for subID in subs:
         temp_same=r_item_pre_study_comp[i][index_interest]
         temp_iw_same=r_item_weighted_pre_study_comp[i][index_interest]
 
+        #need to update this code to check for that trial's subcategory, and derive the "diff_array" from the index of the other subcategory items
+        curr_subcate=replace_subcate[i]        
+
         diff_array=np.append((r_item_pre_study_comp[i][28:index_interest]), (r_item_pre_study_comp[i][index_interest+1:]))
         diff_iw_array=np.append((r_item_weighted_pre_study_comp[i][28:index_interest]),(r_item_weighted_pre_study_comp[i][index_interest+1:]))
 
@@ -445,6 +467,9 @@ for subID in subs:
         index_interest=i+28
         temp_same=s_item_pre_study_comp[i][index_interest]
         temp_iw_same=s_item_weighted_pre_study_comp[i][index_interest]
+
+        #need to update this code to check for that trial's subcategory, and derive the "diff_array" from the index of the other subcategory items
+        curr_subcate=suppress_subcate[i]
 
         diff_array=np.append((s_item_pre_study_comp[i][28:index_interest]), (s_item_pre_study_comp[i][index_interest+1:]))
         diff_iw_array=np.append((s_item_weighted_pre_study_comp[i][28:index_interest]),(s_item_weighted_pre_study_comp[i][index_interest+1:]))
