@@ -68,6 +68,9 @@ param_dir =  '/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep
 
 #the subject's list of image number to trial numbers are in the "subject_designs" folder
 
+#Version 1 = Taking the comparison between Target item and all other stims
+#Version 2 = Taking the comparison between Target and Related (constrained to within operation and across subcategory)
+
 for subID in subs:
     print('Running sub-0%s...' %subID)
     #define the subject
@@ -274,9 +277,9 @@ for subID in subs:
     s_item_weighted_study_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
     s_item_weighted_pre_comp=np.zeros_like(masked_bolds_arr_1[:30,:])
 
-    maintain_subcate=np.zeros_like(masked_bolds_arr_1[:30,:])
-    replace_subcate=np.zeros_like(masked_bolds_arr_1[:30,:])
-    suppress_subcate=np.zeros_like(masked_bolds_arr_1[:30,:])
+    maintain_subcate=np.zeros(30)
+    replace_subcate=np.zeros(30)
+    suppress_subcate=np.zeros(30)
 
     for trial in sorted_study_scene_order['trial_id'].values: 
 
@@ -285,10 +288,11 @@ for subID in subs:
         if (trial==1) or (trial==31) or (trial==61):
             continue
         image_condition=sorted_study_scene_order[sorted_study_scene_order['trial_id']==(trial-1)]['condition'].tolist()[0]
+        trial_subcat=sorted_study_scene_order[sorted_study_scene_order['image_id']==(study_image_id)]['subcategory'].tolist()[0]
 
         pre_trial_index=pre_scene_order.index[pre_scene_order['image_id']==study_image_id].tolist()[0] #find the index in the pre for this study trial
         pre_trial_num = pre_scene_order.loc[pre_trial_index,'trial_id']
-        pre_trial_subcat = pre_scene_order.loc[pre_trial_index,'subcategory']
+        #pre_trial_subcat = pre_scene_order.loc[pre_trial_index,'subcategory']
 
         if image_condition==1:
             m_item_repress_study_comp[m_counter]=masked_bolds_arr_2[trial-1,:]
@@ -297,7 +301,7 @@ for subID in subs:
             m_item_weighted_study_comp[m_counter]=np.multiply(masked_bolds_arr_2[trial-1,:],masked_weights_arr[pre_trial_num-1,:])
             m_item_weighted_pre_comp[m_counter]=np.multiply(masked_bolds_arr_1[pre_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])
 
-            maintain_subcate[m_counter]=pre_trial_subcat
+            maintain_subcate[m_counter]=trial_subcat
 
             m_counter=m_counter+1
         elif image_condition==2:
@@ -307,7 +311,7 @@ for subID in subs:
             r_item_weighted_study_comp[r_counter]=np.multiply(masked_bolds_arr_2[trial-1,:],masked_weights_arr[pre_trial_num-1,:])
             r_item_weighted_pre_comp[r_counter]=np.multiply(masked_bolds_arr_1[pre_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])
 
-            replace_subcate[r_counter]=pre_trial_subcat
+            replace_subcate[r_counter]=trial_subcat
 
             r_counter=r_counter+1    
         elif image_condition==3:
@@ -317,7 +321,7 @@ for subID in subs:
             s_item_weighted_study_comp[s_counter]=np.multiply(masked_bolds_arr_2[trial-1,:],masked_weights_arr[pre_trial_num-1,:])
             s_item_weighted_pre_comp[s_counter]=np.multiply(masked_bolds_arr_1[pre_trial_num-1,:],masked_weights_arr[pre_trial_num-1,:])     
 
-            suppress_subcate[s_counter]=pre_trial_subcat
+            suppress_subcate[s_counter]=trial_subcat
        
             s_counter=s_counter+1                  
 
@@ -410,11 +414,18 @@ for subID in subs:
         temp_same=m_item_pre_study_comp[i][index_interest]
         temp_iw_same=m_item_weighted_pre_study_comp[i][index_interest]
 
-        #need to update this code to check for that trial's subcategory, and derive the "diff_array" from the index of the other subcategory items
+        #code to check for that trial's subcategory, and derive the "diff_array" from the index of the other subcategory items
+        #one issue is that since design was made to balance subcategory within CURRENT trial, when sorting retroactively (N-1) this balance isnt maintained
         curr_subcate=maintain_subcate[i]
 
-        diff_array=np.append((m_item_pre_study_comp[i][28:index_interest]), (m_item_pre_study_comp[i][index_interest+1:]))
-        diff_iw_array=np.append((m_item_weighted_pre_study_comp[i][28:index_interest]),(m_item_weighted_pre_study_comp[i][index_interest+1:]))
+        #this is the older version where I took the average of the corr to other items in the operation... it was changes to filter for subcategory
+        # diff_array=np.append((m_item_pre_study_comp[i][28:index_interest]), (m_item_pre_study_comp[i][index_interest+1:]))
+        # diff_iw_array=np.append((m_item_weighted_pre_study_comp[i][28:index_interest]),(m_item_weighted_pre_study_comp[i][index_interest+1:]))
+
+        diff_index=np.where(maintain_subcate!=curr_subcate)[0]+28 #add 28, to index to the study items and not localizer items, and get the index of the items of the other subcategory
+
+        diff_array=m_item_pre_study_comp[i][diff_index]
+        diff_iw_array=m_item_weighted_pre_study_comp[i][diff_index]
 
         temp_different=diff_array.mean()
         temp_iw_different=diff_iw_array.mean()
@@ -439,11 +450,17 @@ for subID in subs:
         temp_same=r_item_pre_study_comp[i][index_interest]
         temp_iw_same=r_item_weighted_pre_study_comp[i][index_interest]
 
-        #need to update this code to check for that trial's subcategory, and derive the "diff_array" from the index of the other subcategory items
+        #code to check for that trial's subcategory, and derive the "diff_array" from the index of the other subcategory items
         curr_subcate=replace_subcate[i]        
 
-        diff_array=np.append((r_item_pre_study_comp[i][28:index_interest]), (r_item_pre_study_comp[i][index_interest+1:]))
-        diff_iw_array=np.append((r_item_weighted_pre_study_comp[i][28:index_interest]),(r_item_weighted_pre_study_comp[i][index_interest+1:]))
+        #this is the older version where I took the average of the corr to other items in the operation... it was changes to filter for subcategory
+        # diff_array=np.append((r_item_pre_study_comp[i][28:index_interest]), (r_item_pre_study_comp[i][index_interest+1:]))
+        # diff_iw_array=np.append((r_item_weighted_pre_study_comp[i][28:index_interest]),(r_item_weighted_pre_study_comp[i][index_interest+1:]))
+
+        diff_index=np.where(replace_subcate!=curr_subcate)[0]+28 #add 28, to index to the study items and not localizer items, and get the index of the items of the other subcategory
+
+        diff_array=r_item_pre_study_comp[i][diff_index]
+        diff_iw_array=r_item_weighted_pre_study_comp[i][diff_index]
 
         temp_different=diff_array.mean()
         temp_iw_different=diff_iw_array.mean()
@@ -468,11 +485,17 @@ for subID in subs:
         temp_same=s_item_pre_study_comp[i][index_interest]
         temp_iw_same=s_item_weighted_pre_study_comp[i][index_interest]
 
-        #need to update this code to check for that trial's subcategory, and derive the "diff_array" from the index of the other subcategory items
+        #code to check for that trial's subcategory, and derive the "diff_array" from the index of the other subcategory items
         curr_subcate=suppress_subcate[i]
 
-        diff_array=np.append((s_item_pre_study_comp[i][28:index_interest]), (s_item_pre_study_comp[i][index_interest+1:]))
-        diff_iw_array=np.append((s_item_weighted_pre_study_comp[i][28:index_interest]),(s_item_weighted_pre_study_comp[i][index_interest+1:]))
+        #this is the older version where I took the average of the corr to other items in the operation... it was changes to filter for subcategory
+        # diff_array=np.append((s_item_pre_study_comp[i][28:index_interest]), (s_item_pre_study_comp[i][index_interest+1:]))
+        # diff_iw_array=np.append((s_item_weighted_pre_study_comp[i][28:index_interest]),(s_item_weighted_pre_study_comp[i][index_interest+1:]))
+
+        diff_index=np.where(suppress_subcate!=curr_subcate)[0]+28 #add 28, to index to the study items and not localizer items, and get the index of the items of the other subcategory
+
+        diff_array=s_item_pre_study_comp[i][diff_index]
+        diff_iw_array=s_item_weighted_pre_study_comp[i][diff_index]
 
         temp_different=diff_array.mean()
         temp_iw_different=diff_iw_array.mean()
