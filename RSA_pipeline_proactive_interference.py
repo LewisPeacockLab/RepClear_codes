@@ -34,7 +34,7 @@ from statannot import add_stat_annotation
 
 
 subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
-brain_flag='T1w'
+brain_flag='MNI'
 stim_labels = {0: "Rest",
                 1: "Scenes",
                 2: "Faces"}
