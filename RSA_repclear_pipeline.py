@@ -31,6 +31,7 @@ from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score
 from joblib import Parallel, delayed
 from statannot import add_stat_annotation
+from statsmodels.stats.anova import AnovaRM
 
 
 subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
@@ -951,6 +952,7 @@ for subID in subs:
     itemw_remembered_df=pd.DataFrame(columns=['maintain','replace','suppress','preexp'],index=range(0,30))
     itemw_forgot_df=pd.DataFrame(columns=['maintain','replace','suppress','preexp'],index=range(0,30))
 
+    itemw_study_post_remember_df=pd.DataFrame(columns=['maintain','replace','suppress'],index=range(0,30))
     itemw_study_post_forgot_df=pd.DataFrame(columns=['maintain','replace','suppress'],index=range(0,30))
 
     operation_list=np.repeat(['maintain','replace','suppress'],30)

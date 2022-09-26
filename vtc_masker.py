@@ -20,8 +20,8 @@ from sklearn.model_selection import PredefinedSplit, cross_validate, cross_val_p
 from sklearn.feature_selection import VarianceThreshold, f_classif, SelectKBest
 from sklearn.preprocessing import StandardScaler
 
-#subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25']
-subs=['26']
+subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25']
+#subs=['26']
 
 brain_flags=['T1w','MNI']  #or MNI
 task_flags=['preremoval','study','postremoval'] #preremoval, study, postremoval 
