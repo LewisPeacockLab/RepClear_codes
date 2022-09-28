@@ -307,6 +307,7 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False, balance=False, un
         X_train, X_test, y_train, y_test = X[train_inds], X[test_inds], Y[train_inds], Y[test_inds]
         #using random under sampling here to reduce learning set:
         if under_sample:
+            print('*** Random Under Sampling of unbalanced classes ***')
             rus = RandomUnderSampler(random_state=42, sampling_strategy='auto')
             X_res, y_res = rus.fit_resample(X_train, y_train)
 
@@ -341,11 +342,20 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False, balance=False, un
 
         # refit with full data and optimal penalty value
         if balance:
+            print('balancing classes via class-weights')
             lr = LogisticRegression(penalty='l2', solver='lbfgs', C=best_Cs[-1],max_iter=1000, class_weight='balanced')
         else:
             lr = LogisticRegression(penalty='l2', solver='lbfgs', C=best_Cs[-1],max_iter=1000)            
-        lr.fit(X_train_sub, y_train)
+        
+        if under_sample:
+            print('*** Fitting full model ***')
+            lr.fit(X_train_sub, y_res)
+        else:
+            print('*** Fitting full model ***')            
+            lr.fit(X_train_sub, y_train)
+
         # test on held out data
+        print('*** Testing on held out data and scoring results ***')
         score = lr.score(X_test_sub, y_test)
 
         y_score = lr.decision_function(X_test_sub)
@@ -498,7 +508,7 @@ def classification(subID):
     shift_size_TR = shift_sizes_TR[0]
     rest_tag = 0
 
-    print(f"\n***** Running category level classification for sub {subID} {task} {space} with ROIs {ROIs}...")
+    print(f"\n***** Running operation classification for sub {subID} {task} {space} with ROIs {ROIs}...")
 
     # get data:
     full_data = load_process_data(subID, task, space, ROIs)
@@ -518,18 +528,19 @@ def classification(subID):
     evidence = []
 
     X, Y, runs, imgs = sample_for_training(full_data, label_df)
-    
+    if sum(Y=='maintain_f')<11:
+        (print('Subject does not have enough Forgotten Maintain Trials'))
     print(f"Running model fitting and cross-validation...")
 
     # model fitting 
-    score, auc_score, cm, evidence, roc_auc, tested_labels, y_scores = fit_model(X, Y, runs, save=False, v=True, balance=True, under_sample=False)
+    #score, auc_score, cm, evidence, roc_auc, tested_labels, y_scores = fit_model(X, Y, runs, save=False, v=True, balance=True, under_sample=False)
 
     #under_sample variant
     score, auc_score, cm, evidence, roc_auc, tested_labels, y_scores = fit_model(X, Y, runs, save=False, v=True, balance=False, under_sample=True)
 
     mean_score=score.mean()
 
-    print(f"\n***** Average results for sub {subID} - {task} - {space}: Score={mean_score} ")
+    print(f"\n***** Average results of Operation Success Classification for sub {subID} - {task} - {space}: Score={mean_score} ")
 
     #want to save the AUC results in such a way that I can also add in the content average later:
     auc_df=pd.DataFrame(columns=['AUC','Content','Sub'],index=['Maintain_R','Maintain_F','Suppress_R','Suppress_F'])
@@ -560,6 +571,164 @@ def classification(subID):
     out_fname_template = f"sub-{subID}_{space}_{task}_operation_memoryoutcome_evidence.csv"            
     print("\n *** Saving evidence values with subject dataframe ***")
     evidence_df.to_csv(os.path.join(sub_dir,out_fname_template))        
+
+def binary_classification(subID,condition):
+    task = 'study'
+    space = 'MNI' #T1w
+    ROIs = ['wholebrain']
+    n_iters = 1
+
+    shift_size_TR = shift_sizes_TR[0]
+    rest_tag = 0
+
+    print(f"\n***** Running {condition} classification for sub {subID} {task} {space} with ROIs {ROIs}...")
+
+    # get data:
+    full_data = load_process_data(subID, task, space, ROIs)
+    print(f"Full_data shape: {full_data.shape}")
+
+    # get labels:
+    label_df = get_shifted_labels(task, shift_size_TR, rest_tag)
+    print(f"Category label shape: {label_df.shape}")
+
+    assert len(full_data) == len(label_df), \
+        f"Length of data ({len(full_data)}) does not match Length of labels ({len(label_df)})!"
+    
+    # cross run xval
+    scores = []
+    auc_scores = []
+    cms = []
+    evidence = []
+
+    X, Y, runs, imgs = sample_for_binarytraining(full_data, label_df, condition)
+
+
+
+    print(f"Running model fitting and cross-validation...")
+
+    # model fitting 
+    #score, auc_score, cm, evidence, roc_auc, tested_labels, y_scores = fit_model(X, Y, runs, save=False, v=True, balance=True, under_sample=False)
+
+    #under_sample variant
+    score, auc_score, cm, evidence, roc_auc, tested_labels, y_scores = fit_model(X, Y, runs, save=False, v=True, balance=False, under_sample=True)
+
+    mean_score=score.mean()
+
+    print(f"\n***** Average results of Operation Success Classification for sub {subID} - {task} - {space}: Score={mean_score} ")
+
+    #want to save the AUC results in such a way that I can also add in the content average later:
+    auc_df=pd.DataFrame(columns=['AUC','Content','Sub'],index=['Maintain_R','Maintain_F','Suppress_R','Suppress_F'])
+    auc_df.loc['Maintain_R']['AUC']=roc_auc.loc[:,0].mean() #Because the above script calculates these based on a leave-one-run-out. We will have an AUC for Maintain, Replace and Suppress per iteration (3 total). So taking the mean of each operation
+    auc_df.loc['Maintain_F']['AUC']=roc_auc.loc[:,1].mean()
+    auc_df.loc['Suppress_R']['AUC']=roc_auc.loc[:,2].mean()
+    auc_df.loc['Suppress_F']['AUC']=roc_auc.loc[:,3].mean()    
+    auc_df['Sub']=subID
+
+    sub_dir = os.path.join(data_dir, f"sub-{subID}")
+    out_fname_template_auc = f"sub-{subID}_{space}_{task}_operation_memoryoutcome_auc.csv"            
+    print("\n *** Saving AUC values with subject dataframe ***")
+    auc_df.to_csv(os.path.join(sub_dir,out_fname_template_auc))    
+
+    #need to then save the evidence:
+    evidence_df=pd.DataFrame(columns=['runs','operation','image_id']) #take the study DF for this subject
+    evidence_df['runs']=runs
+    evidence_df['operation']=Y
+    evidence_df['image_id']=imgs
+    evidence_df['maintain_R_evi']=np.vstack(evidence)[:,0] #add in the evidence values for maintain_R
+    evidence_df['maintain_F_evi']=np.vstack(evidence)[:,1] #add in the evidence values for maintain_F
+    evidence_df['suppress_R_evi']=np.vstack(evidence)[:,2] #add in the evidence values for suppress_R
+    evidence_df['suppress_F_evi']=np.vstack(evidence)[:,3] #add in the evidence values for suppress_F
+
+
+    #this will export the subject level evidence to the subject's folder
+    sub_dir = os.path.join(data_dir, f"sub-{subID}")
+    out_fname_template = f"sub-{subID}_{space}_{task}_operation_memoryoutcome_evidence.csv"            
+    print("\n *** Saving evidence values with subject dataframe ***")
+    evidence_df.to_csv(os.path.join(sub_dir,out_fname_template))        
+
+def sample_for_binarytraining(full_data, label_df, condition, include_rest=False):
+    """
+    sample data by runs. 
+    Return: sampled labels and bold data
+    """ 
+
+    #sampling the remembered and forgotten for a given condition 
+    print("\n***** Subsampling data points by runs...")
+
+    category_list = label_df['condition']
+    accuracy_list = label_df['accuracy']
+    stim_on = label_df['stim_present']
+    run_list = label_df['run']
+    image_list = label_df['image_id']
+
+    # get faces
+    oper_inds = np.where((stim_on == 2) | (stim_on == 3))[0]
+
+    remember_inds = np.where((accuracy_list == 1))[0]
+    forgot_inds = np.where((accuracy_list == 0))[0]
+
+    rest_inds = []
+
+    runs = run_list.unique()[1:]
+
+    if include_rest:
+        print("Including resting category...")
+        # get TR intervals for rest TRs between stims (stim_on == 2)
+        rest_bools = ((run_list == runi) | (run_list == runj)) & (stim_on == 2)
+        padded_bools = np.r_[False, rest_bools, False]  # pad the rest_bools 1 TR before and after to separate it from trial information
+        rest_diff = np.diff(padded_bools)  # get the pairwise diff in the array --> True for start and end indices of rest periods
+        rest_intervals = rest_diff.nonzero()[0].reshape((-1,2))  # each pair is the interval of rest periods
+
+        # get desired time points in the middle of rest periods for rest samples; if 0.5, round up
+        rest_intervals[:,-1] -= 1
+        rest_inds = [np.ceil(np.average(interval)).astype(int) for interval in rest_intervals] + \
+                    [np.ceil(np.average(interval)).astype(int)+1 for interval in rest_intervals]
+
+    operation_reg=[]
+    keep_inds=[]
+    for i in oper_inds:
+        if condition == 'maintain':
+            if (category_list.values[i]==1) & (accuracy_list.values[i]==1):
+                operation_reg.append('maintain_r') #Maintain-Remembered label
+                keep_inds.append(i)
+
+            elif (category_list.values[i]==1) & (accuracy_list.values[i]==0):
+                operation_reg.append('maintain_f') #Maintain-Forgot label
+                keep_inds.append(i)
+
+        elif condition == 'suppress':
+            if (category_list.values[i]==3) & (accuracy_list.values[i]==1):
+                operation_reg.append('suppress_r') #Suppress-Remembered label
+                keep_inds.append(i)
+
+            elif (category_list.values[i]==3) & (accuracy_list.values[i]==0):
+                operation_reg.append('suppress_f') #Suppress-Forgot label
+                keep_inds.append(i)
+
+        elif condition == 'replace':
+            if (category_list.values[i]==2) & (accuracy_list.values[i]==1):
+                operation_reg.append('replace_r') #Suppress-Remembered label
+                keep_inds.append(i)                
+
+            elif (category_list.values[i]==2) & (accuracy_list.values[i]==0):
+                operation_reg.append('replace_f') #Suppress-Forgot label
+                keep_inds.append(i)
+
+    # operation_reg=category_list.values[oper_inds]
+    run_reg=run_list.values[keep_inds]
+    image_reg = image_list.values[keep_inds]
+
+    # === get sample_bold & sample_regressor
+    sample_bold = []
+    sample_runs = run_reg
+
+    sample_bold = full_data[keep_inds]
+
+    #add in code to handle new labeling:
+    operation_reg=np.asarray(operation_reg)
+    sample_regressor = operation_reg
+
+    return sample_bold, sample_regressor, sample_runs, image_reg
 
 def organize_evidence(subID,space,task,save=True):
     ROIs = ['wholebrain']
