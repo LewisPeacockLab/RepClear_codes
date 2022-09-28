@@ -1,4 +1,4 @@
-#Operation Classifier during Study phase
+#Operation Classifier during Study phase - Maintain +/- & Suppress +/-
 import warnings
 import sys
 # if not sys.warnoptions:
@@ -19,9 +19,10 @@ import seaborn as sns
 cmap = sns.color_palette("crest", as_cmap=True)
 import fnmatch
 import pickle
+from imblearn.under_sampling import RandomUnderSampler
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV, LinearRegression
-from sklearn.model_selection import GridSearchCV, LeaveOneGroupOut, PredefinedSplit  #train_test_split, PredefinedSplit, cross_validate, cross_val_predict, 
+from sklearn.model_selection import GridSearchCV, LeaveOneGroupOut, PredefinedSplit, StratifiedKFold  #train_test_split, PredefinedSplit, cross_validate, cross_val_predict, 
 from sklearn.feature_selection import SelectFpr, f_classif  #VarianceThreshold, SelectKBest, 
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import resample
@@ -72,6 +73,11 @@ def confound_cleaner(confounds):
     confounds = confounds[COI]
     confounds.loc[0,'framewise_displacement'] = confounds.loc[1:,'framewise_displacement'].mean()
     return confounds  
+
+#function to find the intersection between two lists
+def intersection(lst1, lst2):
+    lst3 = [value for value in lst1 if value in lst2]
+    return lst3
 
 #this function takes the mask data and applies it to the bold data
 def apply_mask(mask=None,target=None):
@@ -258,11 +264,27 @@ def get_shifted_labels(task, shift_size_TR, rest_tag=0):
     sub_design_file=find(sub_design,subject_design_dir)
     sub_design_matrix = pd.read_csv(sub_design_file[0]) #this is the correct, TR by TR list of what happened during this subject's study phase
 
+    #now need to pull in the memory results:
+    sub_memory=(f'memory_and_familiar*{subID}*')
+    sub_memory_file=find(sub_memory,subject_design_dir)
+    sub_memory_matrix= pd.read_csv(sub_memory_file[0])
+
     shifted_df = shift_timing(sub_design_matrix, shift_size_TR, rest_tag)
+    shifted_df.reset_index(drop=True,inplace=True) #reset the index to use in the following loop
+
+    #this loop now goes through each index of the dataframe with our labels, and uses the memory file of that subject to insert the results for each image
+    #this will then allow us to pull out the remembered and forgotten versions of the operations as a label
+    for i in range(len(shifted_df)):
+        temp_image_id=shifted_df['image_id'][i]
+        if temp_image_id==0:
+            continue
+        else:
+            temp_memory=sub_memory_matrix[sub_memory_matrix['image_num']==temp_image_id]['memory'].values[0]
+        shifted_df.loc[shifted_df['image_id']==temp_image_id,'accuracy']=temp_memory
 
     return shifted_df 
 
-def fit_model(X, Y, runs, save=False, out_fname=None, v=False):
+def fit_model(X, Y, runs, save=False, out_fname=None, v=False, balance=False, under_sample=False):
     if v: print("\n***** Fitting model...")
 
     scores = []
@@ -276,50 +298,79 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False):
     pred_probs=[]
     y_scores=[]
 
-    ps = PredefinedSplit(runs)
-    for train_inds, test_inds in ps.split():
+
+
+    # ps = PredefinedSplit(runs)
+    skf = StratifiedKFold(n_splits=3)
+    for train_inds, test_inds in skf.split(X, Y):
+
         X_train, X_test, y_train, y_test = X[train_inds], X[test_inds], Y[train_inds], Y[test_inds]
-        
-        # feature selection and transformation
-        ffpr = SelectFpr(f_classif, alpha=0.01).fit(X_train, y_train)
-        X_train_sub = ffpr.transform(X_train)
-        X_test_sub = ffpr.transform(X_test)
+        #using random under sampling here to reduce learning set:
+        if under_sample:
+            rus = RandomUnderSampler(random_state=42, sampling_strategy='auto')
+            X_res, y_res = rus.fit_resample(X_train, y_train)
+
+            # feature selection and transformation
+            ffpr = SelectFpr(f_classif, alpha=0.01).fit(X_res, y_res)
+            X_train_sub = ffpr.transform(X_res)
+            X_test_sub = ffpr.transform(X_test)
+        else:
+            # feature selection and transformation
+            ffpr = SelectFpr(f_classif, alpha=0.01).fit(X_train, y_train)
+            X_train_sub = ffpr.transform(X_train)
+            X_test_sub = ffpr.transform(X_test)
 
         # train & hyperparam tuning
         parameters ={'C':[.001, .01, .1, 1, 10, 100, 1000]}
-        gscv = GridSearchCV(
-            LogisticRegression(penalty='l2', solver='lbfgs',max_iter=1000),
-            parameters,
-            return_train_score=True)
-        gscv.fit(X_train_sub, y_train)
-        best_Cs.append(gscv.best_params_['C'])
-        
+        if balance:
+            gscv = GridSearchCV(
+                LogisticRegression(penalty='l2', solver='lbfgs',max_iter=1000,class_weight='balanced'),
+                parameters,
+                return_train_score=True)
+        else:
+            gscv = GridSearchCV(
+                LogisticRegression(penalty='l2', solver='lbfgs',max_iter=1000),
+                parameters,
+                return_train_score=True)
+        if under_sample:            
+            gscv.fit(X_train_sub, y_res)
+            best_Cs.append(gscv.best_params_['C'])
+        else:
+            gscv.fit(X_train_sub, y_train)
+            best_Cs.append(gscv.best_params_['C'])            
+
         # refit with full data and optimal penalty value
-        lr = LogisticRegression(penalty='l2', solver='lbfgs', C=best_Cs[-1],max_iter=1000)
+        if balance:
+            lr = LogisticRegression(penalty='l2', solver='lbfgs', C=best_Cs[-1],max_iter=1000, class_weight='balanced')
+        else:
+            lr = LogisticRegression(penalty='l2', solver='lbfgs', C=best_Cs[-1],max_iter=1000)            
         lr.fit(X_train_sub, y_train)
         # test on held out data
         score = lr.score(X_test_sub, y_test)
 
         y_score = lr.decision_function(X_test_sub)
-        n_classes=np.unique(y_test).size
+        n_classes=np.unique(y_test)
         # Compute ROC curve and ROC area for each class
         fpr = dict()
         tpr = dict()
         roc_auc = dict()
-        for i in range(n_classes):
+        counter=0
+        for i in n_classes:
             temp_y=np.zeros(y_test.size)
-            label_ind=np.where(y_test==(i+1))
+            label_ind=np.where(y_test==(i))
             temp_y[label_ind]=1
 
-            fpr[i], tpr[i], _ = roc_curve(temp_y, y_score[:, i])
-            roc_auc[i] = auc(fpr[i], tpr[i])
+
+            fpr[counter], tpr[counter], _ = roc_curve(temp_y, y_score[:, counter])
+            roc_auc[counter] = auc(fpr[counter], tpr[counter])
+            counter=counter+1
 
         auc_score = roc_auc_score(y_test, lr.predict_proba(X_test_sub), multi_class='ovr')
         preds = lr.predict(X_test_sub)
         pred_prob=lr.predict_proba(X_test_sub)
         # confusion matrix
-        true_counts = np.asarray([np.sum(y_test == i) for i in [1,2,3]])
-        cm = confusion_matrix(y_test, preds, labels=list([1,2,3])) / true_counts[:,None] * 100
+        true_counts = np.asarray([np.sum(y_test == i) for i in ['maintain_r','maintain_f','suppress_r','suppress_f']])
+        cm = confusion_matrix(y_test, preds, labels=['maintain_r','maintain_f','suppress_r','suppress_f']) / true_counts[:,None] * 100
 
         scores.append(score)
         auc_scores.append(auc_score)
@@ -360,15 +411,22 @@ def sample_for_training(full_data, label_df, include_rest=False):
 
     # operation_list: 1 - Maintain, 2 - Replace, 3 - Suppress
     # stim_on labels: 1 actual stim; 2 operation; 3 ITI; 0 rest between runs
+
+    #labels we want: Maintain_remember(0), Maintain_forget(1), Suppress_remember(2), Suppress_forget(3)
     print("\n***** Subsampling data points by runs...")
 
     category_list = label_df['condition']
+    accuracy_list = label_df['accuracy']
     stim_on = label_df['stim_present']
     run_list = label_df['run']
     image_list = label_df['image_id']
 
     # get faces
     oper_inds = np.where((stim_on == 2) | (stim_on == 3))[0]
+
+    remember_inds = np.where((accuracy_list == 1))[0]
+    forgot_inds = np.where((accuracy_list == 0))[0]
+
     rest_inds = []
 
     runs = run_list.unique()[1:]
@@ -386,16 +444,47 @@ def sample_for_training(full_data, label_df, include_rest=False):
         rest_inds = [np.ceil(np.average(interval)).astype(int) for interval in rest_intervals] + \
                     [np.ceil(np.average(interval)).astype(int)+1 for interval in rest_intervals]
 
-    operation_reg=category_list.values[oper_inds]
+
+    operation_reg=[]
+    for i in oper_inds:
+        if (category_list.values[i]==1) & (accuracy_list.values[i]==1):
+            operation_reg.append('maintain_r') #Maintain-Remembered label
+
+        elif (category_list.values[i]==1) & (accuracy_list.values[i]==0):
+            operation_reg.append('maintain_f') #Maintain-Forgot label
+
+        elif (category_list.values[i]==3) & (accuracy_list.values[i]==1):
+            operation_reg.append('suppress_r') #Suppress-Remembered label
+
+        elif (category_list.values[i]==3) & (accuracy_list.values[i]==0):
+            operation_reg.append('suppress_f') #Suppress-Forgot label
+
+        elif (category_list.values[i]==2):
+        #for now we are ignoring Replace, so this all gets a label of replace, which we can then remove:
+            operation_reg.append('replace') #this means that later we will want to remove all replace's from the data to only look at maintain / suppress        
+
+    # operation_reg=category_list.values[oper_inds]
     run_reg=run_list.values[oper_inds]
     image_reg = image_list.values[oper_inds]
 
     # === get sample_bold & sample_regressor
     sample_bold = []
-    sample_regressor = operation_reg
     sample_runs = run_reg
 
     sample_bold = full_data[oper_inds]
+
+    #add in code to handle new labeling:
+    operation_reg=np.asarray(operation_reg)
+    sample_regressor = operation_reg
+
+    #since these are fed right into the classifier, I likely will need to trim out replace conditions here
+    replace_inds=np.where(operation_reg=='replace')
+    #now take these indicies and then delete out from the arrays
+    sample_bold=np.delete(sample_bold,replace_inds,0)
+    sample_regressor=np.delete(sample_regressor,replace_inds)
+    sample_runs=np.delete(sample_runs,replace_inds)
+    image_reg=np.delete(image_reg,replace_inds)
+
 
     return sample_bold, sample_regressor, sample_runs, image_reg
 
@@ -433,21 +522,25 @@ def classification(subID):
     print(f"Running model fitting and cross-validation...")
 
     # model fitting 
-    score, auc_score, cm, evidence, roc_auc, tested_labels, y_scores = fit_model(X, Y, runs, save=False, v=True)
+    score, auc_score, cm, evidence, roc_auc, tested_labels, y_scores = fit_model(X, Y, runs, save=False, v=True, balance=True, under_sample=False)
+
+    #under_sample variant
+    score, auc_score, cm, evidence, roc_auc, tested_labels, y_scores = fit_model(X, Y, runs, save=False, v=True, balance=False, under_sample=True)
 
     mean_score=score.mean()
 
     print(f"\n***** Average results for sub {subID} - {task} - {space}: Score={mean_score} ")
 
     #want to save the AUC results in such a way that I can also add in the content average later:
-    auc_df=pd.DataFrame(columns=['AUC','Content','Sub'],index=['Maintain','Replace','Suppress'])
-    auc_df.loc['Maintain']['AUC']=roc_auc.loc[:,0].mean() #Because the above script calculates these based on a leave-one-run-out. We will have an AUC for Maintain, Replace and Suppress per iteration (3 total). So taking the mean of each operation
-    auc_df.loc['Replace']['AUC']=roc_auc.loc[:,1].mean()
-    auc_df.loc['Suppress']['AUC']=roc_auc.loc[:,2].mean()
+    auc_df=pd.DataFrame(columns=['AUC','Content','Sub'],index=['Maintain_R','Maintain_F','Suppress_R','Suppress_F'])
+    auc_df.loc['Maintain_R']['AUC']=roc_auc.loc[:,0].mean() #Because the above script calculates these based on a leave-one-run-out. We will have an AUC for Maintain, Replace and Suppress per iteration (3 total). So taking the mean of each operation
+    auc_df.loc['Maintain_F']['AUC']=roc_auc.loc[:,1].mean()
+    auc_df.loc['Suppress_R']['AUC']=roc_auc.loc[:,2].mean()
+    auc_df.loc['Suppress_F']['AUC']=roc_auc.loc[:,3].mean()    
     auc_df['Sub']=subID
 
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
-    out_fname_template_auc = f"sub-{subID}_{space}_{task}_operation_auc.csv"            
+    out_fname_template_auc = f"sub-{subID}_{space}_{task}_operation_memoryoutcome_auc.csv"            
     print("\n *** Saving AUC values with subject dataframe ***")
     auc_df.to_csv(os.path.join(sub_dir,out_fname_template_auc))    
 
@@ -456,13 +549,15 @@ def classification(subID):
     evidence_df['runs']=runs
     evidence_df['operation']=Y
     evidence_df['image_id']=imgs
-    evidence_df['maintain_evi']=np.vstack(evidence)[:,0] #add in the evidence values for maintain
-    evidence_df['replace_evi']=np.vstack(evidence)[:,1] #add in the evidence values for replace
-    evidence_df['suppress_evi']=np.vstack(evidence)[:,2] #add in the evidence values for suppress
+    evidence_df['maintain_R_evi']=np.vstack(evidence)[:,0] #add in the evidence values for maintain_R
+    evidence_df['maintain_F_evi']=np.vstack(evidence)[:,1] #add in the evidence values for maintain_F
+    evidence_df['suppress_R_evi']=np.vstack(evidence)[:,2] #add in the evidence values for suppress_R
+    evidence_df['suppress_F_evi']=np.vstack(evidence)[:,3] #add in the evidence values for suppress_F
+
 
     #this will export the subject level evidence to the subject's folder
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
-    out_fname_template = f"sub-{subID}_{space}_{task}_operation_evidence.csv"            
+    out_fname_template = f"sub-{subID}_{space}_{task}_operation_memoryoutcome_evidence.csv"            
     print("\n *** Saving evidence values with subject dataframe ***")
     evidence_df.to_csv(os.path.join(sub_dir,out_fname_template))        
 
