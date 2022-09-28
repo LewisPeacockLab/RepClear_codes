@@ -602,8 +602,6 @@ def binary_classification(subID,condition):
 
     X, Y, runs, imgs = sample_for_binarytraining(full_data, label_df, condition)
 
-
-
     print(f"Running model fitting and cross-validation...")
 
     # model fitting 
@@ -625,7 +623,7 @@ def binary_classification(subID,condition):
     auc_df['Sub']=subID
 
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
-    out_fname_template_auc = f"sub-{subID}_{space}_{task}_operation_memoryoutcome_auc.csv"            
+    out_fname_template_auc = f"sub-{subID}_{space}_{task}_{condition}_memoryoutcome_auc.csv"            
     print("\n *** Saving AUC values with subject dataframe ***")
     auc_df.to_csv(os.path.join(sub_dir,out_fname_template_auc))    
 
@@ -642,7 +640,7 @@ def binary_classification(subID,condition):
 
     #this will export the subject level evidence to the subject's folder
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
-    out_fname_template = f"sub-{subID}_{space}_{task}_operation_memoryoutcome_evidence.csv"            
+    out_fname_template = f"sub-{subID}_{space}_{task}_{condition}_memoryoutcome_evidence.csv"            
     print("\n *** Saving evidence values with subject dataframe ***")
     evidence_df.to_csv(os.path.join(sub_dir,out_fname_template))        
 
@@ -729,6 +727,134 @@ def sample_for_binarytraining(full_data, label_df, condition, include_rest=False
     sample_regressor = operation_reg
 
     return sample_bold, sample_regressor, sample_runs, image_reg
+
+def fit_binary_model(X, Y, runs, save=False, out_fname=None, v=False, balance=False, under_sample=False):
+    if v: print("\n***** Fitting model...")
+
+    scores = []
+    auc_scores = []
+    cms = []
+    best_Cs = []
+    evidences = []
+    roc_aucs=[]
+
+    tested_labels=[]
+    pred_probs=[]
+    y_scores=[]
+
+    # ps = PredefinedSplit(runs)
+    skf = StratifiedKFold(n_splits=3)
+    for train_inds, test_inds in skf.split(X, Y):
+
+        X_train, X_test, y_train, y_test = X[train_inds], X[test_inds], Y[train_inds], Y[test_inds]
+        #using random under sampling here to reduce learning set:
+        if under_sample:
+            print('*** Random Under Sampling of unbalanced classes ***')
+            rus = RandomUnderSampler(random_state=42, sampling_strategy='auto')
+            X_res, y_res = rus.fit_resample(X_train, y_train)
+
+            # feature selection and transformation
+            ffpr = SelectFpr(f_classif, alpha=0.01).fit(X_res, y_res)
+            X_train_sub = ffpr.transform(X_res)
+            X_test_sub = ffpr.transform(X_test)
+        else:
+            # feature selection and transformation
+            ffpr = SelectFpr(f_classif, alpha=0.01).fit(X_train, y_train)
+            X_train_sub = ffpr.transform(X_train)
+            X_test_sub = ffpr.transform(X_test)
+
+        # train & hyperparam tuning
+        parameters ={'C':[.001, .01, .1, 1, 10, 100, 1000]}
+        if balance:
+            gscv = GridSearchCV(
+                LinearSVC(penalty='l2',max_iter=1000,class_weight='balanced'),
+                parameters,
+                return_train_score=True)
+        else:
+            gscv = GridSearchCV(
+                LinearSVC(penalty='l2',max_iter=1000),
+                parameters,
+                return_train_score=True)
+        if under_sample:            
+            gscv.fit(X_train_sub, y_res)
+            best_Cs.append(gscv.best_params_['C'])
+        else:
+            gscv.fit(X_train_sub, y_train)
+            best_Cs.append(gscv.best_params_['C'])            
+
+        # refit with full data and optimal penalty value
+        if balance:
+            print('balancing classes via class-weights')
+            lr = LinearSVC(penalty='l2', C=best_Cs[-1],max_iter=1000, class_weight='balanced')
+        else:
+            lr = LinearSVC(penalty='l2', C=best_Cs[-1],max_iter=1000)            
+        
+        if under_sample:
+            print('*** Fitting full model ***')
+            lr.fit(X_train_sub, y_res)
+        else:
+            print('*** Fitting full model ***')            
+            lr.fit(X_train_sub, y_train)
+
+        # test on held out data
+        print('*** Testing on held out data and scoring results ***')
+        score = lr.score(X_test_sub, y_test)
+
+        y_score = lr.decision_function(X_test_sub)
+        n_classes=np.unique(y_test)
+        # Compute ROC curve and ROC area for each class
+        fpr = dict()
+        tpr = dict()
+        roc_auc = dict()
+        counter=0
+        for i in n_classes:
+            temp_y=np.zeros(y_test.size)
+            label_ind=np.where(y_test==(i))
+            temp_y[label_ind]=1
+
+
+            fpr[counter], tpr[counter], _ = roc_curve(temp_y, y_score[:, counter])
+            roc_auc[counter] = auc(fpr[counter], tpr[counter])
+            counter=counter+1
+
+        #auc_score = roc_auc_score(y_test, lr.predict_proba(X_test_sub), multi_class='ovr')
+        preds = lr.predict(X_test_sub)
+        pred_prob=lr.predict_proba(X_test_sub)
+        # confusion matrix
+        ## add in variable code to change these strings based on condition input
+        true_counts = np.asarray([np.sum(y_test == i) for i in ['suppress_r','suppress_f']])
+        cm = confusion_matrix(y_test, preds, labels=['suppress_r','suppress_f']) / true_counts[:,None] * 100
+
+        scores.append(score)
+        auc_scores.append(auc_score)
+        cms.append(cm)
+        #calculate evidence values
+        evidence=(1. / (1. + np.exp(-lr.decision_function(X_test_sub))))
+        evidences.append(evidence) 
+        roc_aucs.append(roc_auc)
+
+        tested_labels.append(y_test)
+        pred_probs.append(pred_prob)
+        y_scores.append(y_score)
+
+    roc_aucs = pd.DataFrame(data=roc_aucs)
+    scores = np.asarray(scores)
+    auc_scores = np.asarray(auc_scores)
+    cms = np.stack(cms)
+    evidences = np.stack(evidences)
+
+    tested_labels=np.stack(tested_labels)
+    pred_probs=np.stack(pred_probs)
+    y_scores=np.stack(y_scores)
+
+    if v: print(f"\nClassifier score: \n"
+        f"scores: {scores.mean()} +/- {scores.std()}\n"
+        f"auc scores: {auc_scores.mean()} +/- {auc_scores.std()}\n"
+        f"best Cs: {best_Cs}\n"
+        f"average confution matrix:\n"
+        f"{cms.mean(axis=0)}")
+
+    return scores, auc_scores, cms, evidences, roc_aucs, tested_labels, y_scores
 
 def organize_evidence(subID,space,task,save=True):
     ROIs = ['wholebrain']
