@@ -589,7 +589,7 @@ def classification(subID):
     print("\n *** Saving confusion matrix with subject dataframe ***")
     cm_df=pd.DataFrame(data=cm.mean(axis=0))
     cm_df.to_csv(os.path.join(sub_dir,out_fname_template_cm))
-    
+
 def binary_classification(subID,condition):
     task = 'study'
     space = 'MNI' #T1w
@@ -615,7 +615,7 @@ def binary_classification(subID,condition):
     # cross run xval
     scores = []
     auc_scores = []
-    cms = []
+    cm = []
     evidence = []
 
     X, Y, runs, imgs = sample_for_binarytraining(full_data, label_df, condition)
@@ -623,7 +623,7 @@ def binary_classification(subID,condition):
     print(f"Running model fitting and cross-validation...")
 
     #under_sample variant
-    scores, cms, evidences, roc_aucs, tested_labels, y_scores = fit_binary_model(X, Y, runs, save=False, v=True, balance=False, under_sample=True)
+    scores, cm, evidences, roc_aucs, tested_labels, y_scores = fit_binary_model(X, Y, runs, save=False, v=True, balance=False, under_sample=True)
 
     mean_score=scores.mean()
 
@@ -652,7 +652,13 @@ def binary_classification(subID,condition):
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
     out_fname_template = f"sub-{subID}_{space}_{task}_{condition}binary_memoryoutcome_evidence.csv"            
     print("\n *** Saving evidence values with subject dataframe ***")
-    evidence_df.to_csv(os.path.join(sub_dir,out_fname_template))        
+    evidence_df.to_csv(os.path.join(sub_dir,out_fname_template))    
+
+    sub_dir = os.path.join(data_dir, f"sub-{subID}")
+    out_fname_template_cm = f"sub-{subID}_{space}_{task}_{condition}binary_memoryoutcome_cm.csv"            
+    print("\n *** Saving confusion matrix with subject dataframe ***")
+    cm_df=pd.DataFrame(data=cm.mean(axis=0))
+    cm_df.to_csv(os.path.join(sub_dir,out_fname_template_cm))    
 
 def sample_for_binarytraining(full_data, label_df, condition, include_rest=False):
     """
@@ -857,14 +863,67 @@ def fit_binary_model(X, Y, runs, save=False, out_fname=None, v=False, balance=Fa
 
     return scores, cms, evidences, roc_aucs, tested_labels, y_scores
 
-def organize_cms(subID,space,task,save=True):
-    ROIs = ['wholebrain']
+def organize_cms(space,task,save=True):
+    group_cms=[]
 
-    print( "\n *** loading in confusion matrix from subject data frame ***")
-    sub_dir=os.path.join(data_dir,f"sub-{subID}")
-    in_fname_template=f"sub-{subID}_{space}_{task}_operation_memoryoutcome_cm.csv"
+    for subID in subIDs:
+        try:
+            ROIs = ['wholebrain']
 
-    sub_df=pd.pd.read_csv(os.path.join(sub_dir,in_fname_template))  
+            print( "\n *** loading in confusion matrix from subject data frame ***")
+            sub_dir=os.path.join(data_dir,f"sub-{subID}")
+            in_fname_template=f"sub-{subID}_{space}_{task}_operation_memoryoutcome_cm.csv"
+
+            sub_df=pd.read_csv(os.path.join(sub_dir,in_fname_template),index_col=0)
+            sub_cm_array=sub_df.values
+
+
+            if subID=='002':
+                group_cms=sub_cm_array
+            else:
+                group_cms=np.dstack([group_cms,sub_cm_array])
+        except: 
+            print(f'error with loading Confusion Matrix of sub-{subID}')
+
+    mean_cms=group_cms.mean(axis=2)
+    labels=['maintain_r','maintain_f','suppress_r','suppress_f']
+    sns.heatmap(data=mean_cms,annot=True,linewidths=.5, cmap="YlGnBu",xticklabels=labels,yticklabels=labels)
+    plt.yticks(rotation=45)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_success_decoding.png'))    
+    plt.clf()
+
+def organize_binary_cms(condition,space,task,save=True):
+    group_cms=[]
+
+    for subID in subIDs:
+        try:
+            ROIs = ['wholebrain']
+
+            print( "\n *** loading in confusion matrix from subject data frame ***")
+            sub_dir=os.path.join(data_dir,f"sub-{subID}")
+            in_fname_template=f"sub-{subID}_{space}_{task}_{condition}binary_memoryoutcome_cm.csv" 
+
+            sub_df=pd.read_csv(os.path.join(sub_dir,in_fname_template),index_col=0)
+            sub_cm_array=sub_df.values
+
+
+            if subID=='002':
+                group_cms=sub_cm_array
+            else:
+                group_cms=np.dstack([group_cms,sub_cm_array])
+        except: 
+            print(f'error with loading Confusion Matrix of sub-{subID}')
+
+    mean_cms=group_cms.mean(axis=2)
+    labels=[f'{condition}_r',f'{condition}_f']
+    sns.heatmap(data=mean_cms,annot=True,linewidths=.5, cmap="YlGnBu",xticklabels=labels,yticklabels=labels)
+    plt.yticks(rotation=45)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_{task}_{condition}binary_memoryoutcome_cm.png'))    
+    plt.clf()    
 
 def organize_evidence(subID,space,task,save=True):
     ROIs = ['wholebrain']
