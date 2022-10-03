@@ -64,6 +64,12 @@ workspace = 'scratch'
 data_dir = '/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/'
 param_dir = '/scratch/06873/zbretton/repclear_dataset/BIDS/params/'
 
+
+#local variant:
+workspace = 'local'
+data_dir = '/Volumes/zbg_eHD/Zachary_Data/repclearbids/derivatives/fmriprep/'
+param_dir = '/Users/zb3663/Desktop/School_Files/Repclear_files/repclear_preprocessed/params/'
+
 #function to load in the confounds file for each run and then select the columns we want for cleaning
 def confound_cleaner(confounds):
     COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_04','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
@@ -604,11 +610,8 @@ def binary_classification(subID,condition):
 
     print(f"Running model fitting and cross-validation...")
 
-    # model fitting 
-    #score, auc_score, cm, evidence, roc_auc, tested_labels, y_scores = fit_model(X, Y, runs, save=False, v=True, balance=True, under_sample=False)
-
     #under_sample variant
-    score, auc_score, cm, evidence, roc_auc, tested_labels, y_scores = fit_model(X, Y, runs, save=False, v=True, balance=False, under_sample=True)
+    score, auc_score, cm, evidence, roc_auc, tested_labels, y_scores = fit_binary_model(X, Y, runs, save=False, v=True, balance=False, under_sample=True)
 
     mean_score=score.mean()
 
