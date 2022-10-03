@@ -589,6 +589,7 @@ def classification(subID):
     print("\n *** Saving confusion matrix with subject dataframe ***")
     cm_df=pd.DataFrame(data=cm.mean(axis=0))
     cm_df.to_csv(os.path.join(sub_dir,out_fname_template_cm))
+    
 def binary_classification(subID,condition):
     task = 'study'
     space = 'MNI' #T1w
