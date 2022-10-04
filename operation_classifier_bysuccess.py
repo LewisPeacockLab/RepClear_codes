@@ -1140,10 +1140,29 @@ def visualize_evidence():
     plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_{ROI}_remember_evi_during_suppress_forgot.png'))
     plt.clf()    
 
+    #### key into suppress here: ###
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='suppress_r') & (group_evidence_df['evidence_class']=='suppress_f')], x='TR',y='evidence',color='pink',label='suppress_f', ci=95)
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='suppress_r') & (group_evidence_df['evidence_class']=='suppress_r')], x='TR',y='evidence',color='red',label='suppress_r', ci=95)
+    plt.legend()
+    ax.set(xlabel='TR', ylabel='Classifier Evidence')
+    ax.set_title(f'{space} - Memory-Based Suppress Operation Classifier during Remembered-Suppress (group average)', loc='center', wrap=True)        
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_{ROI}_suppress_evi_during_suppress_remember.png'))
+    plt.clf()
+
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='suppress_f') & (group_evidence_df['evidence_class']=='suppress_r')], x='TR',y='evidence',color='red',label='suppress_r', ci=95)
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='suppress_f') & (group_evidence_df['evidence_class']=='suppress_f')], x='TR',y='evidence',color='pink',label='suppress_f',ci=95)
+    plt.legend()
+    ax.set(xlabel='TR', ylabel='Classifier Evidence')
+    ax.set_title(f'{space} - Memory-Based Suppress Operation Classifier during Forgot-Suppress (group average)', loc='center', wrap=True)        
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_{ROI}_suppress_evi_during_suppress_forgot.png'))
+    plt.clf() 
+
     ###now plot and save the difference graphs ###
 
-    ax=sns.lineplot(data=group_evidence_maintain_diff.loc[(group_evidence_maintain_diff['condition']=='maintain_r_diff') & (group_evidence_maintain_diff['evidence_class']=='maintain F-R')], x='TR',y='evidence',color='green',label='Maintain_R', ci=68)
-    ax=sns.lineplot(data=group_evidence_maintain_diff.loc[(group_evidence_maintain_diff['condition']=='maintain_f_diff') & (group_evidence_maintain_diff['evidence_class']=='maintain F-R')], x='TR',y='evidence',color='darkgreen',label='Maintain_F', ci=68)
+    ax=sns.lineplot(data=group_evidence_maintain_diff.loc[(group_evidence_maintain_diff['condition']=='maintain_r_diff') & (group_evidence_maintain_diff['evidence_class']=='maintain F-R')], x='TR',y='evidence',color='green',label='Maintain_R', ci=95)
+    ax=sns.lineplot(data=group_evidence_maintain_diff.loc[(group_evidence_maintain_diff['condition']=='maintain_f_diff') & (group_evidence_maintain_diff['evidence_class']=='maintain F-R')], x='TR',y='evidence',color='teal',label='Maintain_F', ci=95)
     plt.legend()
     ax.set(xlabel='TR', ylabel='Classifier Evidence Difference (forgot-remember)')
     ax.set_title(f'{space} - Memory-Based Operation Classifier difference during maintain (group average)', loc='center', wrap=True)        
@@ -1151,8 +1170,8 @@ def visualize_evidence():
     plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_{ROI}_maintain_evi_diff_during_maintain.png'))
     plt.clf()   
 
-    ax=sns.lineplot(data=group_evidence_suppress_diff.loc[(group_evidence_suppress_diff['condition']=='suppress_r_diff') & (group_evidence_suppress_diff['evidence_class']=='suppress F-R')], x='TR',y='evidence',color='red',label='Suppress_R', ci=68)
-    ax=sns.lineplot(data=group_evidence_suppress_diff.loc[(group_evidence_suppress_diff['condition']=='suppress_f_diff') & (group_evidence_suppress_diff['evidence_class']=='suppress F-R')], x='TR',y='evidence',color='darkred',label='Suppress_F', ci=68)
+    ax=sns.lineplot(data=group_evidence_suppress_diff.loc[(group_evidence_suppress_diff['condition']=='suppress_r_diff') & (group_evidence_suppress_diff['evidence_class']=='suppress F-R')], x='TR',y='evidence',color='red',label='Suppress_R', ci=95)
+    ax=sns.lineplot(data=group_evidence_suppress_diff.loc[(group_evidence_suppress_diff['condition']=='suppress_f_diff') & (group_evidence_suppress_diff['evidence_class']=='suppress F-R')], x='TR',y='evidence',color='purple',label='Suppress_F', ci=95)
     plt.legend()
     ax.set(xlabel='TR', ylabel='Classifier Evidence Difference (forgot-remember)')
     ax.set_title(f'{space} - Memory-Based Operation Classifier difference during suppress (group average)', loc='center', wrap=True)        
