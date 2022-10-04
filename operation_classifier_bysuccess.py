@@ -38,7 +38,7 @@ from statsmodels.stats.multitest import multipletests
 
 # global consts
 subIDs = ['002','003','004','005','006','007','008','009','010','011','012','013','014','015','016','017','018','020','023','024','025','026']
-
+temp_subIDs=['002','003','004','005','008','009','010','011','012','013','014','015','016','017','018','020','024','025','026']
 
 phases = ['rest', 'preremoval', 'study', 'postremoval']
 runs = np.arange(6) + 1  
@@ -85,6 +85,10 @@ def confound_cleaner(confounds):
 def intersection(lst1, lst2):
     lst3 = [value for value in lst1 if value in lst2]
     return lst3
+
+#function to quickly flatten a list
+def flatten(l):
+    return [item for sublist in l for item in sublist]
 
 #this function takes the mask data and applies it to the bold data
 def apply_mask(mask=None,target=None):
@@ -158,6 +162,8 @@ def load_process_data(subID, task, space, mask_ROIS): #this wraps the above func
 
         mask_fnames = [fname_template.format(i, "brain_mask") for i in runs]
         mask_paths = [os.path.join(data_dir, f"sub-{subID}", "func", fname) for fname in mask_fnames]
+    elif mask_ROIS == ['GM']:
+        mask_paths = ['/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_MNI_GM_mask.nii.gz']
     else:
         # ROI masks: 1 for each ROI
         mask_fnames = [f"{ROI}_{task}_{space}_mask.nii.gz" for ROI in mask_ROIS]
@@ -309,13 +315,15 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False, balance=False, un
     pred_probs=[]
     y_scores=[]
 
-
+    tested_inds=[]
 
     # ps = PredefinedSplit(runs)
     skf = StratifiedKFold(n_splits=3)
     for train_inds, test_inds in skf.split(X, Y):
 
         X_train, X_test, y_train, y_test = X[train_inds], X[test_inds], Y[train_inds], Y[test_inds]
+        print(test_inds)
+        tested_inds.append(test_inds)        
         #using random under sampling here to reduce learning set:
         if under_sample:
             print('*** Random Under Sampling of unbalanced classes ***')
@@ -422,7 +430,7 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False, balance=False, un
         f"average confution matrix:\n"
         f"{cms.mean(axis=0)}")
 
-    return scores, auc_scores, cms, evidences, roc_aucs, tested_labels, y_scores
+    return scores, auc_scores, cms, evidences, roc_aucs, tested_labels, y_scores, tested_inds
 
 def sample_for_training(full_data, label_df, include_rest=False):
     """
@@ -547,9 +555,13 @@ def classification(subID):
     #score, auc_score, cm, evidence, roc_auc, tested_labels, y_scores = fit_model(X, Y, runs, save=False, v=True, balance=True, under_sample=False)
 
     #under_sample variant
-    score, auc_score, cm, evidence, roc_auc, tested_labels, y_scores = fit_model(X, Y, runs, save=False, v=True, balance=False, under_sample=True)
+    score, auc_score, cm, evidence, roc_auc, tested_labels, y_scores, tested_inds = fit_model(X, Y, runs, save=False, v=True, balance=False, under_sample=True)
 
     mean_score=score.mean()
+
+    #need to sort by index, as the classifier used stratified K-fold so samples are out of "Real" order
+    combined_tested_inds=[*tested_inds[0], *tested_inds[1], *tested_inds[2]]
+    combined_tested_labels=[*tested_labels[0], *tested_labels[1], *tested_labels[2]]    
 
     print(f"\n***** Average results of Operation Success Classification for sub {subID} - {task} - {space}: Score={mean_score} ")
 
@@ -562,30 +574,32 @@ def classification(subID):
     auc_df['Sub']=subID
 
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
-    out_fname_template_auc = f"sub-{subID}_{space}_{task}_operation_memoryoutcome_auc.csv"            
+    out_fname_template_auc = f"sub-{subID}_{space}_{task}_{ROIs[0]}_operation_memoryoutcome_auc.csv"            
     print("\n *** Saving AUC values with subject dataframe ***")
     auc_df.to_csv(os.path.join(sub_dir,out_fname_template_auc))    
 
     #need to then save the evidence:
-    evidence_df=pd.DataFrame(columns=['runs','operation','image_id']) #take the study DF for this subject
+    evidence_df=pd.DataFrame(columns=['index','runs','operation','image_id']) #take the study DF for this subject
+    evidence_df['index']=combined_tested_inds
     evidence_df['runs']=runs
-    evidence_df['operation']=Y
+    evidence_df['operation']=combined_tested_labels
     evidence_df['image_id']=imgs
     evidence_df['maintain_R_evi']=np.vstack(evidence)[:,0] #add in the evidence values for maintain_R
     evidence_df['maintain_F_evi']=np.vstack(evidence)[:,1] #add in the evidence values for maintain_F
     evidence_df['suppress_R_evi']=np.vstack(evidence)[:,2] #add in the evidence values for suppress_R
     evidence_df['suppress_F_evi']=np.vstack(evidence)[:,3] #add in the evidence values for suppress_F
 
+    evidence_df.sort_values(by=['index'],inplace=True)
 
     #this will export the subject level evidence to the subject's folder
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
-    out_fname_template = f"sub-{subID}_{space}_{task}_operation_memoryoutcome_evidence.csv"            
+    out_fname_template = f"sub-{subID}_{space}_{task}_{ROIs[0]}_operation_memoryoutcome_evidence.csv"            
     print("\n *** Saving evidence values with subject dataframe ***")
     evidence_df.to_csv(os.path.join(sub_dir,out_fname_template)) 
 
 
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
-    out_fname_template_cm = f"sub-{subID}_{space}_{task}_operation_memoryoutcome_cm.csv"            
+    out_fname_template_cm = f"sub-{subID}_{space}_{task}_{ROIs[0]}_operation_memoryoutcome_cm.csv"            
     print("\n *** Saving confusion matrix with subject dataframe ***")
     cm_df=pd.DataFrame(data=cm.mean(axis=0))
     cm_df.to_csv(os.path.join(sub_dir,out_fname_template_cm))
@@ -623,11 +637,15 @@ def binary_classification(subID,condition):
     print(f"Running model fitting and cross-validation...")
 
     #under_sample variant
-    scores, cm, evidences, roc_aucs, tested_labels, y_scores = fit_binary_model(X, Y, runs, save=False, v=True, balance=False, under_sample=True)
+    scores, cm, evidences, roc_aucs, tested_labels, y_scores, tested_inds = fit_binary_model(X, Y, runs, save=False, v=True, balance=False, under_sample=True)
 
     mean_score=scores.mean()
 
-    print(f"\n***** Average results of Operation Success Classification for sub {subID} - {task} - {space}: Score={mean_score} ")
+    #need to sort by index, as the classifier used stratified K-fold so samples are out of "Real" order
+    combined_tested_inds=[*tested_inds[0], *tested_inds[1], *tested_inds[2]]
+    combined_tested_labels=[*tested_labels[0], *tested_labels[1], *tested_labels[2]]
+
+    print(f"\n***** Average results of Operation Success Classification for sub {subID} - {task} - {ROIs[0]} - {space}: Score={mean_score} ")
 
     #want to save the AUC results in such a way that I can also add in the content average later:
     auc_df=pd.DataFrame(columns=['AUC','Content','Sub'],index=[f'{condition}'])
@@ -635,27 +653,29 @@ def binary_classification(subID,condition):
     auc_df['Sub']=subID
 
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
-    out_fname_template_auc = f"sub-{subID}_{space}_{task}_{condition}binary_memoryoutcome_auc.csv"            
+    out_fname_template_auc = f"sub-{subID}_{space}_{task}_{ROIs[0]}_{condition}binary_memoryoutcome_auc.csv"            
     print("\n *** Saving AUC values with subject dataframe ***")
     auc_df.to_csv(os.path.join(sub_dir,out_fname_template_auc))    
 
     #need to then save the evidence:
-    evidence_df=pd.DataFrame(columns=['runs','operation','image_id']) #take the study DF for this subject
+    evidence_df=pd.DataFrame(columns=['index','runs','operation','image_id']) #take the study DF for this subject
+    evidence_df['index']=combined_tested_inds
     evidence_df['runs']=runs
-    evidence_df['operation']=Y
+    evidence_df['operation']=combined_tested_labels
     evidence_df['image_id']=imgs
     evidence_df[f'{condition}_R_evi']=np.vstack(evidences) #add in the evidence values for suppress_R
     evidence_df[f'{condition}_F_evi']=np.vstack(1-evidences) #add in the evidence values for suppress_F
 
+    evidence_df.sort_values(by=['index'],inplace=True)
 
     #this will export the subject level evidence to the subject's folder
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
-    out_fname_template = f"sub-{subID}_{space}_{task}_{condition}binary_memoryoutcome_evidence.csv"            
+    out_fname_template = f"sub-{subID}_{space}_{task}_{ROIs[0]}_{condition}binary_memoryoutcome_evidence.csv"            
     print("\n *** Saving evidence values with subject dataframe ***")
     evidence_df.to_csv(os.path.join(sub_dir,out_fname_template))    
 
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
-    out_fname_template_cm = f"sub-{subID}_{space}_{task}_{condition}binary_memoryoutcome_cm.csv"            
+    out_fname_template_cm = f"sub-{subID}_{space}_{task}_{ROIs[0]}_{condition}binary_memoryoutcome_cm.csv"            
     print("\n *** Saving confusion matrix with subject dataframe ***")
     cm_df=pd.DataFrame(data=cm.mean(axis=0))
     cm_df.to_csv(os.path.join(sub_dir,out_fname_template_cm))    
@@ -758,12 +778,16 @@ def fit_binary_model(X, Y, runs, save=False, out_fname=None, v=False, balance=Fa
     pred_probs=[]
     y_scores=[]
 
+    tested_inds=[]
+
     counter=0
     # ps = PredefinedSplit(runs)
     skf = StratifiedKFold(n_splits=3)
     for train_inds, test_inds in skf.split(X, Y):
 
         X_train, X_test, y_train, y_test = X[train_inds], X[test_inds], Y[train_inds], Y[test_inds]
+        print(test_inds)
+        tested_inds.append(test_inds)
         #using random under sampling here to reduce learning set:
         if under_sample:
             print('*** Random Under Sampling of unbalanced classes ***')
@@ -861,18 +885,19 @@ def fit_binary_model(X, Y, runs, save=False, out_fname=None, v=False, balance=Fa
         f"average confution matrix:\n"
         f"{cms.mean(axis=0)}")
 
-    return scores, cms, evidences, roc_aucs, tested_labels, y_scores
+    return scores, cms, evidences, roc_aucs, tested_labels, y_scores, tested_inds
 
-def organize_cms(space,task,save=True):
+def organize_cms(space,task,ROI,save=True):
     group_cms=[]
 
+    ROIs = [ROI]
     for subID in subIDs:
         try:
-            ROIs = ['wholebrain']
+
 
             print( "\n *** loading in confusion matrix from subject data frame ***")
             sub_dir=os.path.join(data_dir,f"sub-{subID}")
-            in_fname_template=f"sub-{subID}_{space}_{task}_operation_memoryoutcome_cm.csv"
+            in_fname_template=f"sub-{subID}_{space}_{task}_{ROIs[0]}_operation_memoryoutcome_cm.csv"
 
             sub_df=pd.read_csv(os.path.join(sub_dir,in_fname_template),index_col=0)
             sub_cm_array=sub_df.values
@@ -891,7 +916,7 @@ def organize_cms(space,task,save=True):
     plt.yticks(rotation=45)
     plt.xticks(rotation=45)
     plt.tight_layout()
-    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_success_decoding.png'))    
+    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_{ROIs}_operation_success_decoding.png'))    
     plt.clf()
 
 def organize_binary_cms(condition,space,task,save=True):
@@ -925,13 +950,13 @@ def organize_binary_cms(condition,space,task,save=True):
     plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_{task}_{condition}binary_memoryoutcome_cm.png'))    
     plt.clf()    
 
-def organize_evidence(subID,space,task,save=True):
-    ROIs = ['wholebrain']
+def organize_evidence(subID,space,task,ROI,save=True):
+    ROIs = [ROI]
 
     print("\n *** loading evidence values from subject dataframe ***")
 
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
-    in_fname_template = f"sub-{subID}_{space}_{task}_operation_evidence.csv"   
+    in_fname_template = f"sub-{subID}_{space}_{task}_{ROIs[0]}_operation_memoryoutcome_evidence.csv"   
 
     sub_df=pd.read_csv(os.path.join(sub_dir,in_fname_template))  
     sub_df.drop(columns=sub_df.columns[0], axis=1, inplace=True) #now drop the extra index column
@@ -939,248 +964,190 @@ def organize_evidence(subID,space,task,save=True):
     sub_images,sub_index=np.unique(sub_df['image_id'], return_index=True) #this searches through the dataframe to find each occurance of the image_id. This allows me to find the start of each trial, and linked to the image_ID #
 
     #now to sort the trials, we need to figure out what the operation performed is:
-    sub_condition_list=sub_df['operation'][sub_index].values.astype(int) #so using the above indices, we will now grab what the operation is on each image
+    sub_condition_list=sub_df['operation'][sub_index].values #so using the above indices, we will now grab what the operation is on each image
 
     counter=0
-    maintain_trials={}
-    replace_trials={}
-    suppress_trials={}
+    maintain_r_trials={}
+    maintain_f_trials={}
+    suppress_r_trials={}
+    suppress_f_trials={}
+    maintain_r_trials_diff={}
+    maintain_f_trials_diff={}
+    suppress_r_trials_diff={}
+    suppress_f_trials_diff={}    
 
     if task=='study': x=9
-    if task=='postremoval': x=5
-
 
     for i in sub_condition_list:
-        if i==0: #this is the first rest period (because we had to shift of hemodynamics. So this "0" condition is nothing)
-            print('i==0')
-            counter+=1                         
-            continue
-        elif i==1:
+        if i=='maintain_r':
             temp_image=sub_images[counter]
-            maintain_trials[temp_image]=sub_df[['maintain_evi','replace_evi','suppress_evi']][sub_index[counter]:sub_index[counter]+x].values
+            maintain_r_trials[temp_image]=sub_df[['maintain_R_evi','maintain_F_evi','suppress_R_evi','suppress_F_evi']][sub_index[counter]:sub_index[counter]+x].values
+            maintain_r_trials_diff[temp_image]=[maintain_r_trials[temp_image][:,1]-maintain_r_trials[temp_image][:,0]]
             counter+=1
 
-        elif i==2:
+        elif i=='maintain_f':
             temp_image=sub_images[counter]            
-            replace_trials[temp_image]=sub_df[['maintain_evi','replace_evi','suppress_evi']][sub_index[counter]:sub_index[counter]+x].values
+            maintain_f_trials[temp_image]=sub_df[['maintain_R_evi','maintain_F_evi','suppress_R_evi','suppress_F_evi']][sub_index[counter]:sub_index[counter]+x].values
+            maintain_f_trials_diff[temp_image]=[maintain_f_trials[temp_image][:,1]-maintain_f_trials[temp_image][:,0]]            
             counter+=1
 
-        elif i==3:
+        elif i=='suppress_r':
             temp_image=sub_images[counter]            
-            suppress_trials[temp_image]=sub_df[['maintain_evi','replace_evi','suppress_evi']][sub_index[counter]:sub_index[counter]+x].values
+            suppress_r_trials[temp_image]=sub_df[['maintain_R_evi','maintain_F_evi','suppress_R_evi','suppress_F_evi']][sub_index[counter]:sub_index[counter]+x].values
+            suppress_r_trials_diff[temp_image]=[suppress_r_trials[temp_image][:,3]-suppress_r_trials[temp_image][:,2]]            
             counter+=1
+
+        elif i=='suppress_f':
+            temp_image=sub_images[counter]            
+            suppress_f_trials[temp_image]=sub_df[['maintain_R_evi','maintain_F_evi','suppress_R_evi','suppress_F_evi']][sub_index[counter]:sub_index[counter]+x].values
+            suppress_f_trials_diff[temp_image]=[suppress_f_trials[temp_image][:,3]-suppress_f_trials[temp_image][:,2]]                        
+            counter+=1            
 
     #now that the trials are sorted, we need to get the subject average for each condition:
-    avg_maintain=pd.DataFrame(data=np.dstack(maintain_trials.values()).mean(axis=2))
-    avg_replace=pd.DataFrame(data=np.dstack(replace_trials.values()).mean(axis=2))
-    avg_suppress=pd.DataFrame(data=np.dstack(suppress_trials.values()).mean(axis=2))
+    avg_maintain_r=pd.DataFrame(data=np.dstack(maintain_r_trials.values()).mean(axis=2))
+    avg_maintain_f=pd.DataFrame(data=np.dstack(maintain_f_trials.values()).mean(axis=2))
+    avg_maintain_r_diff=pd.DataFrame(data=np.dstack(maintain_r_trials_diff.values()).mean(axis=2))
+    avg_maintain_f_diff=pd.DataFrame(data=np.dstack(maintain_f_trials_diff.values()).mean(axis=2))
+
+    avg_suppress_r=pd.DataFrame(data=np.dstack(suppress_r_trials.values()).mean(axis=2))
+    avg_suppress_f=pd.DataFrame(data=np.dstack(suppress_f_trials.values()).mean(axis=2))
+    avg_suppress_r_diff=pd.DataFrame(data=np.dstack(suppress_r_trials_diff.values()).mean(axis=2))
+    avg_suppress_f_diff=pd.DataFrame(data=np.dstack(suppress_f_trials_diff.values()).mean(axis=2))
 
     #now I will have to change the structure to be able to plot in seaborn:
-    avg_maintain=avg_maintain.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
-    avg_maintain['sub']=np.repeat(subID,len(avg_maintain)) #input the subject so I can stack melted dfs
-    avg_maintain['evidence_class']=np.tile(['maintain','replace','suppress'],x) #add in the labels so we know what each data point is refering to
-    avg_maintain.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
-    avg_maintain['condition']='maintain' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+    avg_maintain_r=avg_maintain_r.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_maintain_r['sub']=np.repeat(subID,len(avg_maintain_r)) #input the subject so I can stack melted dfs
+    avg_maintain_r['evidence_class']=np.tile(['maintain_r','maintain_f','suppress_r','suppress_f'],x) #add in the labels so we know what each data point is refering to
+    avg_maintain_r.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_maintain_r['condition']='maintain_r' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
 
-    avg_replace=avg_replace.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
-    avg_replace['sub']=np.repeat(subID,len(avg_replace)) #input the subject so I can stack melted dfs
-    avg_replace['evidence_class']=np.tile(['maintain','replace','suppress'],x) #add in the labels so we know what each data point is refering to
-    avg_replace.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
-    avg_replace['condition']='replace' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+    avg_maintain_f=avg_maintain_f.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_maintain_f['sub']=np.repeat(subID,len(avg_maintain_f)) #input the subject so I can stack melted dfs
+    avg_maintain_f['evidence_class']=np.tile(['maintain_r','maintain_f','suppress_r','suppress_f'],x) #add in the labels so we know what each data point is refering to
+    avg_maintain_f.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_maintain_f['condition']='maintain_f' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
 
-    avg_suppress=avg_suppress.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
-    avg_suppress['sub']=np.repeat(subID,len(avg_suppress)) #input the subject so I can stack melted dfs
-    avg_suppress['evidence_class']=np.tile(['maintain','replace','suppress'],x) #add in the labels so we know what each data point is refering to
-    avg_suppress.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
-    avg_suppress['condition']='suppress' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+    avg_suppress_r=avg_suppress_r.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_suppress_r['sub']=np.repeat(subID,len(avg_suppress_r)) #input the subject so I can stack melted dfs
+    avg_suppress_r['evidence_class']=np.tile(['maintain_r','maintain_f','suppress_r','suppress_f'],x) #add in the labels so we know what each data point is refering to
+    avg_suppress_r.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_suppress_r['condition']='suppress_r' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
 
-    avg_subject_df= pd.concat([avg_maintain,avg_replace,avg_suppress], ignore_index=True, sort=False)
+    avg_suppress_f=avg_suppress_f.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_suppress_f['sub']=np.repeat(subID,len(avg_suppress_f)) #input the subject so I can stack melted dfs
+    avg_suppress_f['evidence_class']=np.tile(['maintain_r','maintain_f','suppress_r','suppress_f'],x) #add in the labels so we know what each data point is refering to
+    avg_suppress_f.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_suppress_f['condition']='suppress_f' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    ### repeat for the difference plots ###
+    avg_maintain_r_diff=avg_maintain_r_diff.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_maintain_r_diff['sub']=np.repeat(subID,len(avg_maintain_r_diff)) #input the subject so I can stack melted dfs
+    avg_maintain_r_diff['evidence_class']=np.tile(['maintain F-R'],x) #add in the labels so we know what each data point is refering to
+    avg_maintain_r_diff.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_maintain_r_diff['TR']=range(0,9)    
+    avg_maintain_r_diff['condition']='maintain_r_diff' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_maintain_f_diff=avg_maintain_f_diff.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_maintain_f_diff['sub']=np.repeat(subID,len(avg_maintain_f_diff)) #input the subject so I can stack melted dfs
+    avg_maintain_f_diff['evidence_class']=np.tile(['maintain F-R'],x) #add in the labels so we know what each data point is refering to
+    avg_maintain_f_diff.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_maintain_f_diff['TR']=range(0,9) 
+    avg_maintain_f_diff['condition']='maintain_f_diff' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_suppress_r_diff=avg_suppress_r_diff.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_suppress_r_diff['sub']=np.repeat(subID,len(avg_suppress_r_diff)) #input the subject so I can stack melted dfs
+    avg_suppress_r_diff['evidence_class']=np.tile(['suppress F-R'],x) #add in the labels so we know what each data point is refering to
+    avg_suppress_r_diff.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_suppress_r_diff['TR']=range(0,9) 
+    avg_suppress_r_diff['condition']='suppress_r_diff' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_suppress_f_diff=avg_suppress_f_diff.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
+    avg_suppress_f_diff['sub']=np.repeat(subID,len(avg_suppress_f_diff)) #input the subject so I can stack melted dfs
+    avg_suppress_f_diff['evidence_class']=np.tile(['suppress F-R'],x) #add in the labels so we know what each data point is refering to
+    avg_suppress_f_diff.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
+    avg_suppress_f_diff['TR']=range(0,9)      
+    avg_suppress_f_diff['condition']='suppress_f_diff' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+
+    avg_subject_df= pd.concat([avg_maintain_r,avg_maintain_f,avg_suppress_r,avg_suppress_f], ignore_index=True, sort=False)
+    avg_subject_maintain_diff = pd.concat([avg_maintain_r_diff,avg_maintain_f_diff],ignore_index=True,sort=False)
+    avg_subject_suppress_diff = pd.concat([avg_suppress_r_diff,avg_suppress_f_diff],ignore_index=True,sort=False)
 
     # save for future use
     if save: 
         sub_dir = os.path.join(data_dir, f"sub-{subID}")
-        out_fname_template = f"sub-{subID}_{space}_{task}_evidence_dataframe.csv"  
+        out_fname_template = f"sub-{subID}_{space}_{task}_{ROIs}_4way_avg_evidence_dataframe.csv"  
         print(f"\n Saving the sorted evidence dataframe for {subID} - phase: {task} - as {out_fname_template}")
         avg_subject_df.to_csv(os.path.join(sub_dir,out_fname_template))
-    return avg_subject_df    
 
-def organize_memory_evidence(subID,space,task,save=True):
-    ROIs = ['wholebrain']
+        out_fname_template = f"sub-{subID}_{space}_{task}_{ROIs}_maintain_diff_evidence_dataframe.csv"  
+        print(f"\n Saving the sorted evidence dataframe for {subID} - phase: {task} - as {out_fname_template}")
+        avg_subject_maintain_diff.to_csv(os.path.join(sub_dir,out_fname_template))
 
-    print("\n *** loading evidence values from subject dataframe ***")
-
-    sub_dir = os.path.join(data_dir, f"sub-{subID}")
-    in_fname_template = f"sub-{subID}_{space}_{task}_operation_evidence.csv"   
-
-    sub_df=pd.read_csv(os.path.join(sub_dir,in_fname_template))  
-    sub_df.drop(columns=sub_df.columns[0], axis=1, inplace=True) #now drop the extra index column
-
-    sub_images,sub_index=np.unique(sub_df['image_id'], return_index=True) #this searches through the dataframe to find each occurance of the image_id. This allows me to find the start of each trial, and linked to the image_ID #
-
-    #now to sort the trials, we need to figure out what the operation performed is:
-    sub_condition_list=sub_df['operation'][sub_index].values.astype(int) #so using the above indices, we will now grab what the condition is of each image
-
-    subject_design_dir='/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/subject_designs/'
-
-    memory_file_path=os.path.join(subject_design_dir,f"memory_and_familiar_sub-{subID}.csv")
-    memory_df=pd.read_csv(memory_file_path)
-
-    for i in np.unique(sub_df['image_id'].values):
-        if i==0:
-            continue
-        else:
-            response=memory_df[memory_df['image_num']==i].resp.values[0]
-
-            if response==4:
-                sub_df.loc[sub_df['image_id']==i,'memory']=1
-            else:
-                sub_df.loc[sub_df['image_id']==i,'memory']=0
-
-
-    counter=0
-    maintain_remember_trials={}
-    replace_remember_trials={}
-    suppress_remember_trials={}
-
-    maintain_forgot_trials={}
-    replace_forgot_trials={}
-    suppress_forgot_trials={}
-
-    if task=='study': x=9
-    if task=='postremoval': x=5
-
-    for i in sub_condition_list:
-        if i==0: #this is the first rest period (because we had to shift of hemodynamics. So this "0" condition is nothing)
-            print('i==0')
-            counter+=1                         
-            continue
-        elif i==1:
-            temp_image=sub_images[counter]
-            temp_memory=sub_df[sub_df['image_id']==temp_image]['memory'].values[0] #this grabs the first index of the images, and checks the memory outcome
-
-            if temp_memory==1:
-                maintain_remember_trials[temp_image]=sub_df[['maintain_evi','replace_evi','suppress_evi']][sub_index[counter]:sub_index[counter]+x].values
-            elif temp_memory==0:
-                maintain_forgot_trials[temp_image]=sub_df[['maintain_evi','replace_evi','suppress_evi']][sub_index[counter]:sub_index[counter]+x].values
-            counter+=1
-
-        elif i==2:
-            temp_image=sub_images[counter]   
-            temp_memory=sub_df[sub_df['image_id']==temp_image]['memory'].values[0] #this grabs the first index of the images, and checks the memory outcome
-
-            if temp_memory==1:
-                replace_remember_trials[temp_image]=sub_df[['maintain_evi','replace_evi','suppress_evi']][sub_index[counter]:sub_index[counter]+x].values
-            elif temp_memory==0:
-                replace_forgot_trials[temp_image]=sub_df[['maintain_evi','replace_evi','suppress_evi']][sub_index[counter]:sub_index[counter]+x].values
-            counter+=1
-
-        elif i==3:
-            temp_image=sub_images[counter]
-            temp_memory=sub_df[sub_df['image_id']==temp_image]['memory'].values[0] #this grabs the first index of the images, and checks the memory outcome
-
-            if temp_memory==1:
-                suppress_remember_trials[temp_image]=sub_df[['maintain_evi','replace_evi','suppress_evi']][sub_index[counter]:sub_index[counter]+x].values
-            elif temp_memory==0:
-                suppress_forgot_trials[temp_image]=sub_df[['maintain_evi','replace_evi','suppress_evi']][sub_index[counter]:sub_index[counter]+x].values
-            counter+=1
-
-    #now that the trials are sorted, we need to get the subject average for each condition and memory:
-    avg_remember_maintain=pd.DataFrame(data=np.dstack(maintain_remember_trials.values()).mean(axis=2))
-    avg_remember_replace=pd.DataFrame(data=np.dstack(replace_remember_trials.values()).mean(axis=2))
-    avg_remember_suppress=pd.DataFrame(data=np.dstack(suppress_remember_trials.values()).mean(axis=2))
-
-    if maintain_forgot_trials:
-        avg_forgot_maintain=pd.DataFrame(data=np.dstack(maintain_forgot_trials.values()).mean(axis=2))
-    else:
-        avg_forgot_maintain=pd.DataFrame()
-
-    if replace_forgot_trials:
-        avg_forgot_replace=pd.DataFrame(data=np.dstack(replace_forgot_trials.values()).mean(axis=2))
-    else:
-        avg_forgot_replace=pd.DataFrame()    
-
-    if suppress_forgot_trials:
-        avg_forgot_suppress=pd.DataFrame(data=np.dstack(suppress_forgot_trials.values()).mean(axis=2))
-    else: 
-        avg_forgot_suppress=pd.DataFrame()
-
-    #now I will have to change the structure to be able to plot in seaborn:
-    avg_remember_maintain=avg_remember_maintain.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
-    avg_remember_maintain['sub']=np.repeat(subID,len(avg_remember_maintain)) #input the subject so I can stack melted dfs
-    avg_remember_maintain['evidence_class']=np.tile(['maintain','replace','suppress'],x) #add in the labels so we know what each data point is refering to
-    avg_remember_maintain.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
-    avg_remember_maintain['condition']='maintain' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
-
-    avg_forgot_maintain=avg_forgot_maintain.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
-    avg_forgot_maintain['sub']=np.repeat(subID,len(avg_forgot_maintain)) #input the subject so I can stack melted dfs
-    avg_forgot_maintain['evidence_class']=np.tile(['maintain','replace','suppress'],x) #add in the labels so we know what each data point is refering to
-    avg_forgot_maintain.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
-    avg_forgot_maintain['condition']='maintain' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
-
-    ####
-
-    avg_remember_replace=avg_remember_replace.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
-    avg_remember_replace['sub']=np.repeat(subID,len(avg_remember_replace)) #input the subject so I can stack melted dfs
-    avg_remember_replace['evidence_class']=np.tile(['maintain','replace','suppress'],x) #add in the labels so we know what each data point is refering to
-    avg_remember_replace.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
-    avg_remember_replace['condition']='replace' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
-
-    avg_forgot_replace=avg_forgot_replace.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
-    avg_forgot_replace['sub']=np.repeat(subID,len(avg_forgot_replace)) #input the subject so I can stack melted dfs
-    avg_forgot_replace['evidence_class']=np.tile(['maintain','replace','suppress'],x) #add in the labels so we know what each data point is refering to
-    avg_forgot_replace.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
-    avg_forgot_replace['condition']='replace' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
-
-    ####
-
-    avg_remember_suppress=avg_remember_suppress.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
-    avg_remember_suppress['sub']=np.repeat(subID,len(avg_remember_suppress)) #input the subject so I can stack melted dfs
-    avg_remember_suppress['evidence_class']=np.tile(['maintain','replace','suppress'],x) #add in the labels so we know what each data point is refering to
-    avg_remember_suppress.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
-    avg_remember_suppress['condition']='suppress' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
-
-    avg_forgot_suppress=avg_forgot_suppress.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
-    avg_forgot_suppress['sub']=np.repeat(subID,len(avg_forgot_suppress)) #input the subject so I can stack melted dfs
-    avg_forgot_suppress['evidence_class']=np.tile(['maintain','replace','suppress'],x) #add in the labels so we know what each data point is refering to
-    avg_forgot_suppress.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
-    avg_forgot_suppress['condition']='suppress' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
-
-    avg_remember_subject_df= pd.concat([avg_remember_maintain,avg_remember_replace,avg_remember_suppress], ignore_index=True, sort=False)
-
-    avg_forgot_subject_df= pd.concat([avg_forgot_maintain,avg_forgot_replace,avg_forgot_suppress], ignore_index=True, sort=False)
-
-
-    # save for future use
-    if save: 
-        sub_dir = os.path.join(data_dir, f"sub-{subID}")
-        out_fname_template = f"sub-{subID}_{space}_{task}_remember_evidence_dataframe.csv"  
-        print(f"\n Saving the sorted remebered evidence dataframe for {subID} - phase: {task} - as {out_fname_template}")
-        avg_remember_subject_df.to_csv(os.path.join(sub_dir,out_fname_template))
-
-        out_fname_template2 = f"sub-{subID}_{space}_{task}_forgot_evidence_dataframe.csv"  
-        print(f"\n Saving the sorted forgot evidence dataframe for {subID} - phase: {task} - as {out_fname_template}")
-        avg_forgot_subject_df.to_csv(os.path.join(sub_dir,out_fname_template2))        
-
-    return avg_remember_subject_df, avg_forgot_subject_df    
+        out_fname_template = f"sub-{subID}_{space}_{task}_{ROIs}_suppress_diff_evidence_dataframe.csv"  
+        print(f"\n Saving the sorted evidence dataframe for {subID} - phase: {task} - as {out_fname_template}")
+        avg_subject_suppress_diff.to_csv(os.path.join(sub_dir,out_fname_template))        
+    return avg_subject_df, avg_subject_maintain_diff, avg_subject_suppress_diff    
 
 def visualize_evidence():
-    space='T1w'
+    space='MNI'
+
+    ROI='wholebrain'
 
     group_evidence_df=pd.DataFrame()
-    for subID in subIDs:
-        temp_subject_df=organize_evidence(subID,space,'study')
+    group_evidence_maintain_diff=pd.DataFrame()
+    group_evidence_suppress_diff=pd.DataFrame()
+    for subID in temp_subIDs:
+        temp_subject_df,temp_sub_maintain_diff,temp_sub_suppress_diff=organize_evidence(subID,space,'study',ROI)
         group_evidence_df=pd.concat([group_evidence_df,temp_subject_df],ignore_index=True, sort=False)
+        group_evidence_maintain_diff=pd.concat([group_evidence_maintain_diff,temp_sub_maintain_diff],ignore_index=True, sort=False)
+        group_evidence_suppress_diff=pd.concat([group_evidence_suppress_diff,temp_sub_suppress_diff],ignore_index=True, sort=False)
 
-    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='maintain') & (group_evidence_df['evidence_class']=='maintain')], x='TR',y='evidence',color='green',label='maintain', ci=68)
-    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='replace') & (group_evidence_df['evidence_class']=='replace')], x='TR',y='evidence',color='blue',label='replace', ci=68)
-    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='suppress') & (group_evidence_df['evidence_class']=='suppress')], x='TR',y='evidence',color='red',label='suppress',ci=68)
 
+    #looking at maintain trials, are the outcomes confused across operation (when maintained and remembered, is it the same as suppress remembered? and visa versa)
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='maintain_r') & (group_evidence_df['evidence_class']=='maintain_r')], x='TR',y='evidence',color='green',label='maintain_r', ci=95)
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='maintain_r') & (group_evidence_df['evidence_class']=='suppress_r')], x='TR',y='evidence',color='red',label='suppress_r', ci=95)
     plt.legend()
-    ax.set(xlabel='TR', ylabel='Operation Classifier Evidence', title=f'{space} - Operation Classifier (group average)')
-    ax.set_ylim([0.3,0.9])
+    ax.set(xlabel='TR', ylabel='Classifier Evidence')
+    ax.set_title(f'{space} - Memory-Based Operation Classifier during Remembered-Maintain (group average)', loc='center', wrap=True)        
     plt.tight_layout()
-    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_decoding_during_removal.png'))
+    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_{ROI}_remember_evi_during_maintain_remember.png'))
     plt.clf()
+
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='maintain_f') & (group_evidence_df['evidence_class']=='maintain_f')], x='TR',y='evidence',color='green',label='maintain_f', ci=95)
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='maintain_f') & (group_evidence_df['evidence_class']=='suppress_f')], x='TR',y='evidence',color='red',label='suppress_f', ci=95)
+    plt.legend()
+    ax.set(xlabel='TR', ylabel='Classifier Evidence')
+    ax.set_title(f'{space} - Memory-Based Operation Classifier during Forgot-Maintain (group average)', loc='center', wrap=True)        
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_{ROI}_remember_evi_during_maintain_forgot.png'))
+    plt.clf()    
+
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='suppress_r') & (group_evidence_df['evidence_class']=='maintain_r')], x='TR',y='evidence',color='green',label='maintain_r', ci=95)
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='suppress_r') & (group_evidence_df['evidence_class']=='suppress_r')], x='TR',y='evidence',color='red',label='suppress_r', ci=95)
+    plt.legend()
+    ax.set(xlabel='TR', ylabel='Classifier Evidence')
+    ax.set_title(f'{space} - Memory-Based Operation Classifier during Remembered-Suppress (group average)', loc='center', wrap=True)        
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_{ROI}_remember_evi_during_suppress_remember.png'))
+    plt.clf()
+
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='suppress_f') & (group_evidence_df['evidence_class']=='maintain_f')], x='TR',y='evidence',color='green',label='maintain_f', ci=95)
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='suppress_f') & (group_evidence_df['evidence_class']=='suppress_f')], x='TR',y='evidence',color='red',label='suppress_f',ci=95)
+    plt.legend()
+    ax.set(xlabel='TR', ylabel='Classifier Evidence')
+    ax.set_title(f'{space} - Memory-Based Operation Classifier during Forgot-Suppress (group average)', loc='center', wrap=True)        
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_{ROI}_remember_evi_during_suppress_forgot.png'))
+    plt.clf()    
+
+    ax=sns.lineplot(data=group_evidence_maintain_diff.loc[(group_evidence_maintain_diff['condition']=='maintain_r_diff') & (group_evidence_maintain_diff['evidence_class']=='maintain F-R')], x='TR',y='evidence',color='green',label='Maintain_R', ci=95)
+    ax=sns.lineplot(data=group_evidence_maintain_diff.loc[(group_evidence_maintain_diff['condition']=='maintain_f_diff') & (group_evidence_maintain_diff['evidence_class']=='maintain F-R')], x='TR',y='evidence',color='darkgreen',label='Maintain_F', ci=95)
+    plt.legend()
+    ax.set(xlabel='TR', ylabel='Classifier Evidence Difference (forgot-remember)')
+    ax.set_title(f'{space} - Memory-Based Operation Classifier difference during maintain (group average)', loc='center', wrap=True)        
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_{ROI}_maintain_evi_diff_during_maintain.png'))
+    plt.clf()   
 
     #now I want to sort the data based on the outcome of that item:
     group_remember_evidence_df=pd.DataFrame()
