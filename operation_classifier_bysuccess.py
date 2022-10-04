@@ -24,7 +24,7 @@ from sklearn.metrics import roc_curve, auc
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV, LinearRegression
 from sklearn.model_selection import GridSearchCV, LeaveOneGroupOut, PredefinedSplit, StratifiedKFold  #train_test_split, PredefinedSplit, cross_validate, cross_val_predict, 
-from sklearn.feature_selection import SelectFpr, f_classif  #VarianceThreshold, SelectKBest, 
+from sklearn.feature_selection import SelectFpr, f_classif, SelectFdr, VarianceThreshold, SelectKBest
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import resample
 from nilearn.input_data import NiftiMasker,  MultiNiftiMasker
@@ -331,12 +331,12 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False, balance=False, un
             X_res, y_res = rus.fit_resample(X_train, y_train)
 
             # feature selection and transformation
-            ffpr = SelectFpr(f_classif, alpha=0.01).fit(X_res, y_res)
+            ffpr = SelectKBest(f_classif, k=1000).fit(X_res, y_res)
             X_train_sub = ffpr.transform(X_res)
             X_test_sub = ffpr.transform(X_test)
         else:
             # feature selection and transformation
-            ffpr = SelectFpr(f_classif, alpha=0.01).fit(X_train, y_train)
+            ffpr = SelectKBest(f_classif, k=1000).fit(X_train, y_train)
             X_train_sub = ffpr.transform(X_train)
             X_test_sub = ffpr.transform(X_test)
 
@@ -795,12 +795,12 @@ def fit_binary_model(X, Y, runs, save=False, out_fname=None, v=False, balance=Fa
             X_res, y_res = rus.fit_resample(X_train, y_train)
 
             # feature selection and transformation
-            ffpr = SelectFpr(f_classif, alpha=0.01).fit(X_res, y_res)
+            ffpr = SelectFdr(f_classif, alpha=0.01).fit(X_res, y_res)
             X_train_sub = ffpr.transform(X_res)
             X_test_sub = ffpr.transform(X_test)
         else:
             # feature selection and transformation
-            ffpr = SelectFpr(f_classif, alpha=0.01).fit(X_train, y_train)
+            ffpr = SelectFdr(f_classif, alpha=0.01).fit(X_train, y_train)
             X_train_sub = ffpr.transform(X_train)
             X_test_sub = ffpr.transform(X_test)
 
@@ -1140,8 +1140,10 @@ def visualize_evidence():
     plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_{ROI}_remember_evi_during_suppress_forgot.png'))
     plt.clf()    
 
-    ax=sns.lineplot(data=group_evidence_maintain_diff.loc[(group_evidence_maintain_diff['condition']=='maintain_r_diff') & (group_evidence_maintain_diff['evidence_class']=='maintain F-R')], x='TR',y='evidence',color='green',label='Maintain_R', ci=95)
-    ax=sns.lineplot(data=group_evidence_maintain_diff.loc[(group_evidence_maintain_diff['condition']=='maintain_f_diff') & (group_evidence_maintain_diff['evidence_class']=='maintain F-R')], x='TR',y='evidence',color='darkgreen',label='Maintain_F', ci=95)
+    ###now plot and save the difference graphs ###
+
+    ax=sns.lineplot(data=group_evidence_maintain_diff.loc[(group_evidence_maintain_diff['condition']=='maintain_r_diff') & (group_evidence_maintain_diff['evidence_class']=='maintain F-R')], x='TR',y='evidence',color='green',label='Maintain_R', ci=68)
+    ax=sns.lineplot(data=group_evidence_maintain_diff.loc[(group_evidence_maintain_diff['condition']=='maintain_f_diff') & (group_evidence_maintain_diff['evidence_class']=='maintain F-R')], x='TR',y='evidence',color='darkgreen',label='Maintain_F', ci=68)
     plt.legend()
     ax.set(xlabel='TR', ylabel='Classifier Evidence Difference (forgot-remember)')
     ax.set_title(f'{space} - Memory-Based Operation Classifier difference during maintain (group average)', loc='center', wrap=True)        
@@ -1149,94 +1151,11 @@ def visualize_evidence():
     plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_{ROI}_maintain_evi_diff_during_maintain.png'))
     plt.clf()   
 
-    #now I want to sort the data based on the outcome of that item:
-    group_remember_evidence_df=pd.DataFrame()
-    group_forgot_evidence_df=pd.DataFrame()
-
-    for subID in subIDs:
-        temp_remember_subject_df, temp_forgot_subject_df=organize_memory_evidence(subID,space,'study')
-
-        group_remember_evidence_df=pd.concat([group_remember_evidence_df,temp_remember_subject_df],ignore_index=True, sort=False)    
-        group_forgot_evidence_df=pd.concat([group_forgot_evidence_df,temp_forgot_subject_df],ignore_index=True, sort=False)    
-
-    ax=sns.lineplot(data=group_remember_evidence_df.loc[(group_remember_evidence_df['condition']=='maintain') & (group_remember_evidence_df['evidence_class']=='maintain')], x='TR',y='evidence',color='green',label='maintain', ci=68)
-    ax=sns.lineplot(data=group_remember_evidence_df.loc[(group_remember_evidence_df['condition']=='replace') & (group_remember_evidence_df['evidence_class']=='replace')], x='TR',y='evidence',color='blue',label='replace', ci=68)
-    ax=sns.lineplot(data=group_remember_evidence_df.loc[(group_remember_evidence_df['condition']=='suppress') & (group_remember_evidence_df['evidence_class']=='suppress')], x='TR',y='evidence',color='red',label='suppress',ci=68)
-
+    ax=sns.lineplot(data=group_evidence_suppress_diff.loc[(group_evidence_suppress_diff['condition']=='suppress_r_diff') & (group_evidence_suppress_diff['evidence_class']=='suppress F-R')], x='TR',y='evidence',color='red',label='Suppress_R', ci=68)
+    ax=sns.lineplot(data=group_evidence_suppress_diff.loc[(group_evidence_suppress_diff['condition']=='suppress_f_diff') & (group_evidence_suppress_diff['evidence_class']=='suppress F-R')], x='TR',y='evidence',color='darkred',label='Suppress_F', ci=68)
     plt.legend()
-    ax.set(xlabel='TR', ylabel='Operation Classifier Evidence', title=f'{space} - Operation Classifier (group average) - Remembered Items')
-    ax.set_ylim([0.3,0.9])    
+    ax.set(xlabel='TR', ylabel='Classifier Evidence Difference (forgot-remember)')
+    ax.set_title(f'{space} - Memory-Based Operation Classifier difference during suppress (group average)', loc='center', wrap=True)        
     plt.tight_layout()
-    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_decoding_during_removal_remember.png'))
-    plt.clf()
-
-    ax=sns.lineplot(data=group_forgot_evidence_df.loc[(group_forgot_evidence_df['condition']=='maintain') & (group_forgot_evidence_df['evidence_class']=='maintain')], x='TR',y='evidence',color='green',label='maintain', ci=68)
-    ax=sns.lineplot(data=group_forgot_evidence_df.loc[(group_forgot_evidence_df['condition']=='replace') & (group_forgot_evidence_df['evidence_class']=='replace')], x='TR',y='evidence',color='blue',label='replace', ci=68)
-    ax=sns.lineplot(data=group_forgot_evidence_df.loc[(group_forgot_evidence_df['condition']=='suppress') & (group_forgot_evidence_df['evidence_class']=='suppress')], x='TR',y='evidence',color='red',label='suppress',ci=68)
-
-    plt.legend()
-    ax.set(xlabel='TR', ylabel='Operation Classifier Evidence', title=f'{space} - Operation Classifier (group average) - Forgot Items')
-    ax.set_ylim([0.3,0.9])    
-    plt.tight_layout()
-    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_decoding_during_removal_forgot.png'))
-    plt.clf()        
-
-    #we have now plotted the evidence of the remembered items and the forgotten items separately, now I wanna plot the difference between remembered and forgotten
-    group_diff_evidence_df=group_remember_evidence_df.copy(deep=True)
-    group_diff_evidence_df['evidence']=group_remember_evidence_df['evidence']-group_forgot_evidence_df['evidence']    
-
-    ax=sns.lineplot(data=group_diff_evidence_df.loc[(group_diff_evidence_df['condition']=='maintain') & (group_diff_evidence_df['evidence_class']=='maintain')], x='TR',y='evidence',color='green',label='maintain', ci=68)
-    ax=sns.lineplot(data=group_diff_evidence_df.loc[(group_diff_evidence_df['condition']=='replace') & (group_diff_evidence_df['evidence_class']=='replace')], x='TR',y='evidence',color='blue',label='replace', ci=68)
-    ax=sns.lineplot(data=group_diff_evidence_df.loc[(group_diff_evidence_df['condition']=='suppress') & (group_diff_evidence_df['evidence_class']=='suppress')], x='TR',y='evidence',color='red',label='suppress',ci=68)
-    ax.axhline(0,color='k',linestyle='--')
-
-    plt.legend()
-    ax.set(xlabel='TR', ylabel='Operation Classifier Evidence (Remember - Forgot)', title=f'{space} - Category Classifier (group average): Remember-Forgot')
-    plt.tight_layout()
-    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_decoding_during_removal_difference.png'))
-    plt.clf()     
-
-    #plot the traces of remembered and forgotten items during suppress and replace conditions:
-    group_remember_evidence_df['memory']='remembered'
-    group_forgot_evidence_df['memory']='forgotten'
-    group_combined_evidence_df=pd.concat([group_remember_evidence_df,group_forgot_evidence_df],ignore_index=True,sort=False)
-
-    ax=sns.lineplot(data=group_combined_evidence_df.loc[(group_combined_evidence_df['condition']=='maintain') & (group_combined_evidence_df['evidence_class']=='maintain')], x='TR',y='evidence',style='memory',color='green',label='maintain',ci=68)
-    ax=sns.lineplot(data=group_combined_evidence_df.loc[(group_combined_evidence_df['condition']=='replace') & (group_combined_evidence_df['evidence_class']=='replace')], x='TR',y='evidence',style='memory',color='blue',label='replace',ci=68)
-    ax=sns.lineplot(data=group_combined_evidence_df.loc[(group_combined_evidence_df['condition']=='suppress') & (group_combined_evidence_df['evidence_class']=='suppress')], x='TR',y='evidence',style='memory',color='red',label='suppress',ci=68)
-
-    plt.legend()
-    ax.set(xlabel='TR', ylabel='Operation Classifier Evidence', title=f'{space} - Operation Classifier (group average): Remember & Forgot')
-    ax.set_ylim([0.3,0.9])    
-    plt.tight_layout()
-    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_decoding_during_removal_RandF.png'))
-    plt.clf()     
-
-    #plot the difference between remembered and forgotten, but for each condition separately:
-    ax=sns.lineplot(data=group_diff_evidence_df.loc[(group_diff_evidence_df['condition']=='maintain') & (group_diff_evidence_df['evidence_class']=='maintain')], x='TR',y='evidence',color='green',label='maintain', ci=68)
-    ax.axhline(0,color='k',linestyle='--')
-    plt.legend()
-    ax.set(xlabel='TR', ylabel='Operation Classifier Evidence (Remember - Forgot)')
-    ax.set_title(f'{space} - Operation Classifier during Maintain (group average): Remember-Forgot', loc='center', wrap=True)    
-    plt.tight_layout()
-    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_decoding_during_maintain_difference.png'))
-    plt.clf() 
-
-    ax=sns.lineplot(data=group_diff_evidence_df.loc[(group_diff_evidence_df['condition']=='replace') & (group_diff_evidence_df['evidence_class']=='replace')], x='TR',y='evidence',color='blue',label='replace', ci=68)
-    ax.axhline(0,color='k',linestyle='--')
-    plt.legend()
-    ax.set(xlabel='TR', ylabel='Operation Classifier Evidence (Remember - Forgot)')
-    ax.set_title(f'{space} - Operation Classifier during Replace (group average): Remember-Forgot', loc='center', wrap=True)    
-    plt.tight_layout()
-    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_decoding_during_replace_difference.png'))
-    plt.clf()
-
-    ax=sns.lineplot(data=group_diff_evidence_df.loc[(group_diff_evidence_df['condition']=='suppress') & (group_diff_evidence_df['evidence_class']=='suppress')], x='TR',y='evidence',color='red',label='suppress',ci=68)
-    ax.axhline(0,color='k',linestyle='--')
-    plt.legend()
-    ax.set(xlabel='TR', ylabel='Operation Classifier Evidence (Remember - Forgot)')
-    ax.set_title(f'{space} - Operation Classifier during Suppress (group average): Remember-Forgot', loc='center', wrap=True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_decoding_during_suppress_difference.png'))
-    plt.clf()
-
+    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_{ROI}_suppress_evi_diff_during_suppress.png'))
+    plt.clf()      
