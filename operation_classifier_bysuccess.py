@@ -331,12 +331,12 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False, balance=False, un
             X_res, y_res = rus.fit_resample(X_train, y_train)
 
             # feature selection and transformation
-            ffpr = SelectKBest(f_classif, k=1000).fit(X_res, y_res)
+            ffpr = SelectKBest(f_classif, k=2000).fit(X_res, y_res)
             X_train_sub = ffpr.transform(X_res)
             X_test_sub = ffpr.transform(X_test)
         else:
             # feature selection and transformation
-            ffpr = SelectKBest(f_classif, k=1000).fit(X_train, y_train)
+            ffpr = SelectKBest(f_classif, k=2000).fit(X_train, y_train)
             X_train_sub = ffpr.transform(X_train)
             X_test_sub = ffpr.transform(X_test)
 
@@ -530,7 +530,7 @@ def classification(subID):
     print(f"\n***** Running operation classification for sub {subID} {task} {space} with ROIs {ROIs}...")
 
     # get data:
-    full_data = load_process_data(subID, task, space, ROIs)
+    full_data = load_process_data(subID, task, space, ROIs,load=True)
     print(f"Full_data shape: {full_data.shape}")
 
     # get labels:
