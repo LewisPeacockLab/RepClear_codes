@@ -131,7 +131,7 @@ def load_existing_data(subID, task, space, mask_ROIS,load=False): #try to find i
 
 def load_process_data(subID, task, space, mask_ROIS): #this wraps the above function, with a process to load and save the data if there isnt an already saved .npy file
     # ========== check & load existing files
-    ready_data, mask_ROIS = load_existing_data(subID, task, space, mask_ROIS)
+    ready_data, mask_ROIS = load_existing_data(subID, task, space, mask_ROIS,load=True)
     if type(mask_ROIS) == list and len(mask_ROIS) == 0: 
         return np.vstack(list(ready_data.values()))
     else: 
@@ -316,6 +316,9 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False, balance=False, un
     y_scores=[]
 
     tested_inds=[]
+    features_selected=[]
+
+    solver_s='lbfgs'
 
     # ps = PredefinedSplit(runs)
     skf = StratifiedKFold(n_splits=3)
@@ -331,12 +334,14 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False, balance=False, un
             X_res, y_res = rus.fit_resample(X_train, y_train)
 
             # feature selection and transformation
-            ffpr = SelectKBest(f_classif, k=2000).fit(X_res, y_res)
+            ffpr = SelectFpr(f_classif, alpha=0.001).fit(X_res, y_res)
             X_train_sub = ffpr.transform(X_res)
             X_test_sub = ffpr.transform(X_test)
+
+            temp_features_sel=ffpr.get_support()
         else:
             # feature selection and transformation
-            ffpr = SelectKBest(f_classif, k=2000).fit(X_train, y_train)
+            ffpr = SelectFpr(f_classif, alpha=0.001).fit(X_train, y_train)
             X_train_sub = ffpr.transform(X_train)
             X_test_sub = ffpr.transform(X_test)
 
@@ -344,12 +349,12 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False, balance=False, un
         parameters ={'C':[.001, .01, .1, 1, 10, 100, 1000]}
         if balance:
             gscv = GridSearchCV(
-                LogisticRegression(penalty='l2', solver='lbfgs',max_iter=1000,class_weight='balanced'),
+                LogisticRegression(penalty='l2', solver=solver_s,max_iter=1000,class_weight='balanced'),
                 parameters,
                 return_train_score=True)
         else:
             gscv = GridSearchCV(
-                LogisticRegression(penalty='l2', solver='lbfgs',max_iter=1000),
+                LogisticRegression(penalty='l2', solver=solver_s,max_iter=1000),
                 parameters,
                 return_train_score=True)
         if under_sample:            
@@ -362,9 +367,9 @@ def fit_model(X, Y, runs, save=False, out_fname=None, v=False, balance=False, un
         # refit with full data and optimal penalty value
         if balance:
             print('balancing classes via class-weights')
-            lr = LogisticRegression(penalty='l2', solver='lbfgs', C=best_Cs[-1],max_iter=1000, class_weight='balanced')
+            lr = LogisticRegression(penalty='l2', solver=solver_s, C=best_Cs[-1],max_iter=1000, class_weight='balanced')
         else:
-            lr = LogisticRegression(penalty='l2', solver='lbfgs', C=best_Cs[-1],max_iter=1000)            
+            lr = LogisticRegression(penalty='l2', solver=solver_s, C=best_Cs[-1],max_iter=1000)            
         
         if under_sample:
             print('*** Fitting full model ***')
@@ -530,7 +535,7 @@ def classification(subID):
     print(f"\n***** Running operation classification for sub {subID} {task} {space} with ROIs {ROIs}...")
 
     # get data:
-    full_data = load_process_data(subID, task, space, ROIs,load=True)
+    full_data = load_process_data(subID, task, space, ROIs)
     print(f"Full_data shape: {full_data.shape}")
 
     # get labels:
@@ -791,16 +796,16 @@ def fit_binary_model(X, Y, runs, save=False, out_fname=None, v=False, balance=Fa
         #using random under sampling here to reduce learning set:
         if under_sample:
             print('*** Random Under Sampling of unbalanced classes ***')
-            rus = RandomUnderSampler(random_state=42, sampling_strategy='auto')
+            rus = RandomUnderSampler(random_state=50, sampling_strategy='auto')
             X_res, y_res = rus.fit_resample(X_train, y_train)
 
             # feature selection and transformation
-            ffpr = SelectFdr(f_classif, alpha=0.01).fit(X_res, y_res)
+            ffpr = SelectFpr(f_classif, alpha=0.01).fit(X_res, y_res)
             X_train_sub = ffpr.transform(X_res)
             X_test_sub = ffpr.transform(X_test)
         else:
             # feature selection and transformation
-            ffpr = SelectFdr(f_classif, alpha=0.01).fit(X_train, y_train)
+            ffpr = SelectFpr(f_classif, alpha=0.01).fit(X_train, y_train)
             X_train_sub = ffpr.transform(X_train)
             X_test_sub = ffpr.transform(X_test)
 
@@ -893,8 +898,6 @@ def organize_cms(space,task,ROI,save=True):
     ROIs = [ROI]
     for subID in subIDs:
         try:
-
-
             print( "\n *** loading in confusion matrix from subject data frame ***")
             sub_dir=os.path.join(data_dir,f"sub-{subID}")
             in_fname_template=f"sub-{subID}_{space}_{task}_{ROIs[0]}_operation_memoryoutcome_cm.csv"
@@ -1163,6 +1166,7 @@ def visualize_evidence():
 
     ax=sns.lineplot(data=group_evidence_maintain_diff.loc[(group_evidence_maintain_diff['condition']=='maintain_r_diff') & (group_evidence_maintain_diff['evidence_class']=='maintain F-R')], x='TR',y='evidence',color='green',label='Maintain_R', ci=95)
     ax=sns.lineplot(data=group_evidence_maintain_diff.loc[(group_evidence_maintain_diff['condition']=='maintain_f_diff') & (group_evidence_maintain_diff['evidence_class']=='maintain F-R')], x='TR',y='evidence',color='teal',label='Maintain_F', ci=95)
+    ax.axhline(0,color='k',linestyle='--')
     plt.legend()
     ax.set(xlabel='TR', ylabel='Classifier Evidence Difference (forgot-remember)')
     ax.set_title(f'{space} - Memory-Based Operation Classifier difference during maintain (group average)', loc='center', wrap=True)        
@@ -1172,9 +1176,13 @@ def visualize_evidence():
 
     ax=sns.lineplot(data=group_evidence_suppress_diff.loc[(group_evidence_suppress_diff['condition']=='suppress_r_diff') & (group_evidence_suppress_diff['evidence_class']=='suppress F-R')], x='TR',y='evidence',color='red',label='Suppress_R', ci=95)
     ax=sns.lineplot(data=group_evidence_suppress_diff.loc[(group_evidence_suppress_diff['condition']=='suppress_f_diff') & (group_evidence_suppress_diff['evidence_class']=='suppress F-R')], x='TR',y='evidence',color='purple',label='Suppress_F', ci=95)
+    ax.axhline(0,color='k',linestyle='--')
     plt.legend()
     ax.set(xlabel='TR', ylabel='Classifier Evidence Difference (forgot-remember)')
     ax.set_title(f'{space} - Memory-Based Operation Classifier difference during suppress (group average)', loc='center', wrap=True)        
     plt.tight_layout()
     plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_{ROI}_suppress_evi_diff_during_suppress.png'))
     plt.clf()      
+
+
+Parallel(n_jobs=len(temp_subIDs))(delayed(classification)(i) for i in temp_subIDs)    
