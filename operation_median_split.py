@@ -36,6 +36,7 @@ from statsmodels.stats.multitest import multipletests
 
 # global consts
 subIDs = ['002','003','004','005','006','007','008','009','010','011','012','013','014','015','016','017','018','020','023','024','025','026']
+temp_subIDs=['002','003','004','005','008','009','010','011','012','013','014','015','016','017','018','020','024','025','026']
 
 
 phases = ['rest', 'preremoval', 'study', 'postremoval']
@@ -158,7 +159,33 @@ def organize_evidence(subID,space,task,save=True):
         new_sub_df.to_csv(os.path.join(sub_dir,out_fname_template))
     return new_sub_df  
 
-group_evidence_df=pd.DataFrame()
-for subID in subIDs:
-    temp_subject_df=organize_evidence(subID,space,'study')   
-    group_evidence_df=pd.concat([group_evidence_df,temp_subject_df],ignore_index=True, sort=False)
+
+
+def group_post():
+    space='MNI'
+
+    group_evidence_df=pd.DataFrame()
+
+    for subID in temp_subIDs:
+        temp_subject_df=organize_evidence(subID,space,'study')   
+        group_evidence_df=pd.concat([group_evidence_df,temp_subject_df],ignore_index=True, sort=False)
+
+    ax=sns.barplot(data=group_evidence_df,x='split',y='memory',ci=95)
+    ax.set(xlabel='Suppress Median Split', ylabel='Mean Memory outcome', title='Suppress Evidence Median-Split: Prediction of Memory Outcome')
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_suppress_median_split_memory.png'))
+    plt.clf()
+    return group_evidence_df
+
+group_evidence_df=group_post()
+#now running stats on these bars:
+high_memory_evi=group_evidence_df[group_evidence_df['split']=='high']['memory'].values #high suppress evidence - should be low memory
+low_memory_evi=group_evidence_df[group_evidence_df['split']=='low']['memory'].values #low suppress evidence - should be high memory
+
+stats.ttest_rel(low_memory_evi,high_memory_evi,alternative='greater')
+
+stats.wilcoxon(low_memory_evi,high_memory_evi,alternative='greater')
+
+
+
+
