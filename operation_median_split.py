@@ -137,40 +137,28 @@ def organize_evidence(subID,space,task,save=True):
     #need to grab the total trials of the conditions, will need to then pull memory evidence of these trials and append to the dataframe:
     all_maintain=pd.DataFrame(data=maintain_trials_mean.values(),index=maintain_trials_mean.keys())
     all_replace=pd.DataFrame(data=replace_trials_mean.values(),index=replace_trials_mean.keys())
-    all_suppress=pd.DataFrame(data=suppress_trials_mean.values(),index=suppress_trials_mean.keys())
+    all_suppress=pd.DataFrame(data=suppress_trials_mean.values(),index=suppress_trials_mean.keys(),columns=['evidence'])
 
- 
+    all_suppress['memory']=memory_outcome.values() #now we have the mean evidence and the memory outcome of the subject in one DF
 
-    #now that the trials are sorted, we need to get the subject average for each condition:
-    avg_maintain=pd.DataFrame(data=np.dstack(maintain_trials.values()).mean(axis=2))
-    avg_replace=pd.DataFrame(data=np.dstack(replace_trials.values()).mean(axis=2))
-    avg_suppress=pd.DataFrame(data=np.dstack(suppress_trials.values()).mean(axis=2))
+    #now we need to apply the median split and get the "projected memory outcome":
+    df_high, df_low = [x for _, x in all_suppress.groupby(all_suppress['evidence'] < all_suppress.evidence.median())]
 
-    #now I will have to change the structure to be able to plot in seaborn:
-    avg_maintain=avg_maintain.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
-    avg_maintain['sub']=np.repeat(subID,len(avg_maintain)) #input the subject so I can stack melted dfs
-    avg_maintain['evidence_class']=np.tile(['maintain','replace','suppress'],x) #add in the labels so we know what each data point is refering to
-    avg_maintain.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
-    avg_maintain['condition']='maintain' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
-
-    avg_replace=avg_replace.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
-    avg_replace['sub']=np.repeat(subID,len(avg_replace)) #input the subject so I can stack melted dfs
-    avg_replace['evidence_class']=np.tile(['maintain','replace','suppress'],x) #add in the labels so we know what each data point is refering to
-    avg_replace.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
-    avg_replace['condition']='replace' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
-
-    avg_suppress=avg_suppress.T.melt() #now you get 2 columns: variable (TR) and value (evidence)
-    avg_suppress['sub']=np.repeat(subID,len(avg_suppress)) #input the subject so I can stack melted dfs
-    avg_suppress['evidence_class']=np.tile(['maintain','replace','suppress'],x) #add in the labels so we know what each data point is refering to
-    avg_suppress.rename(columns={'variable':'TR','value':'evidence'},inplace=True) #renamed the melted column names 
-    avg_suppress['condition']='suppress' #now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
-
-    avg_subject_df= pd.concat([avg_maintain,avg_replace,avg_suppress], ignore_index=True, sort=False)
+    new_sub_df=pd.DataFrame(columns=['sub','evi','memory','split'])
+    new_sub_df['sub']=[subID,subID]
+    new_sub_df['evi']=[df_high['evidence'].mean(),df_low['evidence'].mean()]   
+    new_sub_df['memory']=[df_high['memory'].mean(),df_low['memory'].mean()]
+    new_sub_df['split']=['high','low']
 
     # save for future use
     if save: 
         sub_dir = os.path.join(data_dir, f"sub-{subID}")
-        out_fname_template = f"sub-{subID}_{space}_{task}_evidence_dataframe.csv"  
+        out_fname_template = f"sub-{subID}_{space}_{task}_mediansplit_evidence_dataframe.csv"  
         print(f"\n Saving the sorted evidence dataframe for {subID} - phase: {task} - as {out_fname_template}")
-        avg_subject_df.to_csv(os.path.join(sub_dir,out_fname_template))
-    return avg_subject_df  
+        new_sub_df.to_csv(os.path.join(sub_dir,out_fname_template))
+    return new_sub_df  
+
+group_evidence_df=pd.DataFrame()
+for subID in subIDs:
+    temp_subject_df=organize_evidence(subID,space,'study')   
+    group_evidence_df=pd.concat([group_evidence_df,temp_subject_df],ignore_index=True, sort=False)
