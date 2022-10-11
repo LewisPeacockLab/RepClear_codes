@@ -178,7 +178,7 @@ def organize_evidence(subID,space,task,condition,save=True):
 
 def group_bootstrap():
     space='MNI'
-    condition=['maintain','suppress']
+    conditions=['maintain','suppress']
 
     total_df=pd.DataFrame(columns=['betas','condition'])
 
@@ -268,7 +268,8 @@ def group_bootstrap():
             temp_total_df['betas']=bootstrap_betas
             temp_total_df['condition']=np.repeat('suppress',len(bootstrap_betas))
             total_df=pd.concat([total_df,temp_total_df],ignore_index=True, sort=False)
-        plt.style.use('seaborn-paper')
+        
+    plt.style.use('seaborn-paper')
 
     ax=sns.violinplot(data=total_df,x='condition',y='betas')
     ax.set(xlabel=f'Operation Evidence vs. Memory (Beta)', ylabel='Count')
