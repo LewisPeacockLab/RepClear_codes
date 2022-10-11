@@ -202,13 +202,13 @@ def group_bootstrap():
             temp_sub_df=pd.DataFrame(columns=['evidence','memory'])
             temp_sub_df=group_evidence_df.sample(n=30)
 
-            temp_df_high, temp_df_low = [x for _, x in group_evidence_df.groupby(group_evidence_df['evidence'] < group_evidence_df.evidence.median())]
+            temp_df_high, temp_df_low = [x for _, x in temp_sub_df.groupby(temp_sub_df['evidence'] < temp_sub_df.evidence.median())]
 
             #fit the "bootstrap subject" data to regression: collect coef
             temp_LR=LinearRegression().fit(temp_sub_df['evidence'].values.reshape(-1,1),temp_sub_df['memory'].values.reshape(-1,1))
             sub_beta=temp_LR.coef_[0][0]
 
-            temp_df=pd.DataFrame(columns=['evidence','memory','beta'])
+            temp_df=pd.DataFrame(columns=['evidence','memory','beta','high_evi','low_evi'])
             temp_df['evidence']=[temp_sub_df['evidence'].mean()]
             temp_df['memory']=[temp_sub_df['memory'].mean()]
             temp_df['beta']=[sub_beta]
@@ -230,6 +230,8 @@ def group_bootstrap():
     print('##############################################################')
     ci_value=np.percentile(bootstrap_betas,95)
     print(f'95% CI: {ci_value}')
+
+    
     plt.style.use('seaborn-paper')
 
     ax=sns.histplot(data=bootstrap_betas)
