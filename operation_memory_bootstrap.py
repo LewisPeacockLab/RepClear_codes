@@ -178,73 +178,106 @@ def organize_evidence(subID,space,task,condition,save=True):
 
 def group_bootstrap():
     space='MNI'
-    condition='suppress'
+    condition=['maintain','suppress']
 
+    total_df=pd.DataFrame(columns=['betas','condition'])
 
-    group_evidence_df=pd.DataFrame()
+    for condition in conditions:
+        temp_total_df=pd.DataFrame(columns=['betas','condition'])
 
-    for subID in temp_subIDs:
-        temp_subject_df=organize_evidence(subID,space,'study',condition)   
-        group_evidence_df=pd.concat([group_evidence_df,temp_subject_df],ignore_index=True, sort=False)
+        group_evidence_df=pd.DataFrame()
+        group_bootstrap_median=pd.DataFrame(columns=['memory','split'])
 
-    #now that the df's all stacked, need to iterate and create my "bootstrap subjects":
-    iterations=10000
-    bootstrap_betas=[]
-    bootstrap_high_oper=[]
-    bootstrap_low_oper=[]
+        for subID in temp_subIDs:
+            temp_subject_df=organize_evidence(subID,space,'study',condition)   
+            group_evidence_df=pd.concat([group_evidence_df,temp_subject_df],ignore_index=True, sort=False)
 
-    total_tic = time.perf_counter() #get a timer for the WHOLE bootstrap
-    for i in range(iterations):
-        tic = time.perf_counter() #get a timer for each bootstrap iteration
-        bootstrap_sub_df=pd.DataFrame(columns=['evidence','memory','beta','high_evi','low_evi'])
-        #now we need to iterate through this dataframe and pull 30 trials with replacement for each subject:
-        for sub in temp_subIDs:
-            temp_sub_df=pd.DataFrame(columns=['evidence','memory'])
-            temp_sub_df=group_evidence_df.sample(n=30)
+        #now that the df's all stacked, need to iterate and create my "bootstrap subjects":
+        iterations=10000
+        bootstrap_betas=[]
+        bootstrap_high_oper=[]
+        bootstrap_low_oper=[]
 
-            temp_df_high, temp_df_low = [x for _, x in temp_sub_df.groupby(temp_sub_df['evidence'] < temp_sub_df.evidence.median())]
+        total_tic = time.perf_counter() #get a timer for the WHOLE bootstrap
+        for i in range(iterations):
+            tic = time.perf_counter() #get a timer for each bootstrap iteration
+            bootstrap_sub_df=pd.DataFrame(columns=['evidence','memory','beta','high_evi','low_evi'])
+            #now we need to iterate through this dataframe and pull 30 trials with replacement for each subject:
+            for sub in temp_subIDs:
+                temp_sub_df=pd.DataFrame(columns=['evidence','memory'])
+                temp_sub_df=group_evidence_df.sample(n=30)
 
-            #fit the "bootstrap subject" data to regression: collect coef
-            temp_LR=LinearRegression().fit(temp_sub_df['evidence'].values.reshape(-1,1),temp_sub_df['memory'].values.reshape(-1,1))
-            sub_beta=temp_LR.coef_[0][0]
+                temp_df_high, temp_df_low = [x for _, x in temp_sub_df.groupby(temp_sub_df['evidence'] < temp_sub_df.evidence.median())]
 
-            temp_df=pd.DataFrame(columns=['evidence','memory','beta','high_evi','low_evi'])
-            temp_df['evidence']=[temp_sub_df['evidence'].mean()]
-            temp_df['memory']=[temp_sub_df['memory'].mean()]
-            temp_df['beta']=[sub_beta]
-            temp_df['high_evi']=[temp_df_high['memory'].mean()]
-            temp_df['low_evi']=[temp_df_low['memory'].mean()]                        
+                #fit the "bootstrap subject" data to regression: collect coef
+                temp_LR=LinearRegression().fit(temp_sub_df['evidence'].values.reshape(-1,1),temp_sub_df['memory'].values.reshape(-1,1))
+                sub_beta=temp_LR.coef_[0][0]
 
-            bootstrap_sub_df=pd.concat([bootstrap_sub_df,temp_df],ignore_index=True, sort=False)
-            del temp_df,temp_sub_df,temp_df_high,temp_df_low
-        toc = time.perf_counter()
-        print(f"Bootstrap iteration {i} completed in {toc - tic:0.4f} seconds")        
-        bootstrap_betas=np.append(bootstrap_betas,bootstrap_sub_df['beta'].mean())
-        bootstrap_high_oper=np.append(bootstrap_high_oper,bootstrap_sub_df['high_evi'].mean())
-        bootstrap_low_oper=np.append(bootstrap_low_oper,bootstrap_sub_df['low_evi'].mean())
+                temp_df=pd.DataFrame(columns=['evidence','memory','beta','high_evi','low_evi'])
+                temp_df['evidence']=[temp_sub_df['evidence'].mean()]
+                temp_df['memory']=[temp_sub_df['memory'].mean()]
+                temp_df['beta']=[sub_beta]
+                temp_df['high_evi']=[temp_df_high['memory'].mean()]
+                temp_df['low_evi']=[temp_df_low['memory'].mean()]                        
 
+                bootstrap_sub_df=pd.concat([bootstrap_sub_df,temp_df],ignore_index=True, sort=False)
+                del temp_df,temp_sub_df,temp_df_high,temp_df_low
+            toc = time.perf_counter()
+            print(f"Bootstrap iteration {i} completed in {toc - tic:0.4f} seconds")        
+            bootstrap_betas=np.append(bootstrap_betas,bootstrap_sub_df['beta'].mean())
+            bootstrap_high_oper=np.append(bootstrap_high_oper,bootstrap_sub_df['high_evi'].mean())
+            bootstrap_low_oper=np.append(bootstrap_low_oper,bootstrap_sub_df['low_evi'].mean())
 
-    total_toc=time.perf_counter()
-    print('##############################################################')
-    print(f"Bootstrap completed in {total_toc - total_tic:0.4f} seconds")            
-    print('##############################################################')
-    ci_value=np.percentile(bootstrap_betas,95)
-    print(f'95% CI: {ci_value}')
+        total_toc=time.perf_counter()
+        print('##############################################################')
+        print(f"Bootstrap completed in {total_toc - total_tic:0.4f} seconds")            
+        print('##############################################################')
+        ci_value=np.percentile(bootstrap_betas,95)
+        print(f'95% CI: {ci_value}')
 
-    
-    plt.style.use('seaborn-paper')
+        group_bootstrap_median['memory']=np.concatenate((bootstrap_high_oper,bootstrap_low_oper)).T #combine the two median split arrays into 1 Dataframe for plotting
+        group_bootstrap_median['split']=np.repeat(['high_evidence','low_evidence'],iterations) #label the index so we can plot with seaborn
 
-    ax=sns.histplot(data=bootstrap_betas)
-    ax.set(xlabel=f'{condition} Evidence vs. Memory (Beta)', ylabel='Count')
-    ax.set_title(f'{condition} Evidence predicting Memory Outcome - 10,000 Bootstrap Iterations', loc='center', wrap=True)
+        plt.style.use('seaborn-paper')
+
+        ax=sns.histplot(data=bootstrap_betas)
+        ax.set(xlabel=f'{condition} Evidence vs. Memory (Beta)', ylabel='Count')
+        ax.set_title(f'{condition} Evidence predicting Memory Outcome - 10,000 Bootstrap Iterations', loc='center', wrap=True)
+        ax.axvline(0,color='k',linestyle='-',label='0 Beta Line')
+        ax.axvline(ci_value,color='orange',linestyle='--',label=f'95% CI Line: {ci_value}')
+        plt.legend()    
+        plt.tight_layout()
+        plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_{condition}_bootstrap_memory.png'))
+        plt.clf()
+
+        ax=sns.violinplot(data=group_bootstrap_median,x='split',y='memory')
+        ax.set(xlabel=f'{condition} Bootstrap Median Split', ylabel='Mean Memory outcome')
+        ax.set_title(f'{condition} Evidence Bootstrap Median-Split: Prediction of Memory Outcome - 10,000 Bootstrap Iterations', loc='center', wrap=True)
+        plt.tight_layout()
+        plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_bootstrap_{condition}_median_split_memory.png'))
+        plt.clf()
+
+        #check the stats on the median split:
+        stats.ttest_rel(bootstrap_low_oper,bootstrap_high_oper)
+
+        if condition=='maintain':
+            temp_total_df['betas']=bootstrap_betas
+            temp_total_df['condition']=np.repeat('maintain',len(bootstrap_betas))
+            total_df=pd.concat([total_df,temp_total_df],ignore_index=True, sort=False)
+        elif condition=='suppress':
+            temp_total_df['betas']=bootstrap_betas
+            temp_total_df['condition']=np.repeat('suppress',len(bootstrap_betas))
+            total_df=pd.concat([total_df,temp_total_df],ignore_index=True, sort=False)
+        plt.style.use('seaborn-paper')
+
+    ax=sns.violinplot(data=total_df,x='condition',y='betas')
+    ax.set(xlabel=f'Operation Evidence vs. Memory (Beta)', ylabel='Count')
+    ax.set_title(f'Operation Evidence predicting Memory Outcome - 10,000 Bootstrap Iterations', loc='center', wrap=True)
     ax.axvline(0,color='k',linestyle='-',label='0 Beta Line')
     ax.axvline(ci_value,color='orange',linestyle='--',label=f'95% CI Line: {ci_value}')
     plt.legend()    
     plt.tight_layout()
-    plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_{condition}_bootstrap_memory.png'))
+    plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_maintain+suppress_bootstrap_memory.png'))
     plt.clf()
-
-
-
 
 
