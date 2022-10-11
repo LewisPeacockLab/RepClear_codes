@@ -271,12 +271,10 @@ def group_bootstrap():
         
     plt.style.use('seaborn-paper')
 
-    ax=sns.violinplot(data=total_df,x='condition',y='betas')
-    ax.set(xlabel=f'Operation Evidence vs. Memory (Beta)', ylabel='Count')
+    ax=sns.violinplot(data=total_df,x='condition',y='betas',palette=['green','red'])
+    ax.set(xlabel=f'Operation', ylabel='Beta')
     ax.set_title(f'Operation Evidence predicting Memory Outcome - 10,000 Bootstrap Iterations', loc='center', wrap=True)
-    ax.axvline(0,color='k',linestyle='-',label='0 Beta Line')
-    ax.axvline(ci_value,color='orange',linestyle='--',label=f'95% CI Line: {ci_value}')
-    plt.legend()    
+    ax.axhline(0,color='k',linestyle='--')
     plt.tight_layout()
     plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_maintain+suppress_bootstrap_memory.png'))
     plt.clf()
