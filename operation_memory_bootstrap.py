@@ -72,15 +72,25 @@ def organize_evidence(subID,space,task,condition,save=True):
     print("\n *** loading evidence values from subject dataframe ***")
 
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
+
+    in_fname_template_2 =f"sub-{subID}_{space}_trained-preremoval_tested-study_evidence.csv"   
+
+
     in_fname_template = f"sub-{subID}_{space}_{task}_operation_evidence.csv"   
 
     sub_df=pd.read_csv(os.path.join(sub_dir,in_fname_template))  
     sub_df.drop(columns=sub_df.columns[0], axis=1, inplace=True) #now drop the extra index column
 
+    category_sub_df=pd.read_csv(os.path.join(sub_dir,in_fname_template_2))  
+    category_sub_df.drop(columns=category_sub_df.columns[0], axis=1, inplace=True) #now drop the extra index column
+
     sub_images,sub_index=np.unique(sub_df['image_id'], return_index=True) #this searches through the dataframe to find each occurance of the image_id. This allows me to find the start of each trial, and linked to the image_ID #
+    category_sub_images,category_sub_index=np.unique(category_sub_df['image_id'], return_index=True) #this searches through the dataframe to find each occurance of the image_id. This allows me to find the start of each trial, and linked to the image_ID #
+    #category_df contains the 0's for the shift, while operation evidence already has removed that  
 
     #now to sort the trials, we need to figure out what the operation performed is:
     sub_condition_list=sub_df['operation'][sub_index].values.astype(int) #so using the above indices, we will now grab what the operation is on each image
+    category_sub_images,category_sub_index=category_sub_images[1:],category_sub_index[1:] #need to drop the first index to help line up image_id order
 
     counter=0
     maintain_trials_mean={}
@@ -95,6 +105,14 @@ def organize_evidence(subID,space,task,condition,save=True):
     r_memory_outcome={} 
     s_memory_outcome={} 
 
+    maintain_category_trials={}
+    replace_category_trials={}
+    suppress_category_trials={}
+
+    maintain_category_trials_mean={}
+    replace_category_trials_mean={}
+    suppress_category_trials_mean={}    
+
     subject_design_dir='/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/subject_designs/'
 
     memory_file_path=os.path.join(subject_design_dir,f"memory_and_familiar_sub-{subID}.csv")
@@ -108,11 +126,15 @@ def organize_evidence(subID,space,task,condition,save=True):
 
             if response==4:
                 sub_df.loc[sub_df['image_id']==i,'memory']=1
+                category_sub_df.loc[category_sub_df['image_id']==i,'memory']=1                
             else:
                 sub_df.loc[sub_df['image_id']==i,'memory']=0       
+                category_sub_df.loc[category_sub_df['image_id']==i,'memory']=0
 
     if task=='study': x=9
     if task=='postremoval': x=5
+
+    category_sub_df['scene_evi']=stats.zscore(category_sub_df['scene_evi']) #zscore the scene evidence to get a better sense of the relationship when across subjects
 
 
     for i in sub_condition_list:
@@ -124,6 +146,10 @@ def organize_evidence(subID,space,task,condition,save=True):
             temp_image=sub_images[counter]
             maintain_trials[temp_image]=sub_df[['maintain_evi']][sub_index[counter]:sub_index[counter]+4].values
             maintain_trials_mean[temp_image]=sub_df[['maintain_evi']][sub_index[counter]:sub_index[counter]+4].values.mean()
+
+            maintain_category_trials[temp_image]=category_sub_df[['scene_evi']][category_sub_index[counter]+2:category_sub_index[counter]+6].values
+            maintain_category_trials_mean[temp_image]=category_sub_df[['scene_evi']][category_sub_index[counter]+2:category_sub_index[counter]+6].values.mean()
+
             m_memory_outcome[temp_image]=sub_df[sub_df['image_id']==temp_image]['memory'].values[0]            
             counter+=1
 
@@ -131,6 +157,10 @@ def organize_evidence(subID,space,task,condition,save=True):
             temp_image=sub_images[counter]     
             replace_trials[temp_image]=sub_df[['replace_evi']][sub_index[counter]:sub_index[counter]+4].values                   
             replace_trials_mean[temp_image]=sub_df[['replace_evi']][sub_index[counter]:sub_index[counter]+4].values.mean()
+
+            replace_category_trials[temp_image]=category_sub_df[['scene_evi']][category_sub_index[counter]+2:category_sub_index[counter]+6].values
+            replace_category_trials_mean[temp_image]=category_sub_df[['scene_evi']][category_sub_index[counter]+2:category_sub_index[counter]+6].values.mean()        
+
             r_memory_outcome[temp_image]=sub_df[sub_df['image_id']==temp_image]['memory'].values[0]            
             counter+=1
 
@@ -138,6 +168,11 @@ def organize_evidence(subID,space,task,condition,save=True):
             temp_image=sub_images[counter]       
             suppress_trials[temp_image]=sub_df[['suppress_evi']][sub_index[counter]:sub_index[counter]+4].values            
             suppress_trials_mean[temp_image]=sub_df[['suppress_evi']][sub_index[counter]:sub_index[counter]+4].values.mean()
+
+            suppress_category_trials[temp_image]=category_sub_df[['scene_evi']][category_sub_index[counter]+2:category_sub_index[counter]+6].values
+            suppress_category_trials_mean[temp_image]=category_sub_df[['scene_evi']][category_sub_index[counter]+2:category_sub_index[counter]+6].values.mean()
+
+
             s_memory_outcome[temp_image]=sub_df[sub_df['image_id']==temp_image]['memory'].values[0]
             counter+=1
 
@@ -146,10 +181,17 @@ def organize_evidence(subID,space,task,condition,save=True):
     all_replace=pd.DataFrame(data=replace_trials_mean.values(),index=replace_trials_mean.keys(),columns=['evidence'])
     all_suppress=pd.DataFrame(data=suppress_trials_mean.values(),index=suppress_trials_mean.keys(),columns=['evidence'])
 
+    all_category_maintain=pd.DataFrame(data=maintain_category_trials_mean.values(),index=maintain_category_trials_mean.keys(),columns=['evidence'])
+    all_category_replace=pd.DataFrame(data=replace_category_trials_mean.values(),index=replace_category_trials_mean.keys(),columns=['evidence'])
+    all_category_suppress=pd.DataFrame(data=suppress_category_trials_mean.values(),index=suppress_category_trials_mean.keys(),columns=['evidence'])    
+
     all_suppress['memory']=s_memory_outcome.values() #now we have the mean evidence and the memory outcome of the subject in one DF
     all_replace['memory']=r_memory_outcome.values() #now we have the mean evidence and the memory outcome of the subject in one DF
     all_maintain['memory']=m_memory_outcome.values() #now we have the mean evidence and the memory outcome of the subject in one DF
 
+    all_category_suppress['memory']=s_memory_outcome.values() #now we have the mean evidence and the memory outcome of the subject in one DF
+    all_category_replace['memory']=r_memory_outcome.values() #now we have the mean evidence and the memory outcome of the subject in one DF
+    all_category_maintain['memory']=m_memory_outcome.values() #now we have the mean evidence and the memory outcome of the subject in one DF
 
     #now we have a dataframe with an index of the item #, a column for mean classifier evidence and a column for memory outcome:
     # we need to then loop across subjects and append their dataframe, so we are left with a dataframe of 30 trials per subject (22 total). 
@@ -157,10 +199,13 @@ def organize_evidence(subID,space,task,condition,save=True):
 
     if condition == 'suppress':
         new_sub_df=all_suppress.reset_index(drop=True) #this removes the information of which item it was
+        new_category_sub_df=all_category_suppress.reset_index(drop=True) #this removes the information of which item it was        
     elif condition == 'maintain':
         new_sub_df=all_maintain.reset_index(drop=True) #this removes the information of which item it was
+        new_category_sub_df=all_category_maintain.reset_index(drop=True) #this removes the information of which item it was                
     elif condition == 'replace':
         new_sub_df=all_replace.reset_index(drop=True) #this removes the information of which item it was
+        new_category_sub_df=all_category_replace.reset_index(drop=True) #this removes the information of which item it was                
 
 
     new_sub_df['evidence']=stats.zscore(new_sub_df['evidence'])
@@ -172,7 +217,11 @@ def organize_evidence(subID,space,task,condition,save=True):
         out_fname_template = f"sub-{subID}_{space}_{task}_{condition}_zscore_evidence_withmemory_dataframe.csv"  
         print(f"\n Saving the sorted {condition} evidence dataframe for {subID} - phase: {task} - as {out_fname_template}")
         new_sub_df.to_csv(os.path.join(sub_dir,out_fname_template))
-    return new_sub_df  
+
+        out_fname_template_2 = f"sub-{subID}_{space}_{task}_{condition}_zscore_category_evidence_withmemory_dataframe.csv"  
+        print(f"\n Saving the sorted {condition} category evidence dataframe for {subID} - phase: {task} - as {out_fname_template}")
+        new_category_sub_df.to_csv(os.path.join(sub_dir,out_fname_template_2))        
+    return new_sub_df,new_category_sub_df
 
 
 
@@ -186,44 +235,68 @@ def group_bootstrap():
         temp_total_df=pd.DataFrame(columns=['betas','condition'])
 
         group_evidence_df=pd.DataFrame()
+        group_category_evidence_df=pd.DataFrame()        
         group_bootstrap_median=pd.DataFrame(columns=['memory','split'])
 
         for subID in temp_subIDs:
-            temp_subject_df=organize_evidence(subID,space,'study',condition)   
+            temp_subject_df,temp_category_subject_df=organize_evidence(subID,space,'study',condition)   
             group_evidence_df=pd.concat([group_evidence_df,temp_subject_df],ignore_index=True, sort=False)
+            group_category_evidence_df=pd.concat([group_category_evidence_df,temp_category_subject_df],ignore_index=True, sort=False)
 
         #now that the df's all stacked, need to iterate and create my "bootstrap subjects":
         iterations=10000
-        bootstrap_betas=[]
+        bootstrap_betas=[] #operation evidence predicting memory
         bootstrap_high_oper=[]
         bootstrap_low_oper=[]
+
+        bootstrap_category_beta=[] #category evidence predicting memory
+        bootstrap_oper_pred_cate=[] #operation evidence predicting category evidence
+        bootstrap_cate_high_oper=[] #category evidence when operation is high
+        bootstrap_cate_low_oper=[] #category evidence when operation is low
+
+        group_evidence_df['scene_evi']=group_category_evidence_df['evidence']
 
         total_tic = time.perf_counter() #get a timer for the WHOLE bootstrap
         for i in range(iterations):
             tic = time.perf_counter() #get a timer for each bootstrap iteration
-            bootstrap_sub_df=pd.DataFrame(columns=['evidence','memory','beta','high_evi','low_evi'])
+            bootstrap_sub_df=pd.DataFrame(columns=['operation_evi','scene_evi','memory','beta','category_beta','oper_cate_beta','high_evi','low_evi','high_scene','low_scene'])
             #now we need to iterate through this dataframe and pull 30 trials with replacement for each subject:
             for sub in temp_subIDs:
-                temp_sub_df=pd.DataFrame(columns=['evidence','memory'])
+                temp_sub_df=pd.DataFrame(columns=['evidence','memory','scene_evi'])
                 temp_sub_df=group_evidence_df.sample(n=30)
 
                 temp_df_high, temp_df_low = [x for _, x in temp_sub_df.groupby(temp_sub_df['evidence'] < temp_sub_df.evidence.median())]
 
                 #fit the "bootstrap subject" data to regression: collect coef
-                temp_LR=LinearRegression().fit(temp_sub_df['evidence'].values.reshape(-1,1),temp_sub_df['memory'].values.reshape(-1,1))
+                temp_LR=LinearRegression().fit(temp_sub_df['evidence'].values.reshape(-1,1),temp_sub_df['memory'].values.reshape(-1,1))  #operation evidence predicting memory outcome
                 sub_beta=temp_LR.coef_[0][0]
 
-                temp_df=pd.DataFrame(columns=['evidence','memory','beta','high_evi','low_evi'])
-                temp_df['evidence']=[temp_sub_df['evidence'].mean()]
+                temp_LR_category=LinearRegression().fit(temp_sub_df['scene_evi'].values.reshape(-1,1),temp_sub_df['memory'].values.reshape(-1,1)) #category evidence predicting memory outcome
+                sub_category_beta=temp_LR_category.coef_[0][0]   
+
+                temp_LR_oper_pred_cate=LinearRegression().fit(temp_sub_df['evidence'].values.reshape(-1,1),temp_sub_df['scene_evi'].values.reshape(-1,1)) #operation evidence predicting category evidence
+                sub_oper_pred_cate_beta=temp_LR_oper_pred_cate.coef_[0][0]                             
+
+                temp_df=pd.DataFrame(columns=['operation_evi','scene_evi','memory','beta','category_beta','oper_cate_beta','high_evi','low_evi','high_scene','low_scene'])
+                temp_df['operation_evi']=[temp_sub_df['evidence'].mean()]
+                temp_df['scene_evi']=[temp_sub_df['scene_evi'].mean()]
                 temp_df['memory']=[temp_sub_df['memory'].mean()]
                 temp_df['beta']=[sub_beta]
+                temp_df['category_beta']=[sub_category_beta]
+                temp_df['oper_cate_beta']=[sub_oper_pred_cate_beta]                
+
                 temp_df['high_evi']=[temp_df_high['memory'].mean()]
                 temp_df['low_evi']=[temp_df_low['memory'].mean()]                        
+                temp_df['high_scene']=[temp_df_high['scene_evi'].mean()]
+                temp_df['low_scene']=[temp_df_low['scene_evi'].mean()]  
 
                 bootstrap_sub_df=pd.concat([bootstrap_sub_df,temp_df],ignore_index=True, sort=False)
+
                 del temp_df,temp_sub_df,temp_df_high,temp_df_low
+
             toc = time.perf_counter()
-            print(f"Bootstrap iteration {i} completed in {toc - tic:0.4f} seconds")        
+            print(f"Bootstrap iteration {i} completed in {toc - tic:0.4f} seconds") 
+
             bootstrap_betas=np.append(bootstrap_betas,bootstrap_sub_df['beta'].mean())
             bootstrap_high_oper=np.append(bootstrap_high_oper,bootstrap_sub_df['high_evi'].mean())
             bootstrap_low_oper=np.append(bootstrap_low_oper,bootstrap_sub_df['low_evi'].mean())
