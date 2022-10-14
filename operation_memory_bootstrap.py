@@ -301,12 +301,32 @@ def group_bootstrap():
             bootstrap_high_oper=np.append(bootstrap_high_oper,bootstrap_sub_df['high_evi'].mean())
             bootstrap_low_oper=np.append(bootstrap_low_oper,bootstrap_sub_df['low_evi'].mean())
 
+            bootstrap_category_beta= np.append(bootstrap_category_beta,bootstrap_sub_df['category_beta'].mean())#category evidence predicting memory
+            bootstrap_oper_pred_cate=np.append(bootstrap_oper_pred_cate,bootstrap_sub_df['oper_cate_beta'].mean()) #operation evidence predicting category evidence
+            bootstrap_cate_high_oper=np.append(bootstrap_cate_high_oper,bootstrap_sub_df['high_scene'].mean()) #category evidence when operation is high
+            bootstrap_cate_low_oper=np.append(bootstrap_cate_low_oper,bootstrap_sub_df['low_scene'].mean()) #category evidence when operation is low
+
         total_toc=time.perf_counter()
         print('##############################################################')
         print(f"Bootstrap completed in {total_toc - total_tic:0.4f} seconds")            
         print('##############################################################')
+
         ci_value=np.percentile(bootstrap_betas,95)
         print(f'95% CI: {ci_value}')
+
+        export_df=pd.DataFrame(columns=['oper_beta','cate_beta','oper_pred_cate_beta','oper_high','oper_low','cate_high','cate_low'])
+        export_df['oper_beta']=bootstrap_betas
+        export_df['cate_beta']=bootstrap_category_beta
+        export_df['oper_pred_cate_beta']=bootstrap_oper_pred_cate
+        export_df['oper_high']=bootstrap_high_oper
+        export_df['oper_low']=bootstrap_low_oper
+        export_df['cate_high']=bootstrap_cate_high_oper
+        export_df['cate_low']=bootstrap_cate_low_oper
+
+        out_fname_template = f"bootstrap_{space}_study_{condition}_dataframe.csv"  
+        print(f"\n Saving the bootstrapping dataframe for phase: study - as {out_fname_template}")
+        export_df.to_csv(os.path.join(data_dir,out_fname_template))        
+
 
         group_bootstrap_median['memory']=np.concatenate((bootstrap_high_oper,bootstrap_low_oper)).T #combine the two median split arrays into 1 Dataframe for plotting
         group_bootstrap_median['split']=np.repeat(['high_evidence','low_evidence'],iterations) #label the index so we can plot with seaborn
