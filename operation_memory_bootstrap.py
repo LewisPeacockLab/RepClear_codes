@@ -227,7 +227,7 @@ def organize_evidence(subID,space,task,condition,save=True):
 
 def group_bootstrap():
     space='MNI'
-    conditions=['maintain','suppress']
+    conditions=['replace']
 
     total_df=pd.DataFrame(columns=['betas','condition'])
 
@@ -312,7 +312,9 @@ def group_bootstrap():
         print('##############################################################')
 
         ci_value=np.percentile(bootstrap_betas,95)
-        print(f'95% CI: {ci_value}')
+        print(f'95% CI for memory: {ci_value}')
+        ci_value_2=np.percentile(bootstrap_oper_pred_cate,95)
+        print(f'95% CI for category: {ci_value_2}')
 
         export_df=pd.DataFrame(columns=['oper_beta','cate_beta','oper_pred_cate_beta','oper_high','oper_low','cate_high','cate_low'])
         export_df['oper_beta']=bootstrap_betas
@@ -333,30 +335,34 @@ def group_bootstrap():
 
         plt.style.use('seaborn-paper')
 
-        ax=sns.histplot(data=bootstrap_betas)
-        ax.set(xlabel=f'{condition} Evidence vs. Memory (Beta)', ylabel='Count')
-        ax.set_title(f'{condition} Evidence predicting Memory Outcome - 10,000 Bootstrap Iterations', loc='center', wrap=True)
-        ax.axvline(0,color='k',linestyle='-',label='0 Beta Line')
-        ax.axvline(ci_value,color='orange',linestyle='--',label=f'95% CI Line: {ci_value}')
-        plt.legend()    
-        plt.tight_layout()
-        plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_{condition}_bootstrap_memory.png'))
-        plt.clf()
+        # ax=sns.histplot(data=bootstrap_betas)
+        # ax.set(xlabel=f'{condition} Evidence vs. Memory (Beta)', ylabel='Count')
+        # ax.set_title(f'{condition} Evidence predicting Memory Outcome - 10,000 Bootstrap Iterations', loc='center', wrap=True)
+        # ax.axvline(0,color='k',linestyle='-',label='0 Beta Line')
+        # ax.axvline(ci_value,color='orange',linestyle='--',label=f'95% CI Line: {ci_value}')
+        # plt.legend()    
+        # plt.tight_layout()
+        # plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_{condition}_bootstrap_memory.png'))
+        # plt.clf()
 
-        ax=sns.violinplot(data=group_bootstrap_median,x='split',y='memory')
-        ax.set(xlabel=f'{condition} Bootstrap Median Split', ylabel='Mean Memory outcome')
-        ax.set_title(f'{condition} Evidence Bootstrap Median-Split: Prediction of Memory Outcome - 10,000 Bootstrap Iterations', loc='center', wrap=True)
-        plt.tight_layout()
-        plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_bootstrap_{condition}_median_split_memory.png'))
-        plt.clf()
+        # ax=sns.violinplot(data=group_bootstrap_median,x='split',y='memory')
+        # ax.set(xlabel=f'{condition} Bootstrap Median Split', ylabel='Mean Memory outcome')
+        # ax.set_title(f'{condition} Evidence Bootstrap Median-Split: Prediction of Memory Outcome - 10,000 Bootstrap Iterations', loc='center', wrap=True)
+        # plt.tight_layout()
+        # plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_bootstrap_{condition}_median_split_memory.png'))
+        # plt.clf()
 
         #check the stats on the median split:
-        stats.ttest_rel(bootstrap_low_oper,bootstrap_high_oper)
+        # stats.ttest_rel(bootstrap_low_oper,bootstrap_high_oper)
 
         if condition=='maintain':
             temp_total_df['betas']=bootstrap_betas
             temp_total_df['condition']=np.repeat('maintain',len(bootstrap_betas))
             total_df=pd.concat([total_df,temp_total_df],ignore_index=True, sort=False)
+        elif condition=='replace':
+            temp_total_df['betas']=bootstrap_betas
+            temp_total_df['condition']=np.repeat('replace',len(bootstrap_betas))
+            total_df=pd.concat([total_df,temp_total_df],ignore_index=True, sort=False)            
         elif condition=='suppress':
             temp_total_df['betas']=bootstrap_betas
             temp_total_df['condition']=np.repeat('suppress',len(bootstrap_betas))
@@ -364,12 +370,12 @@ def group_bootstrap():
         
     plt.style.use('seaborn-paper')
 
-    ax=sns.violinplot(data=total_df,x='condition',y='betas',palette=['green','red'])
+    ax=sns.violinplot(data=total_df,x='condition',y='betas',palette=['green','blue','red'])
     ax.set(xlabel=f'Operation', ylabel='Beta')
-    ax.set_title(f'Operation Evidence predicting Memory Outcome - 10,000 Bootstrap Iterations', loc='center', wrap=True)
+    ax.set_title(f'Operation Evidence predicting Category Evidence - 10,000 Bootstrap Iterations', loc='center', wrap=True)
     ax.axhline(0,color='k',linestyle='--')
     plt.tight_layout()
-    plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_maintain+suppress_bootstrap_memory.png'))
+    plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_maintain+replace+suppress_bootstrap_category.png'))
     plt.clf()
 
 

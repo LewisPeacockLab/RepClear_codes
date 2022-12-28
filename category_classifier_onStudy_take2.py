@@ -777,15 +777,15 @@ def visualize_evidence():
         temp_subject_df=organize_evidence(subID)
         group_evidence_df=pd.concat([group_evidence_df,temp_subject_df],ignore_index=True, sort=False)
 
-    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='maintain') & (group_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='green',label='maintain', ci=68)
-    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='replace') & (group_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='blue',label='replace-old', ci=68)
-    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='replace') & (group_evidence_df['evidence_class']=='faces')], x='TR',y='evidence',color='skyblue',label='replace-new',ci=68)
-    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='suppress') & (group_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='red',label='suppress',ci=68)
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='maintain') & (group_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='green',label='Maintain', ci=68, err_kws={'alpha':0.65})
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='replace') & (group_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='blue',label='Replace (scene)', ci=68, err_kws={'alpha':0.65})
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='replace') & (group_evidence_df['evidence_class']=='faces')], x='TR',y='evidence',color='skyblue',label='Replace (face)',ci=68, err_kws={'alpha':0.65})
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='suppress') & (group_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='red',label='Suppress',ci=68, err_kws={'alpha':0.65})
 
     plt.legend()
     ax.set(xlabel='TR', ylabel='Category Classifier Evidence', title='T1w - Category Classifier (group average)')
     plt.tight_layout()
-    plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_during_removal.png'))
+    plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_during_removal.svg'))
     plt.clf()
 
     #now I want to sort the data based on the outcome of that item:

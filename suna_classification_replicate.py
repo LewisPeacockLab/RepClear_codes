@@ -481,9 +481,9 @@ def permutation_test(X, Y, n_iters=1):
 
 def classification(subID):
     #subID = '004'
-    task = 'preremoval'
-    space = 'MNI'
-    ROIs = ['VVS']
+    task = 'study'
+    space = 'T1w'
+    ROIs = ['wholebrain']
     # ROIs = 'wholebrain'
     n_iters = 1
 
@@ -573,7 +573,7 @@ def visualization(subID):
 def group_visualization():
     #subID = '003'
     task = 'preremoval'
-    space = 'MNI'
+    space = 'T1w'
     ROIs = ['VVS']
     group_cm=[]
     for subID in subIDs:
@@ -584,19 +584,22 @@ def group_visualization():
 
         group_cm.append(mean_cm)
 
-    out_fname = os.path.join(results_dir, f"group_task-{task}_space-{space}_{ROIs[0]}_lrxval.png")
+    out_fname = os.path.join(results_dir, f"group_task-{task}_space-{space}_{ROIs[0]}_lrxval.svg")
 
-
+    plt.style.use('fivethirtyeight')
     group_cm=np.mean(group_cm,axis=0)
     # for num, lab in labels.items():
     #     y_test[y_test == num] = lab
     #     preds[preds == num] = lab
 
-
-    disp = ConfusionMatrixDisplay(confusion_matrix=group_cm,
-                                  display_labels=list(stim_labels.values()))
-    disp.plot(cmap=cmap)
-    plt.savefig(out_fname)    
+    fig=plt.figure()
+    labels=list(stim_labels.values())
+    ax = sns.heatmap(data=group_cm, annot=True,cmap='viridis',vmin=10,vmax=90,center=33)
+    ax.set(xlabel='Predicted', ylabel='True', xticklabels=labels, yticklabels=labels,title='Group Level - Category Classifier')
+    ax.set_yticklabels(ax.get_yticklabels(), rotation=45)
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+    plt.tight_layout()    
+    fig.savefig(out_fname, dpi=fig.dpi)    
 
 
 Parallel(n_jobs=len(subIDs))(delayed(classification)(i) for i in subIDs)

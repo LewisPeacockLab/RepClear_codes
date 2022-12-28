@@ -401,7 +401,7 @@ def sample_for_training(full_data, label_df, include_rest=False):
 
 def classification(subID):
     task = 'study'
-    space = 'MNI' #T1w
+    space = 'T1w' #T1w
     ROIs = ['wholebrain']
     n_iters = 1
 
@@ -440,11 +440,12 @@ def classification(subID):
     print(f"\n***** Average results for sub {subID} - {task} - {space}: Score={mean_score} ")
 
     #want to save the AUC results in such a way that I can also add in the content average later:
-    auc_df=pd.DataFrame(columns=['AUC','Content','Sub'],index=['Maintain','Replace','Suppress'])
+    auc_df=pd.DataFrame(columns=['AUC','Content','Sub','Score'],index=['Maintain','Replace','Suppress'])
     auc_df.loc['Maintain']['AUC']=roc_auc.loc[:,0].mean() #Because the above script calculates these based on a leave-one-run-out. We will have an AUC for Maintain, Replace and Suppress per iteration (3 total). So taking the mean of each operation
     auc_df.loc['Replace']['AUC']=roc_auc.loc[:,1].mean()
     auc_df.loc['Suppress']['AUC']=roc_auc.loc[:,2].mean()
     auc_df['Sub']=subID
+    auc_df['Score']=mean_score
 
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
     out_fname_template_auc = f"sub-{subID}_{space}_{task}_operation_auc.csv"            
@@ -712,15 +713,15 @@ def visualize_evidence():
         temp_subject_df=organize_evidence(subID,space,'study')
         group_evidence_df=pd.concat([group_evidence_df,temp_subject_df],ignore_index=True, sort=False)
 
-    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='maintain') & (group_evidence_df['evidence_class']=='maintain')], x='TR',y='evidence',color='green',label='maintain', ci=68)
-    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='replace') & (group_evidence_df['evidence_class']=='replace')], x='TR',y='evidence',color='blue',label='replace', ci=68)
-    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='suppress') & (group_evidence_df['evidence_class']=='suppress')], x='TR',y='evidence',color='red',label='suppress',ci=68)
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='maintain') & (group_evidence_df['evidence_class']=='maintain')], x='TR',y='evidence',color='green',label='maintain', ci=68, err_kws={'alpha':.7})
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='replace') & (group_evidence_df['evidence_class']=='replace')], x='TR',y='evidence',color='blue',label='replace', ci=68, err_kws={'alpha':.7})
+    ax=sns.lineplot(data=group_evidence_df.loc[(group_evidence_df['condition']=='suppress') & (group_evidence_df['evidence_class']=='suppress')], x='TR',y='evidence',color='red',label='suppress',ci=68, err_kws={'alpha':.7})
 
     plt.legend()
     ax.set(xlabel='TR', ylabel='Operation Classifier Evidence', title=f'{space} - Operation Classifier (group average)')
     ax.set_ylim([0.3,0.9])
     plt.tight_layout()
-    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_decoding_during_removal.png'))
+    plt.savefig(os.path.join(data_dir,'figs',f'group_level_{space}_operation_decoding_during_removal.svg'))
     plt.clf()
 
     #now I want to sort the data based on the outcome of that item:

@@ -18,16 +18,15 @@ import pandas as pd
 import pickle
 
 subs=['02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','20','23','24','25','26']
-subs =['02','05','07','08','09']
 
 
 
-mask_flag = 'vtc' #'vtc'/'wholebrain'/'GM'/'GM_group'/'PHG'/'FG'
-brain_flag = 'MNI'
+mask_flag = 'wholebrain' #'vtc'/'wholebrain'/'GM'/'GM_group'/'PHG'/'FG'
+brain_flag = 'T1w'
 TR_shift=5
-ses = 'localizer' #study/localizer/btwnsub
+ses = 'study' #study/localizer/btwnsub
 clear_data=1
-rest='on'
+rest='off'
 subcat='off'
 
 if ses=='study':
@@ -154,7 +153,7 @@ def group_cmatrix(subs):
 
 if rest=='off':
     labels=['scenes','faces']
-    oper_labels=['maintain', 'replace', 'suppress']
+    oper_labels=['Maintain', 'Replace', 'Suppress']
 elif rest=='on':
     if subcat=='on':
         labels=['rest','manmade','natural','female','male']
@@ -167,24 +166,24 @@ elif rest=='on':
 fig=plt.figure()
 group_mean_confusion=group_cmatrix(subs)
 plot_confusion=np.mean(group_mean_confusion,axis=0)
-sns.set_style('ticks')
-ax = sns.heatmap(data=(plot_confusion*100),annot=True,cmap='coolwarm',vmin=10,vmax=90,center=33)
+plt.style.use('fivethirtyeight') 
+ax = sns.heatmap(data=(plot_confusion*100),annot=True,cmap='viridis',vmin=10,vmax=90,center=33)
 if ses_label=='category':
-    ax.set(xlabel='Predicted', ylabel='True', xticklabels=labels, yticklabels=labels,title='Group Mean X-Validation')
+    ax.set(xlabel='Predicted', ylabel='True', xticklabels=labels, yticklabels=labels,title='Group Level - Category Classifier')
 elif ses_label=='operation':
-    ax.set(xlabel='Predicted', ylabel='True', xticklabels=oper_labels, yticklabels=oper_labels,title='Group Mean X-Validation')
+    ax.set(xlabel='Predicted', ylabel='True', xticklabels=oper_labels, yticklabels=oper_labels,title='Group Level - Operation Classifier')
 ax.set_yticklabels(ax.get_yticklabels(), rotation=45)
 ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
 plt.tight_layout()
 os.chdir('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/figs')
 if clear_data==0:
     if subcat=='on':
-        fig.savefig('%s_xvalidation_subcategory_rest_%s_%sclassifier_%s_TR%s_%s.png' % (ses,rest,ses_label,brain_flag,TR_shift,mask_flag), dpi=fig.dpi)
+        fig.savefig('%s_xvalidation_subcategory_rest_%s_%sclassifier_%s_TR%s_%s.svg' % (ses,rest,ses_label,brain_flag,TR_shift,mask_flag), dpi=fig.dpi)
     else:
-        fig.savefig('%s_xvalidation_rest_%s_%sclassifier_%s_TR%s_%s.png' % (ses,rest,ses_label,brain_flag,TR_shift,mask_flag), dpi=fig.dpi)
+        fig.savefig('%s_xvalidation_rest_%s_%sclassifier_%s_TR%s_%s.svg' % (ses,rest,ses_label,brain_flag,TR_shift,mask_flag), dpi=fig.dpi)
 else:
     if subcat=='on':
-        fig.savefig('%s_xvalidation_subcategory_rest_%s_%sclassifier_%s_TR%s_%s_cleaned.png' % (ses,rest,ses_label,brain_flag,TR_shift,mask_flag), dpi=fig.dpi)
+        fig.savefig('%s_xvalidation_subcategory_rest_%s_%sclassifier_%s_TR%s_%s_cleaned.svg' % (ses,rest,ses_label,brain_flag,TR_shift,mask_flag), dpi=fig.dpi)
     else:    
         fig.savefig('%s_xvalidation_rest_%s_%sclassifier_%s_TR%s_%s_cleaned.svg' % (ses,rest,ses_label,brain_flag,TR_shift,mask_flag), dpi=fig.dpi)
 plt.show()

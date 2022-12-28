@@ -517,6 +517,32 @@ plt.legend(loc = 'upper left')
 plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Group_Category_Weighted_pre_post_summary.png'))
 plt.clf() 
 
+######
+
+grouped_catew_memory_pre_post.rename(columns={'variable':'operation','value':'fidelity'})
+
+#new plotting code to prepare for pub:
+fig=sns.barplot(data=grouped_catew_memory_pre_post,x='operation',y='fidelity',hue='memory',ci=95,palette={'remembered':'black','forgot':'grey'},edgecolor=".7")
+for bar_group, desaturate_value in zip(fig.containers, [0.4, 1]):
+    for bar, color in zip(bar_group, ['green', 'blue', 'red']):
+        bar.set_facecolor(sns.desaturate(color, desaturate_value))
+
+# sns.stripplot(x='operation',y='fidelity',hue='memory',data=plotting_df,palette=['black'],dodge=True, jitter=False, alpha=0.15, ax=fig)
+fig.set_title('Category Weighted - Pre vs. Post RSA',loc='center', wrap=True)
+fig.set_xlabel('Operations')
+fig.set_ylabel('Fidelity of RSA')
+plt.tight_layout()
+fig.set_ylim([0,0.05])
+
+from matplotlib.legend_handler import HandlerTuple
+
+fig.legend(handles=[tuple(bar_group) for bar_group in fig.containers],
+          labels=[bar_group.get_label() for bar_group in fig.containers],
+          title=fig.legend_.get_title().get_text(),
+          handlelength=4, handler_map={tuple: HandlerTuple(ndivide=None, pad=0.1)})
+
+plt.savefig(os.path.join(container_path,"group_model","Representational_Changes_%s" % brain_flag,'Allsubs_Category_Weighted_pre_post_summary.svg'))
+plt.clf() 
 
 
 
