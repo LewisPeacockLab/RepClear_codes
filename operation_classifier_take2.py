@@ -145,6 +145,9 @@ def load_process_data(subID, task, space, mask_ROIS): #this wraps the above func
 
         mask_fnames = [fname_template.format(i, "brain_mask") for i in runs]
         mask_paths = [os.path.join(data_dir, f"sub-{subID}", "func", fname) for fname in mask_fnames]
+    
+    elif mask_ROIS ==['GM']:
+        mask_paths=['/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_MNI_GM_mask.nii.gz']
     else:
         # ROI masks: 1 for each ROI
         mask_fnames = [f"{ROI}_{task}_{space}_mask.nii.gz" for ROI in mask_ROIS]
@@ -2184,4 +2187,210 @@ def bootstrap_content_oper():
     ax.set_title('Proportion of bootstrapped iterations >0 Beta (Operation vs. Content Decoding)', loc='center',wrap=True)
     plt.tight_layout()
     plt.savefig(os.path.join(data_dir,'figs','proportion_bootstrapping_prediction.png'))
+
+def sample_for_cross_sub(full_data_dir ,label_df):
+    #this will take in the subID that will be tested on, the full dictionary with all bold data and the regressors.
+    #This function outputs the Training/Testing data for all but 1 subs, the held out sub and the regressor of interest.
+
+    # operation_list: 1 - Maintain, 2 - Replace, 3 - Suppress
+    # stim_on labels: 1 actual stim; 2 operation; 3 ITI; 0 rest between runs
+    print("\n***** Subsampling data...")
+
+    category_list = label_df['condition']
+    stim_on = label_df['stim_present']
+    run_list = label_df['run']
+    image_list = label_df['image_id']
+
+    # get faces
+    oper_inds = np.where((stim_on == 2) | (stim_on == 3))[0]
+    rest_inds = []
+
+    runs = run_list.unique()[1:]
+
+    operation_reg=category_list.values[oper_inds]
+    run_reg=run_list.values[oper_inds]
+    image_reg = image_list.values[oper_inds]
+
+    # === get sample_bold & sample_regressor
+    training_bold = [] #this should contain each subject's first half of each run
+    testing_bold = [] #this should contain each subject's second half of each run
+    sample_regressor = operation_reg
+
+    # heldout_bold = full_data_dir[f'{subID}'][oper_inds] #get the bold data for the subject we want to test on
+
+    # temp_subIDs=subIDs.copy() #get the remaining subjects, so they can be used for training
+    # temp_subIDs.remove(subID) #now remove the subject we are going to test on, and allow us to get the remaining subjects' data
+
+    counter=0
+    for temp_sub in subIDs:
+        temp_bold=full_data_dir[f'{temp_sub}'][oper_inds] #this pulls the data for the current subject
+
+        first_half = np.concatenate((temp_bold[0:150],temp_bold[300:450],temp_bold[600:750])) #this is extracting the first half of each run for this current subject
+        first_half_reg = np.concatenate((sample_regressor[0:150],sample_regressor[300:450],sample_regressor[600:750]))
+
+        second_half = np.concatenate((temp_bold[150:300],temp_bold[450:600],temp_bold[750:900])) #this is extracting the second half of each run for this current subject
+        second_half_reg = np.concatenate((sample_regressor[150:300],sample_regressor[450:600],sample_regressor[750:900]))
+
+        if counter==0: #first run through, we set the temp variable
+            training_bold=first_half
+            testing_bold=second_half
+            counter=counter+1
+        else: #every other run through we just add it the array so its 1 large 2D array (Samples x Features)
+            training_bold=np.concatenate((training_bold,first_half))
+            testing_bold=np.concatenate((testing_bold,second_half))
+
+    sample_runs=np.repeat(range(0,22),450) #this in reality isnt runs, but subjects
+    training_reg=np.tile(first_half_reg,22)
+    testing_reg=np.tile(second_half_reg,22)
+
+    return training_bold, testing_bold, training_reg, testing_reg, sample_runs
+
+def fit_model_cross_sub(training_bold, testing_bold, training_reg, testing_reg, sample_runs, save=False, out_fname=None, v=False):
+    if v: print("\n***** Fitting model...")
+
+    scores = []
+    auc_scores = []
+    cms = []
+    best_Cs = []
+    evidences = []
+    roc_aucs=[]
+
+    tested_labels=[]
+    pred_probs=[]
+    y_scores=[]
+
+    ps = PredefinedSplit(sample_runs) #using the input subjects, we can train on everything BUT 1 subject
+    for train_inds, test_inds in ps.split():
+        if v: print("\n***** Training on 21 subjects and testing on 1")
+        X_train, X_test, y_train, y_test = testing_bold[train_inds], testing_bold[test_inds], testing_reg[train_inds], testing_reg[test_inds] #using the splits, I can now segment my "testing set", into training (all subs but 1) and testing (the held out sub)
+        
+        # feature selection and transformation - this is where we use the training data that we segmented out before
+        ffpr = SelectFpr(f_classif, alpha=0.001).fit(training_bold, training_reg)
+        X_train_sub = ffpr.transform(X_train)
+        X_test_sub = ffpr.transform(X_test)
+        
+        # train with selected penalty value
+        lr = LogisticRegression(penalty='l2', solver='lbfgs', C=50 ,max_iter=1000)
+        lr.fit(X_train_sub, y_train)
+        # test on held out data
+        score = lr.score(X_test_sub, y_test)
+        if v: print(f"\n***** score: {score}")
+
+        y_score = lr.decision_function(X_test_sub)
+        n_classes=np.unique(y_test).size
+        # Compute ROC curve and ROC area for each class
+        fpr = dict()
+        tpr = dict()
+        roc_auc = dict()
+        for i in range(n_classes):
+            temp_y=np.zeros(y_test.size)
+            label_ind=np.where(y_test==(i+1))
+            temp_y[label_ind]=1
+
+            fpr[i], tpr[i], _ = roc_curve(temp_y, y_score[:, i])
+            roc_auc[i] = auc(fpr[i], tpr[i])
+
+        auc_score = roc_auc_score(y_test, lr.predict_proba(X_test_sub), multi_class='ovr')
+        if v: print(f"\n***** AUC: {auc_score}")
+        preds = lr.predict(X_test_sub)
+        pred_prob=lr.predict_proba(X_test_sub)
+        # confusion matrix
+        true_counts = np.asarray([np.sum(y_test == i) for i in [1,2,3]])
+        cm = confusion_matrix(y_test, preds, labels=list([1,2,3])) / true_counts[:,None] * 100
+
+        scores.append(score)
+        auc_scores.append(auc_score)
+        cms.append(cm)
+        #calculate evidence values
+        evidence=(1. / (1. + np.exp(-lr.decision_function(X_test_sub))))
+        evidences.append(evidence) 
+        roc_aucs.append(roc_auc)
+
+        tested_labels.append(y_test)
+        pred_probs.append(pred_prob)
+        y_scores.append(y_score)
+
+    roc_aucs = pd.DataFrame(data=roc_aucs)
+    scores = np.asarray(scores)
+    auc_scores = np.asarray(auc_scores)
+    cms = np.stack(cms)
+    evidences = np.stack(evidences)
+
+    tested_labels=np.stack(tested_labels)
+    pred_probs=np.stack(pred_probs)
+    y_scores=np.stack(y_scores)
+
+    if v: print(f"\nClassifier score: \n"
+        f"scores: {scores.mean()} +/- {scores.std()}\n"
+        f"auc scores: {auc_scores.mean()} +/- {auc_scores.std()}\n"
+        f"best Cs: {best_Cs}\n"
+        f"average confution matrix:\n"
+        f"{cms.mean(axis=0)}")
+
+    return scores, auc_scores, cms, evidences, roc_aucs, tested_labels, y_scores
+
+def cross_sub():
+    #function to load and run the x-validation of operation across subjects
+    task = 'study'
+    space = 'MNI' #T1w
+    ROIs = ['GM']
+    n_iters = 1
+
+
+    shift_size_TR = shift_sizes_TR[0]
+    rest_tag = 0
+
+    print(f"\n***** Running operation level classification for {task} {space} with ROIs {ROIs}...")
+
+    # get data:
+    full_data_dir={}
+    for subID in subIDs:
+        full_data_dir[f'{subID}'] = load_process_data(subID, task, space, ROIs)
+
+    # get labels - this is shared across subjects:
+    label_df = get_shifted_labels(task, shift_size_TR, rest_tag)
+    print(f"Category label shape: {label_df.shape}")
+    
+    # set up summary arrays for xval
+    scores = []
+    auc_scores = []
+    cms = []
+    evidence = []
+
+    #set up the training and testing data - All subs minus 1, take first run for feature selection and then train on remaining 2 runs. Test all 3 runs of held out subject, then repeat
+
+    training_bold, testing_bold, training_reg, testing_reg, sample_runs = sample_for_cross_sub(full_data_dir, label_df)
+    
+    print(f"Running model fitting and cross-validation...")
+
+    # model fitting 
+    score, auc_score, cm, evidence, roc_auc, tested_labels, y_scores = fit_model_cross_sub(training_bold, testing_bold, training_reg, testing_reg, sample_runs, save=False, v=True)
+
+    mean_score=score.mean()
+
+    print(f"\n***** Average results for group - {task} - {space}: Score={mean_score} ")
+
+    #want to save the AUC results in such a way that I can also add in the content average later:
+    auc_df=pd.DataFrame(columns=['Maintain','Replace','Suppress','Sub'])
+    auc_df['Maintain']=roc_auc.loc[:,0]
+    auc_df['Replace']=roc_auc.loc[:,1]
+    auc_df['Suppress']=roc_auc.loc[:,2]
+    auc_df['Sub']=[*range(0,22)]
+
+    out_fname_template_auc = f"btwnsub_{space}_{task}_operation_auc.csv"            
+    print("\n *** Saving AUC values with group dataframe ***")
+    auc_df.to_csv(os.path.join(data_dir,out_fname_template_auc))    
+
+    #need to then save the evidence:
+    evidence_df=pd.DataFrame(columns=['subjects','operation','image_id']) #take the study DF for this subject
+    evidence_df['subjects']=sample_runs
+    evidence_df['operation']=testing_reg
+    evidence_df['maintain_evi']=np.vstack(evidence)[:,0] #add in the evidence values for maintain
+    evidence_df['replace_evi']=np.vstack(evidence)[:,1] #add in the evidence values for replace
+    evidence_df['suppress_evi']=np.vstack(evidence)[:,2] #add in the evidence values for suppress
+
+    #this will export the subject level evidence to the subject's folder
+    out_fname_template = f"btwnsub_{space}_{task}_operation_evidence.csv"            
+    print("\n *** Saving evidence values with group dataframe ***")
+    evidence_df.to_csv(os.path.join(data_dir,out_fname_template))   
 
