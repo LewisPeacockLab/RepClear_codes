@@ -268,10 +268,10 @@ def group_bootstrap():
                 temp_df_high, temp_df_low = [x for _, x in temp_sub_df.groupby(temp_sub_df['evidence'] < temp_sub_df.evidence.median())]
 
                 #fit the "bootstrap subject" data to regression: collect coef
-                temp_LR=LinearRegression().fit(temp_sub_df['evidence'].values.reshape(-1,1),temp_sub_df['memory'].values.reshape(-1,1))  #operation evidence predicting memory outcome
+                temp_LR=LogisticRegression().fit(temp_sub_df['evidence'].values.reshape(-1,1),temp_sub_df['memory'].values.reshape(-1,1))  #operation evidence predicting memory outcome
                 sub_beta=temp_LR.coef_[0][0]
 
-                temp_LR_category=LinearRegression().fit(temp_sub_df['scene_evi'].values.reshape(-1,1),temp_sub_df['memory'].values.reshape(-1,1)) #category evidence predicting memory outcome
+                temp_LR_category=LogisticRegression().fit(temp_sub_df['scene_evi'].values.reshape(-1,1),temp_sub_df['memory'].values.reshape(-1,1)) #category evidence predicting memory outcome
                 sub_category_beta=temp_LR_category.coef_[0][0]   
 
                 temp_LR_oper_pred_cate=LinearRegression().fit(temp_sub_df['evidence'].values.reshape(-1,1),temp_sub_df['scene_evi'].values.reshape(-1,1)) #operation evidence predicting category evidence
@@ -372,10 +372,10 @@ def group_bootstrap():
 
     ax=sns.violinplot(data=total_df,x='condition',y='betas',palette=['green','blue','red'])
     ax.set(xlabel=f'Operation', ylabel='Beta')
-    ax.set_title(f'Operation Evidence predicting Category Evidence - 10,000 Bootstrap Iterations', loc='center', wrap=True)
+    ax.set_title(f'Operation Evidence predicting Memory - 10,000 Bootstrap Iterations', loc='center', wrap=True)
     ax.axhline(0,color='k',linestyle='--')
     plt.tight_layout()
-    plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_maintain+replace+suppress_bootstrap_category.png'))
+    plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_maintain+replace+suppress_bootstrap_memory.png'))
     plt.clf()
 
 
