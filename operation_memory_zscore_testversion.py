@@ -34,7 +34,7 @@ from sklearn.metrics import roc_auc_score, confusion_matrix, ConfusionMatrixDisp
 from joblib import Parallel, delayed
 from statsmodels.stats.anova import AnovaRM
 from statsmodels.stats.multitest import multipletests
-from scipy.stats import ttest_1samp, f_oneway, ttest_ind
+from scipy.stats import ttest_1samp, f_oneway, ttest_ind, ttest_rel
 
 
 # global consts
@@ -149,6 +149,8 @@ for subID in subIDs:
     temp_df=organize_evidence(subID,'T1w','study',save=True)
     combined_df=pd.concat([combined_df,temp_df])
 
+del temp_df
+
 plt.style.use('seaborn-paper')
 
 ax=sns.violinplot(data=combined_df,x='operation',y='evidence',palette=['green','blue','red'])
@@ -175,5 +177,60 @@ F_stat_replace_suppress, P_value_replace_suppress = f_oneway(temp_replace,temp_s
 
 
 
+### Bootstrap ###
+iterations=10000
+bootstrap_m_var=[]
+bootstrap_r_var=[]
+bootstrap_s_var=[]
 
+for i in range(iterations):
 
+    bootstrap_maintain=temp_maintain.sample(len(temp_maintain),replace=True)
+    bootstrap_replace=temp_replace.sample(len(temp_replace),replace=True)
+    bootstrap_suppress=temp_suppress.sample(len(temp_suppress),replace=True)
+
+    temp_m_var=np.var(bootstrap_maintain)
+    temp_r_var=np.var(bootstrap_replace)
+    temp_s_var=np.var(bootstrap_suppress)
+
+    bootstrap_m_var.append(temp_m_var)
+    bootstrap_r_var.append(temp_r_var)
+    bootstrap_s_var.append(temp_s_var)
+
+#now test difference between groups
+ttest_ind(bootstrap_m_var,bootstrap_r_var)
+ttest_ind(bootstrap_m_var,bootstrap_s_var)
+ttest_ind(bootstrap_r_var,bootstrap_s_var)
+
+plot_bootstrap_var=pd.DataFrame(columns=['Variance','Operation'])
+
+temp_df=pd.DataFrame()
+temp_df['Variance']=bootstrap_m_var
+temp_df['Operation']='Maintain'
+
+plot_bootstrap_var=pd.concat([plot_bootstrap_var,temp_df])
+del temp_df
+
+temp_df=pd.DataFrame()
+temp_df['Variance']=bootstrap_r_var
+temp_df['Operation']='Replace'
+
+plot_bootstrap_var=pd.concat([plot_bootstrap_var,temp_df])
+del temp_df
+
+temp_df=pd.DataFrame()
+temp_df['Variance']=bootstrap_s_var
+temp_df['Operation']='Suppress'
+
+plot_bootstrap_var=pd.concat([plot_bootstrap_var,temp_df])
+del temp_df
+
+plt.style.use('seaborn-paper')
+
+ax=sns.violinplot(data=plot_bootstrap_var,x='Operation',y='Variance',palette=['green','blue','red'])
+ax.set(xlabel='Operation',ylabel='Variance')
+ax.set_title('Bootstrapped Variance of Operation Engagement', loc='center', wrap=True)
+plt.tight_layout()
+plt.savefig(os.path.join(data_dir,'figs','All_operation_trials_bootstrap_variance.svg'))
+plt.savefig(os.path.join(data_dir,'figs','All_operation_trials_bootstrap_variance.png'))
+plt.clf()
