@@ -133,6 +133,11 @@ def organize_evidence(subID,space,task,save=True):
     all_operations['evidence']=stats.zscore(all_operations['evidence'])
     all_operations.reset_index(inplace=True)
 
+    #calculate the subject level variance for the operations
+    operation_var=pd.DataFrame(columns=['Maintain','Replace','Suppress'],index=[0])
+    operation_var['Maintain']=np.var(all_operations[all_operations['operation']=='Maintain']['evidence'])
+    operation_var['Replace']=np.var(all_operations[all_operations['operation']=='Replace']['evidence'])
+    operation_var['Suppress']=np.var(all_operations[all_operations['operation']=='Suppress']['evidence'])
 
     # save for future use
     if save: 
@@ -140,16 +145,20 @@ def organize_evidence(subID,space,task,save=True):
         out_fname_template = f"sub-{subID}_{space}_{task}_operation_zscore_evidence.csv"  
         print(f"\n Saving the sorted z-scored operation evidence dataframe for {subID} - phase: {task} - as {out_fname_template}")
         all_operations.to_csv(os.path.join(sub_dir,out_fname_template))   
-    return all_operations
+    return all_operations, operation_var
 
 #now combine all the subject operation dfs into 1 to plot:
 combined_df=pd.DataFrame()
+combined_var=pd.DataFrame()
 
 for subID in subIDs:
-    temp_df=organize_evidence(subID,'T1w','study',save=True)
+    temp_df, temp_subject_var=organize_evidence(subID,'T1w','study',save=True)
     combined_df=pd.concat([combined_df,temp_df])
+    combined_var=pd.concat([combined_var,temp_subject_var])
 
 del temp_df
+
+combined_var.reset_index(inplace=True,drop=True)
 
 plt.style.use('seaborn-paper')
 
@@ -162,7 +171,16 @@ plt.savefig(os.path.join(data_dir,'figs','All_operation_trials_zscore.svg'))
 plt.savefig(os.path.join(data_dir,'figs','All_operation_trials_zscore.png'))
 plt.clf()
 
+plt.style.use('seaborn-paper')
 
+ax=sns.violinplot(data=combined_var.melt(),x='variable',y='value',palette=['green','blue','red'])
+ax.set(xlabel='Operation',ylabel='Variance')
+ax.set_title('Operation engagement variability', loc='center', wrap=True)
+ax.axhline(0,color='k',linestyle='--')
+plt.tight_layout()
+plt.savefig(os.path.join(data_dir,'figs','All_operation_variability_zscore.svg'))
+plt.savefig(os.path.join(data_dir,'figs','All_operation_variability_zscore.png'))
+plt.clf()
 
 #pull out values for stats:
 temp_maintain=combined_df[combined_df['operation']=='Maintain']['evidence']
@@ -173,29 +191,35 @@ F_stat, P_value = f_oneway(temp_maintain,temp_replace,temp_suppress) #compare al
 
 F_stat_maintain_replace, P_value_maintain_replace = f_oneway(temp_maintain,temp_replace) #compare maintain vs. replace
 F_stat_maintain_suppress, P_value_maintain_suppress = f_oneway(temp_maintain,temp_suppress) #compare maintain vs. suppress
-F_stat_replace_suppress, P_value_replace_suppress = f_oneway(temp_replace,temp_suppress) #compare all groups
+F_stat_replace_suppress, P_value_replace_suppress = f_oneway(temp_replace,temp_suppress) 
 
 
 
 ### Bootstrap ###
 iterations=10000
-bootstrap_m_var=[]
-bootstrap_r_var=[]
-bootstrap_s_var=[]
+
+
+results={}
 
 for i in range(iterations):
+    bootstrap_m_var=[]
+    bootstrap_r_var=[]
+    bootstrap_s_var=[]
+    for j in range(len(subIDs)):
+        bootstrap_maintain=temp_maintain.sample(30,replace=True)
+        bootstrap_replace=temp_replace.sample(30,replace=True)
+        bootstrap_suppress=temp_suppress.sample(30,replace=True)
 
-    bootstrap_maintain=temp_maintain.sample(len(temp_maintain),replace=True)
-    bootstrap_replace=temp_replace.sample(len(temp_replace),replace=True)
-    bootstrap_suppress=temp_suppress.sample(len(temp_suppress),replace=True)
+        temp_m_var=np.var(bootstrap_maintain)
+        temp_r_var=np.var(bootstrap_replace)
+        temp_s_var=np.var(bootstrap_suppress)
 
-    temp_m_var=np.var(bootstrap_maintain)
-    temp_r_var=np.var(bootstrap_replace)
-    temp_s_var=np.var(bootstrap_suppress)
+        bootstrap_m_var.append(temp_m_var)
+        bootstrap_r_var.append(temp_r_var)
+        bootstrap_s_var.append(temp_s_var)
 
-    bootstrap_m_var.append(temp_m_var)
-    bootstrap_r_var.append(temp_r_var)
-    bootstrap_s_var.append(temp_s_var)
+    results[i]={'Maintain vs. Replace':ttest_ind(bootstrap_m_var,bootstrap_r_var),'Maintain vs. Suppress':ttest_ind(bootstrap_m_var,bootstrap_s_var),'Replace vs. Suppress': ttest_ind(bootstrap_r_var,bootstrap_s_var)}
+    del bootstrap_m_var,bootstrap_r_var,bootstrap_s_var
 
 #now test difference between groups
 ttest_ind(bootstrap_m_var,bootstrap_r_var)
