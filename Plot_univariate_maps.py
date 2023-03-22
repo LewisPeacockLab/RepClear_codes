@@ -34,7 +34,7 @@ for operation in operations:
                 plotting.plot_surf_stat_map(fsaverage.infl_right,
                     texture, hemi='right', colorbar=True,
                     title=f'Surface right hemisphere: {operation}',
-                    threshold=1., vmax=10, view=view, bg_map=fsaverage.sulc_right, output_file=os.path.join(data_dir,'updated_figs',f'{operation}_surface_{hemi}_{view}.pdf'))
+                    threshold=3.02, vmax=10, view=view, bg_map=fsaverage.sulc_right, output_file=os.path.join(data_dir,'updated_figs',f'{operation}_surface_{hemi}_{view}.png'))
 
         elif hemi=='left':
             texture = surface.vol_to_surf(temp_t_map, fsaverage.pial_left) #pull out the right side of the data
@@ -44,4 +44,4 @@ for operation in operations:
                 plotting.plot_surf_stat_map(fsaverage.infl_left,
                     texture, hemi='left', colorbar=True,
                     title=f'Surface left hemisphere: {operation}',
-                    threshold=1., vmax=10, view=view, bg_map=fsaverage.sulc_left, output_file=os.path.join(data_dir,'updated_figs',f'{operation}_surface_{hemi}_{view}.pdf'))            
+                    threshold=3.02, vmax=10, view=view, bg_map=fsaverage.sulc_left, output_file=os.path.join(data_dir,'updated_figs',f'{operation}_surface_{hemi}_{view}.png'))            

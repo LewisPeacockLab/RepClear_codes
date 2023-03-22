@@ -404,7 +404,7 @@ def sample_for_training(full_data, label_df, include_rest=False):
 
 def classification(subID):
     task = 'study'
-    space = 'T1w' #T1w
+    space = 'MNI' #T1w
     ROIs = ['wholebrain']
     n_iters = 1
 
