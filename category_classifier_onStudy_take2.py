@@ -453,7 +453,7 @@ def decode(training_runs, train_data, train_labels, test_data, test_labels):
 def classification(subID):
     task = 'preremoval'
     task2 = 'study'
-    space = 'MNI'
+    space = 'T1w'
     ROIs = ['VVS']
     n_iters = 1
 
@@ -886,8 +886,8 @@ def visualize_evidence():
     replace_df['evidence']=replace_df['evidence'].values-maintain_df['evidence'].values
     suppress_df['evidence']=suppress_df['evidence'].values-maintain_df['evidence'].values
 
-    ax=sns.lineplot(data=replace_df, x='TR',y='evidence',color='blue',label='replace',ci=68)
-    ax=sns.lineplot(data=suppress_df, x='TR', y='evidence', color='red',label='suppress',ci=68)
+    ax=sns.lineplot(data=replace_df, x='TR',y='evidence',color='blue',label='replace', ci=68, err_kws={'alpha':0.65})
+    ax=sns.lineplot(data=suppress_df, x='TR', y='evidence', color='red',label='suppress', ci=68, err_kws={'alpha':0.65})
     ax.axhline(0,color='k',linestyle='--')
     plt.legend()
     ax.set(xlabel='TR', ylabel='Classifier Evidence (Removal - Maintain)')

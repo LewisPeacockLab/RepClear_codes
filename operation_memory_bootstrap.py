@@ -227,7 +227,7 @@ def organize_evidence(subID,space,task,condition,save=True):
 
 def group_bootstrap():
     space='MNI'
-    conditions=['replace']
+    conditions=['replace','suppress','maintain']
 
     total_df=pd.DataFrame(columns=['betas','condition'])
 

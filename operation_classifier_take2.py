@@ -114,7 +114,7 @@ def load_existing_data(subID, task, space, mask_ROIS,load=False): #try to find i
 
 def load_process_data(subID, task, space, mask_ROIS): #this wraps the above function, with a process to load and save the data if there isnt an already saved .npy file
     # ========== check & load existing files
-    ready_data, mask_ROIS = load_existing_data(subID, task, space, mask_ROIS)
+    ready_data, mask_ROIS = load_existing_data(subID, task, space, mask_ROIS,load=True)
     if type(mask_ROIS) == list and len(mask_ROIS) == 0: 
         return np.vstack(list(ready_data.values()))
     else: 
@@ -404,7 +404,7 @@ def sample_for_training(full_data, label_df, include_rest=False):
 
 def classification(subID):
     task = 'study'
-    space = 'MNI' #T1w
+    space = 'T1w' #T1w
     ROIs = ['wholebrain']
     n_iters = 1
 
@@ -412,7 +412,7 @@ def classification(subID):
     shift_size_TR = shift_sizes_TR[0]
     rest_tag = 0
 
-    print(f"\n***** Running category level classification for sub {subID} {task} {space} with ROIs {ROIs}...")
+    print(f"\n***** Running operation level classification for sub {subID} {task} {space} with ROIs {ROIs}...")
 
     # get data:
     full_data = load_process_data(subID, task, space, ROIs)
@@ -420,7 +420,7 @@ def classification(subID):
 
     # get labels:
     label_df = get_shifted_labels(task, shift_size_TR, rest_tag)
-    print(f"Category label shape: {label_df.shape}")
+    print(f"Operation label shape: {label_df.shape}")
 
     assert len(full_data) == len(label_df), \
         f"Length of data ({len(full_data)}) does not match Length of labels ({len(label_df)})!"
