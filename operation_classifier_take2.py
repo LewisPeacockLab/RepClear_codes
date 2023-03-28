@@ -89,7 +89,7 @@ def find(pattern, path): #find the pattern we're looking for
                 result.append(os.path.join(root, name))
         return result    
 
-def load_existing_data(subID, task, space, mask_ROIS,load=False): #try to find if the data we want has already been cleaned and saved...
+def load_existing_data(subID, task, space, mask_ROIS,load=True): #try to find if the data we want has already been cleaned and saved...
     print("\n*** Attempting to load existing data if there is any...")
     preproc_data = {}
     todo_ROIs = []

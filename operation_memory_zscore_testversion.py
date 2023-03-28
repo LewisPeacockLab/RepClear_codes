@@ -173,7 +173,12 @@ plt.clf()
 
 plt.style.use('seaborn-paper')
 
-ax=sns.violinplot(data=combined_var.melt(),x='variable',y='value',palette=['green','blue','red'])
+var_plotting_df=combined_var.melt()
+var_plotting_df['sub']=np.tile(subIDs,3)
+
+ax=sns.violinplot(data=var_plotting_df,x='variable',y='value',palette=['green','blue','red'],inner='quartile')
+sns.swarmplot(data=var_plotting_df,x='variable',y='value',color= "white")
+# sns.pointplot(data=var_plotting_df,x='variable',y='value',hue='sub')
 ax.set(xlabel='Operation',ylabel='Variance')
 ax.set_title('Operation engagement variability', loc='center', wrap=True)
 ax.axhline(0,color='k',linestyle='--')

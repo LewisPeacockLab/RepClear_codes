@@ -144,10 +144,10 @@ def organize_evidence(subID,space,task,condition,save=True):
             continue
         elif i==1:
             temp_image=sub_images[counter]
-            maintain_trials[temp_image]=sub_df[['maintain_evi']][sub_index[counter]:sub_index[counter]+4].values
+            maintain_trials[temp_image]=sub_df[['maintain_evi']][sub_index[counter]:sub_index[counter]+4].values #this gets the 4TR operation time
             maintain_trials_mean[temp_image]=sub_df[['maintain_evi']][sub_index[counter]:sub_index[counter]+4].values.mean()
 
-            maintain_category_trials[temp_image]=category_sub_df[['scene_evi']][category_sub_index[counter]+2:category_sub_index[counter]+6].values
+            maintain_category_trials[temp_image]=category_sub_df[['scene_evi']][category_sub_index[counter]+2:category_sub_index[counter]+6].values #since category_df had the stimuli times, we need to shift 2 to get the operation time from the stimuli onset
             maintain_category_trials_mean[temp_image]=category_sub_df[['scene_evi']][category_sub_index[counter]+2:category_sub_index[counter]+6].values.mean()
 
             m_memory_outcome[temp_image]=sub_df[sub_df['image_id']==temp_image]['memory'].values[0]            
@@ -226,7 +226,7 @@ def organize_evidence(subID,space,task,condition,save=True):
 
 
 def group_bootstrap():
-    space='MNI'
+    space='T1w'
     conditions=['replace','suppress','maintain']
 
     total_df=pd.DataFrame(columns=['betas','condition'])
@@ -255,75 +255,97 @@ def group_bootstrap():
         bootstrap_cate_low_oper=[] #category evidence when operation is low
 
         group_evidence_df['scene_evi']=group_category_evidence_df['evidence']
+        bootstrap_mediation_df=pd.DataFrame(columns=['sample_id','subject','operation_evi','scene_evi','memory'])  
 
         total_tic = time.perf_counter() #get a timer for the WHOLE bootstrap
         for i in range(iterations):
             tic = time.perf_counter() #get a timer for each bootstrap iteration
             bootstrap_sub_df=pd.DataFrame(columns=['operation_evi','scene_evi','memory','beta','category_beta','oper_cate_beta','high_evi','low_evi','high_scene','low_scene'])
+       
+
             #now we need to iterate through this dataframe and pull 30 trials with replacement for each subject:
             for sub in temp_subIDs:
                 temp_sub_df=pd.DataFrame(columns=['evidence','memory','scene_evi'])
-                temp_sub_df=group_evidence_df.sample(n=30)
+                temp_sub_df=group_evidence_df.sample(n=30,replace=True)
+
+                while (np.unique(temp_sub_df['memory'].values).size)<2: #since we NEED at least a remember and a forget trial to do the regression, we check the memory outcome and if no remember or forgotten trial is sampled... resample it
+                    temp_sub_df=group_evidence_df.sample(n=30,replace=True)
 
                 temp_df_high, temp_df_low = [x for _, x in temp_sub_df.groupby(temp_sub_df['evidence'] < temp_sub_df.evidence.median())]
 
                 #fit the "bootstrap subject" data to regression: collect coef
-                temp_LR=LogisticRegression().fit(temp_sub_df['evidence'].values.reshape(-1,1),temp_sub_df['memory'].values.reshape(-1,1))  #operation evidence predicting memory outcome
+                temp_LR=LogisticRegression().fit(temp_sub_df['evidence'].values.reshape(-1,1),temp_sub_df['memory'].values.reshape(-1))  #operation evidence predicting memory outcome
                 sub_beta=temp_LR.coef_[0][0]
 
-                temp_LR_category=LogisticRegression().fit(temp_sub_df['scene_evi'].values.reshape(-1,1),temp_sub_df['memory'].values.reshape(-1,1)) #category evidence predicting memory outcome
+                temp_LR_category=LogisticRegression().fit(temp_sub_df['scene_evi'].values.reshape(-1,1),temp_sub_df['memory'].values.reshape(-1)) #category evidence predicting memory outcome
                 sub_category_beta=temp_LR_category.coef_[0][0]   
 
                 temp_LR_oper_pred_cate=LinearRegression().fit(temp_sub_df['evidence'].values.reshape(-1,1),temp_sub_df['scene_evi'].values.reshape(-1,1)) #operation evidence predicting category evidence
                 sub_oper_pred_cate_beta=temp_LR_oper_pred_cate.coef_[0][0]                             
 
-                temp_df=pd.DataFrame(columns=['operation_evi','scene_evi','memory','beta','category_beta','oper_cate_beta','high_evi','low_evi','high_scene','low_scene'])
+                temp_df=pd.DataFrame(columns=['operation_evi','scene_evi','memory','beta','category_beta','oper_cate_beta'])
                 temp_df['operation_evi']=[temp_sub_df['evidence'].mean()]
                 temp_df['scene_evi']=[temp_sub_df['scene_evi'].mean()]
                 temp_df['memory']=[temp_sub_df['memory'].mean()]
                 temp_df['beta']=[sub_beta]
                 temp_df['category_beta']=[sub_category_beta]
-                temp_df['oper_cate_beta']=[sub_oper_pred_cate_beta]                
+                temp_df['oper_cate_beta']=[sub_oper_pred_cate_beta]     
 
-                temp_df['high_evi']=[temp_df_high['memory'].mean()]
-                temp_df['low_evi']=[temp_df_low['memory'].mean()]                        
-                temp_df['high_scene']=[temp_df_high['scene_evi'].mean()]
-                temp_df['low_scene']=[temp_df_low['scene_evi'].mean()]  
+                temp_df_mediation=pd.DataFrame(columns=['sample_id','subject','operation_evi','scene_evi','memory'])           
+                temp_df_mediation['sample_id']=i
+                temp_df_mediation['subject']=sub
+                temp_df_mediation['operation_evi']=[temp_sub_df['evidence']]
+                temp_df_mediation['scene_evi']=[temp_sub_df['scene_evi']]
+                temp_df_mediation['memory']=[temp_sub_df['memory']]
+
+                # temp_df['high_evi']=[temp_df_high['memory'].mean()]
+                # temp_df['low_evi']=[temp_df_low['memory'].mean()]                        
+                # temp_df['high_scene']=[temp_df_high['scene_evi'].mean()]
+                # temp_df['low_scene']=[temp_df_low['scene_evi'].mean()]  
 
                 bootstrap_sub_df=pd.concat([bootstrap_sub_df,temp_df],ignore_index=True, sort=False)
+                bootstrap_mediation_df=pd.concat([bootstrap_mediation_df,temp_df_mediation],ignore_index=True,sort=False)
 
-                del temp_df,temp_sub_df,temp_df_high,temp_df_low
+                del temp_df,temp_sub_df, temp_df_mediation
+
+                 
 
             toc = time.perf_counter()
             print(f"Bootstrap iteration {i} completed in {toc - tic:0.4f} seconds") 
 
             bootstrap_betas=np.append(bootstrap_betas,bootstrap_sub_df['beta'].mean())
-            bootstrap_high_oper=np.append(bootstrap_high_oper,bootstrap_sub_df['high_evi'].mean())
-            bootstrap_low_oper=np.append(bootstrap_low_oper,bootstrap_sub_df['low_evi'].mean())
+            # bootstrap_high_oper=np.append(bootstrap_high_oper,bootstrap_sub_df['high_evi'].mean())
+            # bootstrap_low_oper=np.append(bootstrap_low_oper,bootstrap_sub_df['low_evi'].mean())
 
             bootstrap_category_beta= np.append(bootstrap_category_beta,bootstrap_sub_df['category_beta'].mean())#category evidence predicting memory
             bootstrap_oper_pred_cate=np.append(bootstrap_oper_pred_cate,bootstrap_sub_df['oper_cate_beta'].mean()) #operation evidence predicting category evidence
-            bootstrap_cate_high_oper=np.append(bootstrap_cate_high_oper,bootstrap_sub_df['high_scene'].mean()) #category evidence when operation is high
-            bootstrap_cate_low_oper=np.append(bootstrap_cate_low_oper,bootstrap_sub_df['low_scene'].mean()) #category evidence when operation is low
+            # bootstrap_cate_high_oper=np.append(bootstrap_cate_high_oper,bootstrap_sub_df['high_scene'].mean()) #category evidence when operation is high
+            # bootstrap_cate_low_oper=np.append(bootstrap_cate_low_oper,bootstrap_sub_df['low_scene'].mean()) #category evidence when operation is low
 
         total_toc=time.perf_counter()
         print('##############################################################')
         print(f"Bootstrap completed in {total_toc - total_tic:0.4f} seconds")            
         print('##############################################################')
 
+        out_fname_template = f"bootstrap_{space}_study_{condition}_iteration_dataframe.csv"  
+        print(f"\n Saving the bootstrapping dataframe for iteration {i}, phase: study - as {out_fname_template}")
+        bootstrap_mediation_df.to_csv(os.path.join(data_dir,out_fname_template))  
+
         ci_value=np.percentile(bootstrap_betas,95)
         print(f'95% CI for memory: {ci_value}')
         ci_value_2=np.percentile(bootstrap_oper_pred_cate,95)
         print(f'95% CI for category: {ci_value_2}')
+        ci_value_3=np.percentile(bootstrap_category_beta,95)
+        print(f'95% CI for category on memory: {ci_value_3}')
 
-        export_df=pd.DataFrame(columns=['oper_beta','cate_beta','oper_pred_cate_beta','oper_high','oper_low','cate_high','cate_low'])
+        export_df=pd.DataFrame(columns=['oper_beta','cate_beta','oper_pred_cate_beta'])
         export_df['oper_beta']=bootstrap_betas
         export_df['cate_beta']=bootstrap_category_beta
         export_df['oper_pred_cate_beta']=bootstrap_oper_pred_cate
-        export_df['oper_high']=bootstrap_high_oper
-        export_df['oper_low']=bootstrap_low_oper
-        export_df['cate_high']=bootstrap_cate_high_oper
-        export_df['cate_low']=bootstrap_cate_low_oper
+        # export_df['oper_high']=bootstrap_high_oper
+        # export_df['oper_low']=bootstrap_low_oper
+        # export_df['cate_high']=bootstrap_cate_high_oper
+        # export_df['cate_low']=bootstrap_cate_low_oper
 
         out_fname_template = f"bootstrap_{space}_study_{condition}_dataframe.csv"  
         print(f"\n Saving the bootstrapping dataframe for phase: study - as {out_fname_template}")
