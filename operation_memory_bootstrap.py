@@ -292,11 +292,11 @@ def group_bootstrap():
                 temp_df['oper_cate_beta']=[sub_oper_pred_cate_beta]     
 
                 temp_df_mediation=pd.DataFrame(columns=['sample_id','subject','operation_evi','scene_evi','memory'])           
-                temp_df_mediation['sample_id']=i
-                temp_df_mediation['subject']=sub
-                temp_df_mediation['operation_evi']=[temp_sub_df['evidence']]
-                temp_df_mediation['scene_evi']=[temp_sub_df['scene_evi']]
-                temp_df_mediation['memory']=[temp_sub_df['memory']]
+                temp_df_mediation['sample_id']=np.repeat(i,30)
+                temp_df_mediation['subject']=np.repeat(sub,30)
+                temp_df_mediation['operation_evi']=temp_sub_df['evidence'].values
+                temp_df_mediation['scene_evi']=temp_sub_df['scene_evi'].values
+                temp_df_mediation['memory']=temp_sub_df['memory'].values
 
                 # temp_df['high_evi']=[temp_df_high['memory'].mean()]
                 # temp_df['low_evi']=[temp_df_low['memory'].mean()]                        
@@ -352,10 +352,10 @@ def group_bootstrap():
         export_df.to_csv(os.path.join(data_dir,out_fname_template))        
 
 
-        group_bootstrap_median['memory']=np.concatenate((bootstrap_high_oper,bootstrap_low_oper)).T #combine the two median split arrays into 1 Dataframe for plotting
-        group_bootstrap_median['split']=np.repeat(['high_evidence','low_evidence'],iterations) #label the index so we can plot with seaborn
+        # group_bootstrap_median['memory']=np.concatenate((bootstrap_high_oper,bootstrap_low_oper)).T #combine the two median split arrays into 1 Dataframe for plotting
+        # group_bootstrap_median['split']=np.repeat(['high_evidence','low_evidence'],iterations) #label the index so we can plot with seaborn
 
-        plt.style.use('seaborn-paper')
+        # plt.style.use('seaborn-paper')
 
         # ax=sns.histplot(data=bootstrap_betas)
         # ax.set(xlabel=f'{condition} Evidence vs. Memory (Beta)', ylabel='Count')
@@ -377,22 +377,22 @@ def group_bootstrap():
         #check the stats on the median split:
         # stats.ttest_rel(bootstrap_low_oper,bootstrap_high_oper)
 
-        if condition=='maintain':
-            temp_total_df['betas']=bootstrap_betas
-            temp_total_df['condition']=np.repeat('maintain',len(bootstrap_betas))
-            total_df=pd.concat([total_df,temp_total_df],ignore_index=True, sort=False)
-        elif condition=='replace':
-            temp_total_df['betas']=bootstrap_betas
-            temp_total_df['condition']=np.repeat('replace',len(bootstrap_betas))
-            total_df=pd.concat([total_df,temp_total_df],ignore_index=True, sort=False)            
-        elif condition=='suppress':
-            temp_total_df['betas']=bootstrap_betas
-            temp_total_df['condition']=np.repeat('suppress',len(bootstrap_betas))
-            total_df=pd.concat([total_df,temp_total_df],ignore_index=True, sort=False)
+        # if condition=='maintain':
+        #     temp_total_df['betas']=bootstrap_betas
+        #     temp_total_df['condition']=np.repeat('maintain',len(bootstrap_betas))
+        #     total_df=pd.concat([total_df,temp_total_df],ignore_index=True, sort=False)
+        # elif condition=='replace':
+        #     temp_total_df['betas']=bootstrap_betas
+        #     temp_total_df['condition']=np.repeat('replace',len(bootstrap_betas))
+        #     total_df=pd.concat([total_df,temp_total_df],ignore_index=True, sort=False)            
+        # elif condition=='suppress':
+        #     temp_total_df['betas']=bootstrap_betas
+        #     temp_total_df['condition']=np.repeat('suppress',len(bootstrap_betas))
+        #     total_df=pd.concat([total_df,temp_total_df],ignore_index=True, sort=False)
 
-def plot_viusals():
+def plot_viusals(space):
     conditions=['maintain','replace','suppress']
-    space='MNI'
+    # space='MNI'
 
 
 
@@ -427,6 +427,7 @@ def plot_viusals():
     ax.axhline(0,color='k',linestyle='--')
     plt.tight_layout()
     plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_maintain+replace+suppress_bootstrap_operation_memory.png'))
+    plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_maintain+replace+suppress_bootstrap_operation_memory.svg'))    
     plt.clf()
 
     ax=sns.violinplot(data=total_df,x='condition',y='category_memory',palette=['green','blue','red'])
@@ -435,6 +436,7 @@ def plot_viusals():
     ax.axhline(0,color='k',linestyle='--')
     plt.tight_layout()
     plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_maintain+replace+suppress_bootstrap_category_memory.png'))
+    plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_maintain+replace+suppress_bootstrap_category_memory.svg'))    
     plt.clf()
 
     ax=sns.violinplot(data=total_df,x='condition',y='operation_category',palette=['green','blue','red'])
@@ -443,6 +445,7 @@ def plot_viusals():
     ax.axhline(0,color='k',linestyle='--')
     plt.tight_layout()
     plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_maintain+replace+suppress_bootstrap_operation_category.png'))
+    plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_maintain+replace+suppress_bootstrap_operation_category.svg'))    
     plt.clf()
 
     m_ci_upper_value=np.percentile(total_df['operation_memory'][total_df['condition']=='maintain'],95)
