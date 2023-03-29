@@ -226,8 +226,8 @@ def organize_evidence(subID,space,task,condition,save=True):
 
 
 def group_bootstrap():
-    space='T1w'
-    conditions=['replace','suppress','maintain']
+    space='MNI'
+    conditions=['maintain','replace','suppress']
 
     total_df=pd.DataFrame(columns=['betas','condition'])
 
@@ -389,15 +389,92 @@ def group_bootstrap():
             temp_total_df['betas']=bootstrap_betas
             temp_total_df['condition']=np.repeat('suppress',len(bootstrap_betas))
             total_df=pd.concat([total_df,temp_total_df],ignore_index=True, sort=False)
-        
+
+def plot_viusals():
+    conditions=['maintain','replace','suppress']
+    space='MNI'
+
+
+
+    total_df=pd.DataFrame(columns=['operation_memory','category_memory','operation_category','condition'])    
     plt.style.use('seaborn-paper')
 
-    ax=sns.violinplot(data=total_df,x='condition',y='betas',palette=['green','blue','red'])
+    for condition in conditions:
+        load_df=pd.read_csv(os.path.join(data_dir,f"bootstrap_{space}_study_{condition}_dataframe.csv"))
+        temp_total_df=pd.DataFrame(columns=['operation_memory','category_memory','operation_category','condition'])    
+        if condition=='maintain':
+            temp_total_df['operation_memory']=load_df['oper_beta']
+            temp_total_df['category_memory']=load_df['cate_beta']
+            temp_total_df['operation_category']=load_df['oper_pred_cate_beta']
+            temp_total_df['condition']=np.repeat('maintain',len(load_df))
+            total_df=pd.concat([total_df,temp_total_df],ignore_index=True, sort=False)
+        elif condition=='replace':
+            temp_total_df['operation_memory']=load_df['oper_beta']
+            temp_total_df['category_memory']=load_df['cate_beta']
+            temp_total_df['operation_category']=load_df['oper_pred_cate_beta']
+            temp_total_df['condition']=np.repeat('replace',len(load_df))
+            total_df=pd.concat([total_df,temp_total_df],ignore_index=True, sort=False)            
+        elif condition=='suppress':
+            temp_total_df['operation_memory']=load_df['oper_beta']
+            temp_total_df['category_memory']=load_df['cate_beta']
+            temp_total_df['operation_category']=load_df['oper_pred_cate_beta']
+            temp_total_df['condition']=np.repeat('suppress',len(load_df))
+            total_df=pd.concat([total_df,temp_total_df],ignore_index=True, sort=False)
+
+    ax=sns.violinplot(data=total_df,x='condition',y='operation_memory',palette=['green','blue','red'])
     ax.set(xlabel=f'Operation', ylabel='Beta')
     ax.set_title(f'Operation Evidence predicting Memory - 10,000 Bootstrap Iterations', loc='center', wrap=True)
     ax.axhline(0,color='k',linestyle='--')
     plt.tight_layout()
-    plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_maintain+replace+suppress_bootstrap_memory.png'))
+    plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_maintain+replace+suppress_bootstrap_operation_memory.png'))
     plt.clf()
+
+    ax=sns.violinplot(data=total_df,x='condition',y='category_memory',palette=['green','blue','red'])
+    ax.set(xlabel=f'Operation', ylabel='Beta')
+    ax.set_title(f'Category Evidence predicting Memory - 10,000 Bootstrap Iterations', loc='center', wrap=True)
+    ax.axhline(0,color='k',linestyle='--')
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_maintain+replace+suppress_bootstrap_category_memory.png'))
+    plt.clf()
+
+    ax=sns.violinplot(data=total_df,x='condition',y='operation_category',palette=['green','blue','red'])
+    ax.set(xlabel=f'Operation', ylabel='Beta')
+    ax.set_title(f'Operation Evidence predicting Category Evidence - 10,000 Bootstrap Iterations', loc='center', wrap=True)
+    ax.axhline(0,color='k',linestyle='--')
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs',f'{space}_group_level_maintain+replace+suppress_bootstrap_operation_category.png'))
+    plt.clf()
+
+    m_ci_upper_value=np.percentile(total_df['operation_memory'][total_df['condition']=='maintain'],95)
+    m_ci_lower_value=np.percentile(total_df['operation_memory'][total_df['condition']=='maintain'],5)
+
+    r_ci_upper_value=np.percentile(total_df['operation_memory'][total_df['condition']=='replace'],95)
+    r_ci_lower_value=np.percentile(total_df['operation_memory'][total_df['condition']=='replace'],5)
+
+    s_ci_upper_value=np.percentile(total_df['operation_memory'][total_df['condition']=='suppress'],95)
+    s_ci_lower_value=np.percentile(total_df['operation_memory'][total_df['condition']=='suppress'],5)    
+    print(f'95% CI for Operation on Memory: \n Maintain:{m_ci_lower_value} - {m_ci_upper_value} \n Replace: {r_ci_lower_value} - {r_ci_upper_value} \n Suppress: {s_ci_lower_value} - {s_ci_upper_value}')
+
+
+    m_ci_upper_value=np.percentile(total_df['category_memory'][total_df['condition']=='maintain'],95)
+    m_ci_lower_value=np.percentile(total_df['category_memory'][total_df['condition']=='maintain'],5)
+
+    r_ci_upper_value=np.percentile(total_df['category_memory'][total_df['condition']=='replace'],95)
+    r_ci_lower_value=np.percentile(total_df['category_memory'][total_df['condition']=='replace'],5)
+
+    s_ci_upper_value=np.percentile(total_df['category_memory'][total_df['condition']=='suppress'],95)
+    s_ci_lower_value=np.percentile(total_df['category_memory'][total_df['condition']=='suppress'],5)    
+    print(f'95% CI for Category on Memory: \n Maintain:{m_ci_lower_value} - {m_ci_upper_value} \n Replace: {r_ci_lower_value} - {r_ci_upper_value} \n Suppress: {s_ci_lower_value} - {s_ci_upper_value}')    
+
+    m_ci_upper_value=np.percentile(total_df['operation_category'][total_df['condition']=='maintain'],95)
+    m_ci_lower_value=np.percentile(total_df['operation_category'][total_df['condition']=='maintain'],5)
+
+    r_ci_upper_value=np.percentile(total_df['operation_category'][total_df['condition']=='replace'],95)
+    r_ci_lower_value=np.percentile(total_df['operation_category'][total_df['condition']=='replace'],5)
+
+    s_ci_upper_value=np.percentile(total_df['operation_category'][total_df['condition']=='suppress'],95)
+    s_ci_lower_value=np.percentile(total_df['operation_category'][total_df['condition']=='suppress'],5)    
+    print(f'95% CI for Operation on Category: \n Maintain:{m_ci_lower_value} - {m_ci_upper_value} \n Replace: {r_ci_lower_value} - {r_ci_upper_value} \n Suppress: {s_ci_lower_value} - {s_ci_upper_value}')  
+
 
 
