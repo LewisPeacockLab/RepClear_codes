@@ -74,3 +74,42 @@ with Pool(processes=cpu_count()) as pool:
     results_iter = pool.imap_unordered(run_mediation_wrapper, [(op, i) for i in range(n_iterations) for op in operations])
     for result in tqdm(results_iter, total=n_iterations * len(operations)):
         bootstrap_results = bootstrap_results.append(result, ignore_index=True)
+
+
+# define the significance level
+alpha = 0.05
+
+# loop through each operation
+for op in operations:
+    print(f"\nOperation: {op}")
+    print("------------------------------")
+    
+    # get the relevant data for this operation
+    op_data = bootstrap_results.loc[bootstrap_results['operation'] == op, :]
+    
+    # loop through each mediation effect
+    for effect in ['ACME', 'ADE', 'Prop_med']:
+        effect_key = f"{effect}_treated"
+        
+        # calculate the mean and standard deviation of the effect
+        effect_mean = op_data[effect_key].mean()
+        effect_std = op_data[effect_key].std()
+        
+        # calculate the lower and upper bounds of the confidence interval
+        lower_bound = effect_mean - 1.96 * effect_std
+        upper_bound = effect_mean + 1.96 * effect_std
+        
+        # determine if the effect is significant
+        if lower_bound <= 0 and upper_bound >= 0:
+            print(f"{effect} is not significant for {op}")
+        else:
+            if effect == 'Prop_med':
+                if lower_bound > 0:
+                    print(f"{effect} is significant for {op} (positive mediation: {lower_bound:.2f} - {upper_bound:.2f})")
+                elif upper_bound < 0:
+                    print(f"{effect} is significant for {op} (negative mediation: {lower_bound:.2f} - {upper_bound:.2f})")
+            else:
+                if effect_mean > 0:
+                    print(f"{effect} is significant for {op} (positive mediation: {lower_bound:.2f} - {upper_bound:.2f})")
+                elif effect_mean < 0:
+                    print(f"{effect} is significant for {op} (negative mediation: {lower_bound:.2f} - {upper_bound:.2f})")
