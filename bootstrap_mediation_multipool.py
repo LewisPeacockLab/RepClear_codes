@@ -32,8 +32,8 @@ def run_mediation(op, i):
 
     # specify the mediator variable and create a mediation object
     mediator_var = 'scene_evi'
-    med_formula = f"{mediator_var} ~ {' + '.join(exog_vars)}"
-    med_model = sm.OLS.from_formula(med_formula, data=exog_data)
+    med_formula = f"{mediator_var} ~ {exog_vars[0]}"
+    med_model = sm.Logit.from_formula(med_formula, data=exog_data)
 
     # specify the models for the treatment, mediator, and outcome
     treatment_formula = f"{endog_var} ~ operation_evi"
@@ -75,6 +75,8 @@ with Pool(processes=cpu_count()) as pool:
     for result in tqdm(results_iter, total=n_iterations * len(operations)):
         bootstrap_results = bootstrap_results.append(result, ignore_index=True)
 
+
+bootstrap_results.to_csv(os.path.join(data_dir,'MNI_bootstrap_mediation_results.csv'))
 
 # define the significance level
 alpha = 0.05
