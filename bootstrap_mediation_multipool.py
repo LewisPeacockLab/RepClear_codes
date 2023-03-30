@@ -11,7 +11,7 @@ data_dir = '/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/'
 space = 'MNI'
 
 # define constants
-n_iterations = 10000
+n_iterations = 100
 n_trials_per_operation = 30
 n_subjects = 19
 operations = ['maintain', 'replace', 'suppress']
@@ -66,7 +66,7 @@ def run_mediation(op, i):
 # loop through each iteration
 start_time = time.time()
 
-with Pool(processes=8) as pool:
+with Pool(processes=32) as pool:
     for i in range(n_iterations):
         iteration_start_time = time.time()
         print(f"Starting iteration {i + 1}...")
@@ -80,3 +80,9 @@ with Pool(processes=8) as pool:
 
         iteration_end_time = time.time()
         print(f"Iteration {i + 1} complete. Time taken: {iteration_end_time - iteration_start_time:.2f}")
+
+# group the bootstrap results by operation and calculate the average effect sizes
+grouped_results = bootstrap_results.groupby('operation').mean()
+
+# print the results
+print(grouped_results)
