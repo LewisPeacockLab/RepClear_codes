@@ -12,6 +12,7 @@ space = 'MNI'
 
 # load the dataset
 n_iterations = 10000
+n_iterations = 100
 n_trials_per_operation = 30
 n_subjects = 19
 
@@ -39,7 +40,6 @@ for i in range(n_iterations):
         # specify the mediator variable and create a mediation object
         mediator_var = 'scene_evi'
         med_formula = f"{mediator_var} ~ {' + '.join(exog_vars)}"
-        # med = Mediation(exog_data, endog_var, mediator_var, med_formula)
 
         # specify the models for the treatment, mediator, and outcome
         treatment_formula = f"{endog_var} ~ operation_evi"
@@ -54,11 +54,6 @@ for i in range(n_iterations):
         out_model = sm.OLS.from_formula(outcome_formula, data=data)
 
         med = Mediation(out_model, med_model, 'operation_evi', mediator=mediator_var)
-
-
-        med.treatment(treatment_formula)
-        med.mediator(mediator_formula)
-        med.outcome(outcome_formula)
 
         # run the mediation analysis
         med_results = med.fit()
@@ -77,7 +72,10 @@ for i in range(n_iterations):
         results_dict['Prop_med_treated'] = summary_table.loc['Prop. mediated (treated)', 'Estimate']
         results_dict['Prop_med_avg'] = summary_table.loc['Prop. mediated (average)', 'Estimate']
 
-        # store the results in the bootstrap results dataframe
+        results_df = pd.DataFrame(results_dict, index=[0])
+
+        # append the new DataFrame to the bootstrap_results DataFrame
+        bootstrap_results = bootstrap_results.append(results_df)
 
 # group the bootstrap results by operation and calculate the average effect sizes
 grouped_results = bootstrap_results.groupby('operation').mean()
