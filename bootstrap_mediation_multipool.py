@@ -9,7 +9,7 @@ from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 
 data_dir = '/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/'
-space = 'MNI'
+space = 'T1w'
 
 # define constants
 n_iterations = 10000
@@ -33,13 +33,13 @@ def run_mediation(op, i):
     # specify the mediator variable and create a mediation object
     mediator_var = 'scene_evi'
     med_formula = f"{mediator_var} ~ {exog_vars[0]}"
-    med_model = sm.Logit.from_formula(med_formula, data=exog_data)
+    med_model = sm.OLS.from_formula(med_formula, data=exog_data)
 
     # specify the models for the treatment, mediator, and outcome
     treatment_formula = f"{endog_var} ~ operation_evi"
     outcome_formula = f"{endog_var} ~ operation_evi + {mediator_var}"
-    exp_model = sm.OLS.from_formula(treatment_formula, data=data)
-    out_model = sm.OLS.from_formula(outcome_formula, data=data)
+    exp_model = sm.Logit.from_formula(treatment_formula, data=data)
+    out_model = sm.Logit.from_formula(outcome_formula, data=data)
 
     med = Mediation(out_model, med_model, 'operation_evi', mediator=mediator_var)
 
@@ -76,7 +76,7 @@ with Pool(processes=cpu_count()) as pool:
         bootstrap_results = bootstrap_results.append(result, ignore_index=True)
 
 
-bootstrap_results.to_csv(os.path.join(data_dir,'MNI_bootstrap_mediation_results.csv'))
+bootstrap_results.to_csv(os.path.join(data_dir,'T1w_bootstrap_mediation_results.csv'))
 
 # define the significance level
 alpha = 0.05
