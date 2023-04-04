@@ -9,7 +9,7 @@ from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 
 data_dir = '/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/'
-space = 'T1w'
+space = 'MNI'
 
 # define constants
 n_iterations = 10000
@@ -34,17 +34,21 @@ def run_mediation(op, i):
     mediator_var = 'scene_evi'
     med_formula = f"{mediator_var} ~ {exog_vars[0]}"
     med_model = sm.OLS.from_formula(med_formula, data=exog_data)
+    temp_XM_model=med_model.fit()
 
     # specify the models for the treatment, mediator, and outcome
     treatment_formula = f"{endog_var} ~ operation_evi"
     outcome_formula = f"{endog_var} ~ operation_evi + {mediator_var}"
     exp_model = sm.Logit.from_formula(treatment_formula, data=data)
+    temp_XY_model=exp_model.fit()
+
     out_model = sm.Logit.from_formula(outcome_formula, data=data)
+    temp_XMY_model=out_model.fit()        
 
     med = Mediation(out_model, med_model, 'operation_evi', mediator=mediator_var)
 
     # run the mediation analysis
-    med_results = med.fit()
+    med_results = med.fit('bootstrap',500)
 
     # summarize results
     summary_table = med_results.summary()
@@ -58,7 +62,13 @@ def run_mediation(op, i):
         'Total_effect': summary_table.loc['Total effect', 'Estimate'],
         'Prop_med_control': summary_table.loc['Prop. mediated (control)', 'Estimate'],
         'Prop_med_treated': summary_table.loc['Prop. mediated (treated)', 'Estimate'],
-        'Prop_med_avg': summary_table.loc['Prop. mediated (average)', 'Estimate']
+        'Prop_med_avg': summary_table.loc['Prop. mediated (average)', 'Estimate'],
+        'X on M (pvalue)': temp_XM_model.pvalues['operation_evi'],
+        'X on M (coef)': temp_XM_model.params['operation_evi'],
+        'X on Y (pvalue)': temp_XY_model.pvalues['operation_evi'],
+        'X on Y (coef)': temp_XY_model.params['operation_evi'],            
+        'X+M on Y (pvalue)': temp_XMY_model.pvalues['operation_evi'],
+        'X+M on Y (coef)': temp_XMY_model.params['operation_evi']              
     }
     results_df = pd.DataFrame(results_dict, index=[0])
 
@@ -76,10 +86,7 @@ with Pool(processes=cpu_count()) as pool:
         bootstrap_results = bootstrap_results.append(result, ignore_index=True)
 
 
-bootstrap_results.to_csv(os.path.join(data_dir,'T1w_bootstrap_mediation_results.csv'))
-
-# define the significance level
-alpha = 0.05
+bootstrap_results.to_csv(os.path.join(data_dir,'MNI_bootstrap_mediation_results.csv'))
 
 # loop through each operation
 for op in operations:
@@ -98,12 +105,12 @@ for op in operations:
         effect_std = op_data[effect_key].std()
         
         # calculate the lower and upper bounds of the confidence interval
-        lower_bound = effect_mean - 1.96 * effect_std
-        upper_bound = effect_mean + 1.96 * effect_std
+        lower_bound = np.percentile(op_data[effect_key].values,5)
+        upper_bound = np.percentile(op_data[effect_key].values,95)
         
         # determine if the effect is significant
         if lower_bound <= 0 and upper_bound >= 0:
-            print(f"{effect} is not significant for {op}")
+            print(f"{effect} is not significant for {op}: mediation: {lower_bound:.4f} - {upper_bound:.4f}")
         else:
             if effect == 'Prop_med':
                 if lower_bound > 0:
