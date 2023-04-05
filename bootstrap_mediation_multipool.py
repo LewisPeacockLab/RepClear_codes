@@ -43,7 +43,7 @@ def run_mediation(op, i):
     temp_XY_model=exp_model.fit()
 
     out_model = sm.Logit.from_formula(outcome_formula, data=data)
-    temp_XMY_model=out_model.fit()        
+    temp_XMY_model=out_model.fit()
 
     med = Mediation(out_model, med_model, 'operation_evi', mediator=mediator_var)
 
@@ -63,10 +63,13 @@ def run_mediation(op, i):
         'Prop_med_control': summary_table.loc['Prop. mediated (control)', 'Estimate'],
         'Prop_med_treated': summary_table.loc['Prop. mediated (treated)', 'Estimate'],
         'Prop_med_avg': summary_table.loc['Prop. mediated (average)', 'Estimate'],
+
         'X on M (pvalue)': temp_XM_model.pvalues['operation_evi'],
         'X on M (coef)': temp_XM_model.params['operation_evi'],
+
         'X on Y (pvalue)': temp_XY_model.pvalues['operation_evi'],
-        'X on Y (coef)': temp_XY_model.params['operation_evi'],            
+        'X on Y (coef)': temp_XY_model.params['operation_evi'],     
+               
         'X+M on Y (pvalue)': temp_XMY_model.pvalues['operation_evi'],
         'X+M on Y (coef)': temp_XMY_model.params['operation_evi']              
     }
