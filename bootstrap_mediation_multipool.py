@@ -32,13 +32,13 @@ def run_mediation(op, i):
 
     # specify the mediator variable and create a mediation object
     mediator_var = 'scene_evi'
-    med_formula = f"{mediator_var} ~ {exog_vars[0]}"
+    med_formula = "scene_evi ~ operation_evi"
     med_model = sm.OLS.from_formula(med_formula, data=exog_data)
     temp_XM_model=med_model.fit()
 
     # specify the models for the treatment, mediator, and outcome
-    treatment_formula = f"{endog_var} ~ operation_evi"
-    outcome_formula = f"{endog_var} ~ operation_evi + {mediator_var}"
+    treatment_formula = "memory ~ operation_evi"
+    outcome_formula = "memory ~ operation_evi + scene_evi"
     exp_model = sm.Logit.from_formula(treatment_formula, data=data)
     temp_XY_model=exp_model.fit()
 
@@ -122,3 +122,24 @@ for op in operations:
                     print(f"{effect} is significant for {op} (positive mediation: {lower_bound:.2f} - {upper_bound:.2f})")
                 elif effect_mean < 0:
                     print(f"{effect} is significant for {op} (negative mediation: {lower_bound:.2f} - {upper_bound:.2f})")
+
+    # loop through each model 
+    for effect in ['X on M', 'X on Y', 'X+M on Y']:
+        effect_key = f"{effect} (coef)"
+        
+        # calculate the mean and standard deviation of the effect
+        effect_mean = op_data[effect_key].mean()
+        effect_std = op_data[effect_key].std()
+        
+        # calculate the lower and upper bounds of the confidence interval
+        lower_bound = np.percentile(op_data[effect_key].values,5)
+        upper_bound = np.percentile(op_data[effect_key].values,95)
+        
+        # determine if the effect is significant
+        if lower_bound <= 0 and upper_bound >= 0:
+            print(f"{effect} is not significant for {op}: association: {lower_bound:.4f} - {upper_bound:.4f}")
+        else:
+            if effect_mean > 0:
+                print(f"{effect} is significant for {op} (positive association: {lower_bound:.2f} - {upper_bound:.2f})")
+            elif effect_mean < 0:
+                print(f"{effect} is significant for {op} (negative association: {lower_bound:.2f} - {upper_bound:.2f})")
