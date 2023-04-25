@@ -31,6 +31,10 @@ from sklearn.metrics import roc_auc_score, confusion_matrix, ConfusionMatrixDisp
 from joblib import Parallel, delayed
 from statsmodels.stats.anova import AnovaRM
 from statsmodels.stats.multitest import multipletests
+from scipy.interpolate import interp1d
+from scipy.ndimage import gaussian_filter
+
+
 
 
 # global consts
@@ -788,96 +792,6 @@ def visualize_evidence():
     plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_during_removal_v2.png'))    
     plt.clf()
 
-    # #now I want to sort the data based on the outcome of that item:
-    # group_remember_evidence_df=pd.DataFrame()
-    # group_forgot_evidence_df=pd.DataFrame()
-
-    # for subID in subIDs:
-    #     temp_remember_subject_df, temp_forgot_subject_df=organize_memory_evidence(subID)
-
-    #     group_remember_evidence_df=pd.concat([group_remember_evidence_df,temp_remember_subject_df],ignore_index=True, sort=False)    
-    #     group_forgot_evidence_df=pd.concat([group_forgot_evidence_df,temp_forgot_subject_df],ignore_index=True, sort=False)    
-
-    # ax=sns.lineplot(data=group_remember_evidence_df.loc[(group_remember_evidence_df['condition']=='maintain') & (group_remember_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='green',label='maintain', ci=68)
-    # ax=sns.lineplot(data=group_remember_evidence_df.loc[(group_remember_evidence_df['condition']=='replace') & (group_remember_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='blue',label='replace-old', ci=68)
-    # ax=sns.lineplot(data=group_remember_evidence_df.loc[(group_remember_evidence_df['condition']=='replace') & (group_remember_evidence_df['evidence_class']=='faces')], x='TR',y='evidence',color='skyblue',label='replace-new',ci=68)
-    # ax=sns.lineplot(data=group_remember_evidence_df.loc[(group_remember_evidence_df['condition']=='suppress') & (group_remember_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='red',label='suppress',ci=68)
-
-    # plt.legend()
-    # ax.set(xlabel='TR', ylabel='Category Classifier Evidence', title='T1w - Category Classifier (group average) - Remembered Items')
-    # plt.tight_layout()
-    # plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_during_removal_remember.png'))
-    # plt.clf()
-
-    # ax=sns.lineplot(data=group_forgot_evidence_df.loc[(group_forgot_evidence_df['condition']=='maintain') & (group_forgot_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='green',label='maintain', ci=68)
-    # ax=sns.lineplot(data=group_forgot_evidence_df.loc[(group_forgot_evidence_df['condition']=='replace') & (group_forgot_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='blue',label='replace-old', ci=68)
-    # ax=sns.lineplot(data=group_forgot_evidence_df.loc[(group_forgot_evidence_df['condition']=='replace') & (group_forgot_evidence_df['evidence_class']=='faces')], x='TR',y='evidence',color='skyblue',label='replace-new',ci=68)
-    # ax=sns.lineplot(data=group_forgot_evidence_df.loc[(group_forgot_evidence_df['condition']=='suppress') & (group_forgot_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='red',label='suppress',ci=68)
-
-    # plt.legend()
-    # ax.set(xlabel='TR', ylabel='Category Classifier Evidence', title='T1w - Category Classifier (group average) - Forgot Items')
-    # plt.tight_layout()
-    # plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_during_removal_forgot.png'))
-    # plt.clf()    
-
-    # #we have now plotted the evidence of the remembered items and the forgotten items separately, now I wanna plot the difference between remembered and forgotten
-    # group_diff_evidence_df=group_remember_evidence_df.copy(deep=True)
-    # group_diff_evidence_df['evidence']=group_remember_evidence_df['evidence']-group_forgot_evidence_df['evidence']
-
-    # ax=sns.lineplot(data=group_diff_evidence_df.loc[(group_diff_evidence_df['condition']=='maintain') & (group_diff_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='green',label='maintain', ci=68)
-    # ax=sns.lineplot(data=group_diff_evidence_df.loc[(group_diff_evidence_df['condition']=='replace') & (group_diff_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='blue',label='replace-old', ci=68)
-    # ax=sns.lineplot(data=group_diff_evidence_df.loc[(group_diff_evidence_df['condition']=='replace') & (group_diff_evidence_df['evidence_class']=='faces')], x='TR',y='evidence',color='skyblue',label='replace-new',ci=68)
-    # ax=sns.lineplot(data=group_diff_evidence_df.loc[(group_diff_evidence_df['condition']=='suppress') & (group_diff_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='red',label='suppress',ci=68)
-    # ax.axhline(0,color='k',linestyle='--')
-
-    # plt.legend()
-    # ax.set(xlabel='TR', ylabel='Category Classifier Evidence (Remember - Forgot)', title='T1w - Category Classifier (group average): Remember-Forgot')
-    # plt.tight_layout()
-    # plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_during_removal_difference.png'))
-    # plt.clf() 
-
-    # #plot the traces of remembered and forgotten items during suppress and replace conditions:
-    # group_remember_evidence_df['memory']='remembered'
-    # group_forgot_evidence_df['memory']='forgotten'
-    # group_combined_evidence_df=pd.concat([group_remember_evidence_df,group_forgot_evidence_df],ignore_index=True,sort=False)
-
-    # ax=sns.lineplot(data=group_combined_evidence_df.loc[(group_combined_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',hue='condition',style='memory',palette=['green','blue','red'],ci=68)
-
-    # plt.legend()
-    # ax.set(xlabel='TR', ylabel='Category Classifier Evidence', title='T1w - Category Classifier (group average): Remember & Forgot')
-    # plt.tight_layout()
-    # plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_during_removal_RandF.png'))
-    # plt.clf() 
-
-    # #plot the difference between remembered and forgotten, but for each condition separately:
-    # ax=sns.lineplot(data=group_diff_evidence_df.loc[(group_diff_evidence_df['condition']=='maintain') & (group_diff_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='green',label='maintain', ci=68)
-    # ax.axhline(0,color='k',linestyle='--')
-    # plt.legend()
-    # ax.set(xlabel='TR', ylabel='Category Classifier Evidence (Remember - Forgot)')
-    # ax.set_title('T1w - Category Classifier during Maintain (group average): Remember-Forgot', loc='center', wrap=True)    
-    # plt.tight_layout()
-    # plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_during_maintain_difference.png'))
-    # plt.clf() 
-
-    # ax=sns.lineplot(data=group_diff_evidence_df.loc[(group_diff_evidence_df['condition']=='replace') & (group_diff_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='blue',label='replace-old', ci=68)
-    # ax=sns.lineplot(data=group_diff_evidence_df.loc[(group_diff_evidence_df['condition']=='replace') & (group_diff_evidence_df['evidence_class']=='faces')], x='TR',y='evidence',color='skyblue',label='replace-new',ci=68)    
-    # ax.axhline(0,color='k',linestyle='--')
-    # plt.legend()
-    # ax.set(xlabel='TR', ylabel='Category Classifier Evidence (Remember - Forgot)')
-    # ax.set_title('T1w - Category Classifier during Replace (group average): Remember-Forgot', loc='center', wrap=True)    
-    # plt.tight_layout()
-    # plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_during_replace_difference.png'))
-    # plt.clf()
-
-    # ax=sns.lineplot(data=group_diff_evidence_df.loc[(group_diff_evidence_df['condition']=='suppress') & (group_diff_evidence_df['evidence_class']=='scenes')], x='TR',y='evidence',color='red',label='suppress',ci=68)
-    # ax.axhline(0,color='k',linestyle='--')
-    # plt.legend()
-    # ax.set(xlabel='TR', ylabel='Category Classifier Evidence (Remember - Forgot)')
-    # ax.set_title('T1w - Category Classifier during Suppress (group average): Remember-Forgot', loc='center', wrap=True)
-    # plt.tight_layout()
-    # plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_during_suppress_difference.png'))
-    # plt.clf()
-
     #want to get the trajectory for removal of an item in WM (classifier evidence of removal - maintain):
     maintain_df=group_evidence_df.loc[(group_evidence_df['condition']=='maintain') & (group_evidence_df['evidence_class']=='scenes')]
     replace_df=group_evidence_df.loc[(group_evidence_df['condition']=='replace') & (group_evidence_df['evidence_class']=='scenes')]
@@ -897,41 +811,74 @@ def visualize_evidence():
     plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_removal_minus_maintain_v2.png'))
     plt.clf()    
 
-    # #want to get the trajectory for removal of an item in WM (classifier evidence of removal - maintain) but focused on FORGOTTEN ITEMS:
-    # maintain_df=group_evidence_df.loc[(group_evidence_df['condition']=='maintain') & (group_evidence_df['evidence_class']=='scenes')]
-    # forgot_replace_df=group_forgot_evidence_df.loc[(group_forgot_evidence_df['condition']=='replace') & (group_forgot_evidence_df['evidence_class']=='scenes')]
-    # forgot_suppress_df=group_forgot_evidence_df.loc[(group_forgot_evidence_df['condition']=='suppress') & (group_forgot_evidence_df['evidence_class']=='scenes')]
+    #adding in the smooth curve, which will be done via scipy.interpolate
+    n_points= 1000 #how many data points for the curve?
+    x_new = np.linspace(group_evidence_df['TR'].min(), group_evidence_df['TR'].max(), n_points)
 
-    # forgot_replace_df['evidence']=forgot_replace_df['evidence'].values-maintain_df['evidence'].values
-    # forgot_suppress_df['evidence']=forgot_suppress_df['evidence'].values-maintain_df['evidence'].values
+    new_df=pd.DataFrame(columns=['TR','evidence','sub','condition'])
+#    new_df['TR']=np.tile(x_new, len(subIDs))
 
-    # ax=sns.lineplot(data=forgot_replace_df, x='TR',y='evidence',color='blue',label='replace',ci=68)
-    # ax=sns.lineplot(data=forgot_suppress_df, x='TR', y='evidence', color='red',label='suppress',ci=68)
-    # ax.axhline(0,color='k',linestyle='--')
-    # plt.legend()
-    # ax.set(xlabel='TR', ylabel='Category Classifier Evidence (Removal - Maintain)')
-    # ax.set_title('T1w - Category Classifier (Forgotten Items) - Trajectory for removal of an item from WM', loc='center', wrap=True)    
-    # plt.tight_layout()
-    # plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_removal_minus_maintain_forgot.png'))
-    # plt.clf()
+    #we need to do this per subject, and then combine again:
+    for condition in group_evidence_df['condition'].unique():
+        
+        if condition == 'maintain':
+            for sub in subIDs:
+                y=maintain_df[maintain_df['sub']==sub]['evidence']
 
-    # #want to get the trajectory for removal of an item in WM (classifier evidence of removal - maintain) but focused on REMEMBERED ITEMS:
-    # maintain_df=group_evidence_df.loc[(group_evidence_df['condition']=='maintain') & (group_evidence_df['evidence_class']=='scenes')]
-    # remember_replace_df=group_remember_evidence_df.loc[(group_remember_evidence_df['condition']=='replace') & (group_remember_evidence_df['evidence_class']=='scenes')]
-    # remember_suppress_df=group_remember_evidence_df.loc[(group_remember_evidence_df['condition']=='suppress') & (group_remember_evidence_df['evidence_class']=='scenes')]
+                f = interp1d(np.unique(maintain_df['TR']), y, kind = 'quadratic')
+                y_smooth = f(x_new)
 
-    # remember_replace_df['evidence']=remember_replace_df['evidence'].values-maintain_df['evidence'].values
-    # remember_suppress_df['evidence']=remember_suppress_df['evidence'].values-maintain_df['evidence'].values
+                temp_df=pd.DataFrame(columns=['TR','evidence','sub','condition'])
+                temp_df['TR']=x_new
+                temp_df['evidence']=gaussian_filter(y_smooth, sigma=10, mode='wrap')
+                temp_df['sub']=np.repeat(sub, n_points)
+                temp_df['condition']=np.repeat('maintain', n_points)
 
-    # ax=sns.lineplot(data=remember_replace_df, x='TR',y='evidence',color='blue',label='replace',ci=68)
-    # ax=sns.lineplot(data=remember_suppress_df, x='TR', y='evidence', color='red',label='suppress',ci=68)
-    # ax.axhline(0,color='k',linestyle='--')
-    # plt.legend()
-    # ax.set(xlabel='TR', ylabel='Category Classifier Evidence (Removal - Maintain)')
-    # ax.set_title('T1w - Category Classifier (Forgotten Items) - Trajectory for removal of an item from WM', loc='center', wrap=True)    
-    # plt.tight_layout()
-    # plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_removal_minus_maintain_remember.png'))
-    # plt.clf()        
+                new_df=pd.concat([new_df,temp_df])
+                del temp_df
+
+        elif condition == 'replace':
+            for sub in subIDs:
+                y=replace_df[replace_df['sub']==sub]['evidence']
+
+                f = interp1d(np.unique(replace_df['TR']), y, kind = 'quadratic')
+                y_smooth = f(x_new)
+
+                temp_df=pd.DataFrame(columns=['TR','evidence','sub','condition'])
+                temp_df['TR']=x_new
+                temp_df['evidence']=gaussian_filter(y_smooth, sigma=10, mode='wrap')
+                temp_df['sub']=np.repeat(sub, n_points)
+                temp_df['condition']=np.repeat('replace', n_points)
+
+                new_df=pd.concat([new_df,temp_df])
+                del temp_df
+
+        elif condition == 'suppress':
+            for sub in subIDs:
+                y=suppress_df[suppress_df['sub']==sub]['evidence']
+
+                f = interp1d(np.unique(suppress_df['TR']), y, kind = 'quadratic')
+                y_smooth = f(x_new)
+
+                temp_df=pd.DataFrame(columns=['TR','evidence','sub','condition'])
+                temp_df['TR']=x_new
+                temp_df['evidence']=gaussian_filter(y_smooth, sigma=10, mode='wrap')
+                temp_df['sub']=np.repeat(sub, n_points)
+                temp_df['condition']=np.repeat('suppress', n_points)
+
+                new_df=pd.concat([new_df,temp_df])
+                del temp_df                
+
+    ax=sns.lineplot(data=new_df.loc[(new_df['condition']=='maintain')], x='TR',y='evidence',color='green',label='Maintain', ci=68, err_kws={'alpha':1})
+    ax=sns.lineplot(data=new_df.loc[(new_df['condition']=='replace')], x='TR',y='evidence',color='blue',label='Replace', ci=68, err_kws={'alpha':1})
+    ax=sns.lineplot(data=new_df.loc[(new_df['condition']=='suppress')], x='TR',y='evidence',color='red',label='Suppress',ci=68, err_kws={'alpha':1})
+
+    plt.legend()
+    ax.set(xlabel='TR', ylabel='Category Classifier Evidence', title='T1w - Category Classifier (group average)')
+    plt.tight_layout()
+    plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_during_removal_v2_smoothed.svg'))
+    plt.savefig(os.path.join(data_dir,'figs','group_level_category_decoding_during_removal_v2_smoothed.png'))    
+    plt.clf()  
 
 def check_anova_stats():
     group_evidence_df=pd.DataFrame()
