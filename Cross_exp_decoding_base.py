@@ -16,10 +16,11 @@ from sklearn.decomposition import PCA
 from sklearn.model_selection import PredefinedSplit
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import accuracy_score, confusion_matrix, roc_curve, auc
 
 import psutil
 import nibabel as nib
+from scipy.signal import resample
 
 import fnmatch
 
@@ -95,6 +96,19 @@ print('* Number of subjects: %s' % str(len(subject_lists)))
 ######### feature mask
 xargs['feat_mask'] =  '/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/MVPA_cross_subjects/masks/feature_mask.nii.gz'
 
+def save_model(classifier, pca, filename):
+    # Create a dictionary to store the models
+    models = {'classifier': classifier, 'pca': pca}
+
+    # Pickle the models and save to disk
+    with open(filename, 'wb') as f:
+        pickle.dump(models, f)
+
+def load_model(filename):
+    # Load the pickled models from disk
+    with open(filename, 'rb') as f:
+        models = pickle.load(f)
+    return models['classifier'], models['pca']
 
 def confound_cleaner(confounds):
     COI = ['a_comp_cor_00','a_comp_cor_01','a_comp_cor_02','a_comp_cor_03','a_comp_cor_04','a_comp_cor_05','framewise_displacement','trans_x','trans_y','trans_z','rot_x','rot_y','rot_z']
@@ -274,6 +288,36 @@ def get_shifted_labels(task, shift_size_TR, rest_tag=0):
     shifted_df = shift_timing(sub_design_matrix, shift_size_TR, rest_tag)
 
     return shifted_df 
+
+def remove_label(X, Y, label):
+    # Find the indices of the time points with the given label
+    idx_remove = np.where(Y == label)[0]
+    
+    # Remove the time points with the given label from the data and regressors
+    X_new = np.delete(X, idx_remove, axis=0)
+    Y_new = np.delete(Y, idx_remove, axis=0)
+    
+    return X_new, Y_new
+
+def rename_labels(Y, flag):
+    # Create a new array to hold the renamed labels
+    Y_new = np.zeros_like(Y, dtype='str')
+    
+    # Map the old label values to new label values based on the flag
+    if flag == "clearmem":
+        label_map = {1: 'maintain', 2: 'replace', 4: 'suppress'}
+    elif flag == "repclear":
+        label_map = {1: 'maintain', 2: 'replace', 3: 'suppress'}
+    else:
+        print("Invalid flag")
+        return None
+    
+    # Rename the labels
+    for old_label, new_label in label_map.items():
+        idx = np.where(Y == old_label)[0]
+        Y_new[idx] = new_label
+    
+    return Y_new
 
 ###########################################
 # PH1: load patterns/ zscoring/ per each subject
@@ -622,46 +666,77 @@ if xprepare_test:
     
     xtrain_reg = pd.read_pickle('/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/MVPA_cross_subjects/out/cat_regs_n50.pkl')
 
+
+
+#before we combine for PCA, we need to relabel and remove regessors (drop clear and rename to operation):
+xcat_regs = np.hstack(xtrain_reg['regressor'])
+
+xtrain_trim, xcat_regs_trim = remove_label(xtrain_pat, xcat_regs, 5) #this will drop the "clear" labels
+
+#use a renaming of label functions to organize all the data:
+
+xcat_regs_named=rename_labels(xcat_regs_trim,'clearmem')
+regressors_named = rename_labels(Y, 'repclear')
+
+combined_data=np.concatenate([xtrain_trim,X])
+
+# Create an array of 1's for training data
+train_labels = np.ones(xtrain_trim.shape[0])
+
+# Create an array of 2's for testing data
+test_labels = np.ones(X.shape[0]) * 2
+
+# Concatenate the two arrays
+all_labels = np.concatenate((train_labels, test_labels))
+
+## we will need to add back in PCA because of training issues:
+pca = PCA(n_components=xargs['n_comps'])
+xpats_pca_train = pca.fit_transform(xtrain_trim)
+
+xpats_pca_test = pca.transform(X)
+
+# # Split the combined_data array into separate training and testing arrays based on the labels
+# train_data = xpats_pca_combined[all_labels == 1]
+# test_data = xpats_pca_combined[all_labels == 2]
+
+# xf_pca = os.path.join(xdirs['out'], 'PCA_%dcomp_pat_%d.npy' % (xargs['n_comps'], xfold))
+# np.save(xf_pca, xpats_pca)
+
 ###########################################
 # PH5: Classification
 ###########################################
 start = time.time()
 
 ######################################################
-######### load train regressor
-xtrain_run = np.ones(int(np.hstack(xtrain_reg['regressor']).shape[0]))
-
-######################################################
-######### train + test
-xcat_regs = np.hstack(xtrain_reg['regressor'])
-# xcat_runs = np.concatenate((xtrain_run, xtest_run), axis=0)
-######################################################
 # Classification
 ######################################################
 
 
-classifier = LogisticRegression(penalty='l2', C=xargs['penalty'], solver='lbfgs', 
-                                multi_class='auto', max_iter=xargs['max_iter'])
+classifier = LogisticRegression(penalty='l2', solver='lbfgs', max_iter=1000,
+                                multi_class='ovr',n_jobs=-1,verbose=1)
 
-clf = classifier.fit(xtrain_pat, xcat_regs)
+clf = classifier.fit(xpats_pca_train, xcat_regs_named)
 
-y_score = lr.decision_function(X)
-n_classes=np.unique(Y).size
+save_model(clf,pca,'trained_models.pkl')
+
+y_score = clf.decision_function(xpats_pca_test)
+n_classes=np.unique(regressors_460ms_named).size
 # Compute ROC curve and ROC area for each class
 fpr = dict()
 tpr = dict()
 roc_auc = dict()
 for i in range(n_classes):
-    temp_y=np.zeros(Y.size)
+    temp_y=np.zeros(regressors_460ms_named.size)
     label_ind=np.where(Y==(i+1))
     temp_y[label_ind]=1
 
     fpr[i], tpr[i], _ = roc_curve(temp_y, y_score[:, i])
     roc_auc[i] = auc(fpr[i], tpr[i])
 
-pred = clf.predict(X)
-evi = clf.predict_proba(X)
-xscore = accuracy_score(Y, pred)
+pred = clf.predict(xpats_pca_test)
+evi = clf.predict_proba(xpats_pca_test)
+xscore = accuracy_score(regressors_460ms_named, pred)
+
 
 
 ######### Confusion matrix (actual, predicted)
