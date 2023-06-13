@@ -1,0 +1,138 @@
+bootstrap:
+
+[STATS: Maintain (N.S.), Replace (- *), Suppress (+ *) / Maintain vs. Replace – [0.02547380261638975, 0.13330744372339476] (*) / Maintain vs. Suppress – [-0.09276034673352548, 0.02200215694103796] (N.S.) / Replace vs. Suppress – [-0.17185330357229942, -0.059645623420366965] (*)]
+
+
+
+Operation: maintain
+------------------------------
+ACME is not significant for maintain: mediation: -0.0020 - 0.0069
+ADE is not significant for maintain: mediation: -0.0527 - 0.0139
+Prop_med is not significant for maintain: mediation: -0.1372 - 0.1435
+
+X on M is not significant for maintain: association: -0.0179 - 0.0541
+X on Y is not significant for maintain: association: -0.2512 - 0.0907
+X+M on Y is not significant for maintain: association: -0.2652 - 0.0810
+
+Operation: replace
+------------------------------
+ACME is not significant for replace: mediation: -0.0014 - 0.0064
+ADE is not significant for replace: mediation: -0.0383 - 0.0265
+Prop_med is not significant for replace: mediation: -0.1288 - 0.1279
+
+X on M is significant for replace (negative association: -0.10 - -0.03)
+X on Y is not significant for replace: association: -0.1698 - 0.1497
+X+M on Y is not significant for replace: association: -0.1834 - 0.1418
+
+Operation: suppress
+------------------------------
+ACME is not significant for suppress: mediation: -0.0001 - 0.0082
+ADE is significant for suppress (negative mediation: -0.09 - -0.02)
+Prop_med is not significant for suppress: mediation: -0.1770 - 0.0022
+
+X on M is significant for suppress (positive association: 0.01 - 0.09)
+X on Y is significant for suppress (negative association: -0.40 - -0.06)
+X+M on Y is significant for suppress (negative association: -0.42 - -0.08)
+
+
+
+
+STATS ON EVIDENCE DIFF FROM MAINTAIN:
+Condition: replace, TR: 0, T-statistic: 0.706914572872503, p-value: 0.48739035210819337
+Condition: replace, TR: 1, T-statistic: 2.099497796617453, p-value: 0.04803714382645225
+Condition: replace, TR: 2, T-statistic: 2.390558416606163, p-value: 0.026270835867076524
+Condition: replace, TR: 3, T-statistic: 1.684687859215941, p-value: 0.10685435451388159
+Condition: replace, TR: 4, T-statistic: 0.8564980925907667, p-value: 0.4013905576260276
+Condition: replace, TR: 5, T-statistic: -0.3579750974284284, p-value: 0.7239350209970599
+Condition: replace, TR: 6, T-statistic: -0.10742782132266289, p-value: 0.9154693263240368
+Condition: replace, TR: 7, T-statistic: -1.6106409023354935, p-value: 0.12218775087301105
+Condition: replace, TR: 8, T-statistic: -3.1859642583594407, p-value: 0.004445907442747784 ***
+Condition: replace, TR: 9, T-statistic: -3.579545900050939, p-value: 0.0017670610395276365 ***
+Condition: replace, TR: 10, T-statistic: -3.715941694494541, p-value: 0.0012787448013700704 ***
+Condition: replace, TR: 11, T-statistic: -2.548176867019568, p-value: 0.018717746807730088 ***
+Condition: replace, TR: 12, T-statistic: -2.379674129625139, p-value: 0.026885128720468932 ***
+Condition: replace, TR: 13, T-statistic: -1.524780911990707, p-value: 0.1422334416394001
+
+
+Condition: suppress, TR: 0, T-statistic: 1.7250121526417208, p-value: 0.09921381400102978
+Condition: suppress, TR: 1, T-statistic: 1.7833401152059951, p-value: 0.08899208226141987
+Condition: suppress, TR: 2, T-statistic: 2.128471768906643, p-value: 0.0453011428631595
+Condition: suppress, TR: 3, T-statistic: 1.288868539851674, p-value: 0.21146182109253314
+Condition: suppress, TR: 4, T-statistic: 0.5490832406764325, p-value: 0.5887398216262645
+Condition: suppress, TR: 5, T-statistic: -0.4863650319934346, p-value: 0.6317453810227797
+Condition: suppress, TR: 6, T-statistic: 0.5695012705942345, p-value: 0.5750579499693873
+Condition: suppress, TR: 7, T-statistic: 1.5645413198928608, p-value: 0.13263583394098352
+Condition: suppress, TR: 8, T-statistic: 1.459739643531968, p-value: 0.15916027889447731
+Condition: suppress, TR: 9, T-statistic: 1.5046518951497097, p-value: 0.14730634148946511
+Condition: suppress, TR: 10, T-statistic: 0.71065579550877, p-value: 0.4851160589135587
+Condition: suppress, TR: 11, T-statistic: -0.21759794113493902, p-value: 0.8298427527864347
+Condition: suppress, TR: 12, T-statistic: -0.6873344125477961, p-value: 0.4993933483084888
+Condition: suppress, TR: 13, T-statistic: 0.22432035969297356, p-value: 0.824676176374329
+
+----
+2TR window:
+
+Condition: replace, TR pair: (0, 1), T-statistic: 1.7457902988750322, p-value: 0.08798951583789076
+Condition: replace, TR pair: (2, 3), T-statistic: 2.9218451981735694, p-value: 0.005525782924964137
+Condition: replace, TR pair: (4, 5), T-statistic: 0.6315504741511933, p-value: 0.531023938469253
+Condition: replace, TR pair: (6, 7), T-statistic: -1.4960031269885532, p-value: 0.14195696603319927
+Condition: replace, TR pair: (8, 9), T-statistic: -4.751656428336004, p-value: 2.2732037480051877e-05 ***
+Condition: replace, TR pair: (10, 11), T-statistic: -4.374155622192079, p-value: 7.620623876395369e-05 ***
+Condition: replace, TR pair: (12, 13), T-statistic: -2.7910828022212466, p-value: 0.007803663092232274 **
+
+Condition: suppress, TR pair: (0, 1), T-statistic: 2.507884508520505, p-value: 0.01599994599046716
+Condition: suppress, TR pair: (2, 3), T-statistic: 2.284020226838656, p-value: 0.027368683275646875
+Condition: suppress, TR pair: (4, 5), T-statistic: 0.07737536085651814, p-value: 0.9386838637618233
+Condition: suppress, TR pair: (6, 7), T-statistic: 1.6477028223846562, p-value: 0.10670295317733162
+Condition: suppress, TR pair: (8, 9), T-statistic: 2.1210927956008487, p-value: 0.03971897320882389 *
+Condition: suppress, TR pair: (10, 11), T-statistic: 0.42029632295254693, p-value: 0.67636195199077
+Condition: suppress, TR pair: (12, 13), T-statistic: -0.3241910946328355, p-value: 0.7473651217420707
+
+
+____
+with suppress vs. replace:
+
+Condition: Replace vs. 0, TR pair: (2, 3), T-statistic: 2.2680731357320547, p-value: 0.03399517228438506
+Condition: Replace vs. 0, TR pair: (4, 5), T-statistic: 0.5967251086962121, p-value: 0.5570700017390109
+Condition: Replace vs. 0, TR pair: (6, 7), T-statistic: -1.260010851470742, p-value: 0.22148836820475518
+Condition: Replace vs. 0, TR pair: (8, 9), T-statistic: -3.5910998099017974, p-value: 0.001719402612506534 **
+Condition: Replace vs. 0, TR pair: (10, 11), T-statistic: -3.14803448970434, p-value: 0.004853951596936074 **
+
+Condition: Suppress vs. 0, TR pair: (2, 3), T-statistic: 1.758598144240319, p-value: 0.09321153231088347
+Condition: Suppress vs. 0, TR pair: (4, 5), T-statistic: 0.06147823808887757, p-value: 0.95155970945877
+Condition: Suppress vs. 0, TR pair: (6, 7), T-statistic: 1.2787108874681772, p-value: 0.21495021794222782
+Condition: Suppress vs. 0, TR pair: (8, 9), T-statistic: 1.5401685773931688, p-value: 0.13845321344948097
+Condition: Suppress vs. 0, TR pair: (10, 11), T-statistic: 0.306877794798565, p-value: 0.7619586555741202
+
+Condition: Suppress vs. Replace, TR pair: (2, 3), T-statistic: -0.3761622579666845, p-value: 0.7105697480967208
+Condition: Suppress vs. Replace, TR pair: (4, 5), T-statistic: -0.46760720231637687, p-value: 0.6448816150101824
+Condition: Suppress vs. Replace, TR pair: (6, 7), T-statistic: 2.5246194696477753, p-value: 0.01970014453492196 *
+Condition: Suppress vs. Replace, TR pair: (8, 9), T-statistic: 3.692427472456213, p-value: 0.0013522057086013304 ***
+Condition: Suppress vs. Replace, TR pair: (10, 11), T-statistic: 3.1429826475428357, p-value: 0.004910966163327661 ***
+
+------
+Stats for cross exp decoding:
+##### Reporting stats for Maintain AUC #####
+Mean = 0.6326376356228587
+SEM = 0.014672678854481334
+Degrees of freedom = 21
+T-stat = 9.039769556623835
+p-value = 1.1006027226173975e-08
+cohens d =  1.9726394408660057
+
+##### Reporting stats for Replace AUC #####
+Mean = 0.6294935890895486
+SEM = 0.013734620186864638
+Degrees of freedom = 21
+T-stat = 9.428261380929351
+p-value = 5.37658531234981e-09
+cohens d =  2.057415307139887
+
+##### Reporting stats for Suppress AUC #####
+Mean = 0.7002878787878788
+SEM = 0.015490817220360262
+Degrees of freedom = 21
+T-stat = 12.929458526218461
+p-value = 1.8176761714388248e-11
+cohens d =  2.821439161485156
+
