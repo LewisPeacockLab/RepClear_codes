@@ -22,6 +22,7 @@ cmap = sns.color_palette("crest", as_cmap=True)
 import fnmatch
 import pickle
 from sklearn.svm import LinearSVC
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import (
     LogisticRegression,
     LogisticRegressionCV,
@@ -31,10 +32,12 @@ from sklearn.model_selection import (
     GridSearchCV,
     LeaveOneGroupOut,
     PredefinedSplit,
+    train_test_split,
 )  # train_test_split, PredefinedSplit, cross_validate, cross_val_predict,
 from sklearn.feature_selection import (
     SelectFpr,
     f_classif,
+    SelectFromModel,
 )  # VarianceThreshold, SelectKBest,
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import resample
@@ -355,7 +358,7 @@ def get_shifted_labels(task, shift_size_TR, rest_tag=0):
 
     print("\n***** Loading labels...")
 
-    subject_design_dir = "/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/subject_designs/"
+    subject_design_dir = os.path.join(data_dir, "subject_designs/")
 
     # using the task tag, we want to get the proper tag to pull the subject and phase specific dataframes
     if task == "preremoval":
@@ -374,6 +377,101 @@ def get_shifted_labels(task, shift_size_TR, rest_tag=0):
     shifted_df = shift_timing(sub_design_matrix, shift_size_TR, rest_tag)
 
     return shifted_df
+
+
+def fit_xgb_model(X, Y, runs, save=False, out_fname=None, v=False):
+    if v:
+        print("\n***** Fitting model...")
+
+    scores = []
+    auc_scores = []
+    cms = []
+    best_Cs = []
+    evidences = []
+    roc_aucs = []
+
+    tested_labels = []
+    pred_probs = []
+    y_scores = []
+
+    ps = PredefinedSplit(runs)
+    for train_inds, test_inds in ps.split():
+        X_train, X_test, y_train, y_test = (
+            X[train_inds],
+            X[test_inds],
+            Y[train_inds],
+            Y[test_inds],
+        )
+
+        # feature selection
+        sel = SelectFromModel(RandomForestClassifier(n_estimators=100))
+        sel.fit(X_train, y_train)
+        X_train_sub = sel.transform(X_train)
+        X_test_sub = sel.transform(X_test)
+
+        # train & hyperparam tuning
+        parameters = {
+            "learning_rate": [0.01, 0.1, 0.2, 0.3],
+            "max_depth": [3, 5, 7, 9],
+            "n_estimators": [50, 100, 200, 500],
+        }
+        gscv = GridSearchCV(
+            xgb.XGBClassifier(use_label_encoder=False, eval_metric="logloss"),
+            parameters,
+            return_train_score=True,
+        )
+        gscv.fit(X_train_sub, y_train)
+        best_params.append(gscv.best_params_)
+
+        # refit with full data and optimal parameters
+        model = xgb.XGBClassifier(
+            **best_params[-1], use_label_encoder=False, eval_metric="logloss"
+        )
+        model.fit(X_train_sub, y_train)
+        # test on held out data
+        score = model.score(X_test_sub, y_test)
+
+        # auc_score = roc_auc_score(y_test, model.predict_proba(X_test_sub), multi_class="ovr")
+        auc_score = roc_auc_score(
+            y_test, model.predict_proba(X_test_sub), multi_class="ovo"
+        )
+        preds = model.predict(X_test_sub)
+        pred_prob = model.predict_proba(X_test_sub)
+        # confusion matrix
+        true_counts = np.asarray([np.sum(y_test == i) for i in [1, 2, 3]])
+        cm = (
+            confusion_matrix(y_test, preds, labels=list([1, 2, 3]))
+            / true_counts[:, None]
+            * 100
+        )
+
+        scores.append(score)
+        auc_scores.append(auc_score)
+        cms.append(cm)
+
+        tested_labels.append(y_test)
+        pred_probs.append(pred_prob)
+        # y_scores.append(y_score)
+
+    scores = np.asarray(scores)
+    auc_scores = np.asarray(auc_scores)
+    cms = np.stack(cms)
+
+    tested_labels = np.stack(tested_labels)
+    pred_probs = np.stack(pred_probs)
+    # y_scores = np.stack(y_scores)
+
+    if v:
+        print(
+            f"\nClassifier score: \n"
+            f"scores: {scores.mean()} +/- {scores.std()}\n"
+            f"auc scores: {auc_scores.mean()} +/- {auc_scores.std()}\n"
+            f"best params: {best_params}\n"
+            f"average confusion matrix:\n"
+            f"{cms.mean(axis=0)}"
+        )
+
+    return scores, auc_scores, cms, tested_labels, pred_probs
 
 
 def fit_model(X, Y, runs, save=False, out_fname=None, v=False):
@@ -630,6 +728,94 @@ def classification(subID):
     evidence_df.to_csv(os.path.join(sub_dir, out_fname_template))
 
 
+def xgb_classification(subID):
+    task = "study"
+    space = "T1w"  # T1w
+    ROIs = ["wholebrain"]
+    n_iters = 1
+
+    shift_size_TR = shift_sizes_TR[0]
+    rest_tag = 0
+
+    print(
+        f"\n***** Running operation level classification for sub {subID} {task} {space} with ROIs {ROIs}..."
+    )
+
+    # get data:
+    full_data = load_process_data(subID, task, space, ROIs)
+    print(f"Full_data shape: {full_data.shape}")
+
+    # get labels:
+    label_df = get_shifted_labels(task, shift_size_TR, rest_tag)
+    print(f"Operation label shape: {label_df.shape}")
+
+    assert len(full_data) == len(
+        label_df
+    ), f"Length of data ({len(full_data)}) does not match Length of labels ({len(label_df)})!"
+
+    # cross run xval
+    scores = []
+    auc_scores = []
+    cms = []
+    # evidence = []
+
+    X, Y, runs, imgs = sample_for_training(full_data, label_df)
+
+    print(f"Running model fitting and cross-validation...")
+
+    # model fitting
+    scores, auc_scores, cms, tested_labels, pred_probs = fit_xgb_model(
+        X, Y, runs, save=False, v=True
+    )
+
+    mean_score = scores.mean()
+
+    print(
+        f"\n***** Average results for sub {subID} - {task} - {space}: Score={mean_score} "
+    )
+
+    # want to save the AUC results in such a way that I can also add in the content average later:
+    auc_df = pd.DataFrame(
+        columns=["AUC", "Content", "Sub", "Score"],
+        index=["Maintain", "Replace", "Suppress"],
+    )
+    auc_df.loc["Maintain"]["AUC"] = auc_scores[
+        0
+    ].mean()  # Because the above script calculates these based on a leave-one-run-out. We will have an AUC for Maintain, Replace and Suppress per iteration (3 total). So taking the mean of each operation
+    auc_df.loc["Replace"]["AUC"] = auc_scores[1].mean()
+    auc_df.loc["Suppress"]["AUC"] = auc_scores[2].mean()
+    auc_df["Sub"] = subID
+    auc_df["Score"] = mean_score
+
+    sub_dir = os.path.join(data_dir, f"sub-{subID}")
+    out_fname_template_auc = f"sub-{subID}_{space}_{task}_operation_auc.csv"
+    print("\n *** Saving AUC values with subject dataframe ***")
+    auc_df.to_csv(os.path.join(sub_dir, out_fname_template_auc))
+
+    # Saving predicted probabilities as evidence
+    evidence_df = pd.DataFrame(
+        columns=["runs", "operation", "image_id"]
+    )  # take the study DF for this subject
+    evidence_df["runs"] = runs
+    evidence_df["operation"] = Y
+    evidence_df["image_id"] = imgs
+    evidence_df["maintain_evi"] = np.vstack(pred_probs)[
+        :, 0
+    ]  # add in the evidence values for maintain
+    evidence_df["replace_evi"] = np.vstack(pred_probs)[
+        :, 1
+    ]  # add in the evidence values for replace
+    evidence_df["suppress_evi"] = np.vstack(pred_probs)[
+        :, 2
+    ]  # add in the evidence values for suppress
+
+    # this will export the subject level evidence to the subject's folder
+    sub_dir = os.path.join(data_dir, f"sub-{subID}")
+    out_fname_template = f"sub-{subID}_{space}_{task}_operation_evidence.csv"
+    print("\n *** Saving evidence values with subject dataframe ***")
+    evidence_df.to_csv(os.path.join(sub_dir, out_fname_template))
+
+
 def organize_evidence(subID, space, task, save=True):
     ROIs = ["wholebrain"]
 
@@ -781,7 +967,7 @@ def organize_memory_evidence(subID, space, task, save=True):
         int
     )  # so using the above indices, we will now grab what the condition is of each image
 
-    subject_design_dir = "/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/subject_designs/"
+    subject_design_dir = os.path.join(data_dir, "subject_designs/")
 
     memory_file_path = os.path.join(
         subject_design_dir, f"memory_and_familiar_sub-{subID}.csv"
