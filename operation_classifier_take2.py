@@ -21,6 +21,9 @@ import seaborn as sns
 cmap = sns.color_palette("crest", as_cmap=True)
 import fnmatch
 import pickle
+import xgboost as xgb
+import graphviz
+
 from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import (
@@ -33,13 +36,17 @@ from sklearn.model_selection import (
     LeaveOneGroupOut,
     PredefinedSplit,
     train_test_split,
+    RandomizedSearchCV,
 )  # train_test_split, PredefinedSplit, cross_validate, cross_val_predict,
 from sklearn.feature_selection import (
     SelectFpr,
     f_classif,
     SelectFromModel,
 )  # VarianceThreshold, SelectKBest,
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import (
+    StandardScaler,
+    LabelEncoder,
+)
 from sklearn.utils import resample
 from nilearn.input_data import NiftiMasker, MultiNiftiMasker
 from scipy import stats
@@ -383,10 +390,13 @@ def fit_xgb_model(X, Y, runs, save=False, out_fname=None, v=False):
     if v:
         print("\n***** Fitting model...")
 
+    le = LabelEncoder()
+    Y = le.fit_transform(Y)
+
     scores = []
     auc_scores = []
     cms = []
-    best_Cs = []
+    best_params = []
     evidences = []
     roc_aucs = []
 
@@ -395,7 +405,7 @@ def fit_xgb_model(X, Y, runs, save=False, out_fname=None, v=False):
     y_scores = []
 
     ps = PredefinedSplit(runs)
-    for train_inds, test_inds in ps.split():
+    for run_index, (train_inds, test_inds) in enumerate(ps.split()):
         X_train, X_test, y_train, y_test = (
             X[train_inds],
             X[test_inds],
@@ -411,31 +421,50 @@ def fit_xgb_model(X, Y, runs, save=False, out_fname=None, v=False):
 
         # train & hyperparam tuning
         parameters = {
-            "learning_rate": [0.01, 0.1, 0.2, 0.3],
+            "learning_rate": [0.01, 0.1, 0.15, 0.2],
+            "min_child_weight": [1, 5, 10],
             "max_depth": [3, 5, 7, 9],
+            "colsample_bytree": [0.6, 0.8, 1],
+            "subsample": [0.6, 0.8, 1],
             "n_estimators": [50, 100, 200, 500],
         }
-        gscv = GridSearchCV(
-            xgb.XGBClassifier(use_label_encoder=False, eval_metric="logloss"),
-            parameters,
-            return_train_score=True,
-        )
-        gscv.fit(X_train_sub, y_train)
-        best_params.append(gscv.best_params_)
 
+        xgb_model = xgb.XGBClassifier(eval_metric="mlogloss")
+
+        rscv = RandomizedSearchCV(xgb_model, parameters, n_iter=25, n_jobs=-1)
+        rscv.fit(X_train_sub, y_train)
+        best_params.append(rscv.best_params_)
         # refit with full data and optimal parameters
-        model = xgb.XGBClassifier(
-            **best_params[-1], use_label_encoder=False, eval_metric="logloss"
-        )
+        model = xgb.XGBClassifier(**best_params[-1], eval_metric="mlogloss")
         model.fit(X_train_sub, y_train)
+
+        # feature importance
+        feature_importance = pd.DataFrame(
+            model.feature_importances_, columns=["importance"]
+        )
+        feature_importance.to_csv(
+            os.path.join(
+                data_dir, f"sub-{subID}", f"xgb_feature_importance_run{run_index}.csv"
+            ),
+            index=False,
+        )
+
+        # plot tree
+        fig, ax = plt.subplots(figsize=(30, 30))
+        xgb.plot_tree(model, num_trees=0, ax=ax)
+        plt.savefig(
+            os.path.join(data_dir, f"sub-{subID}", f"xgb_tree_plot_run{run_index}.png")
+        )
+
         # test on held out data
         score = model.score(X_test_sub, y_test)
 
-        # auc_score = roc_auc_score(y_test, model.predict_proba(X_test_sub), multi_class="ovr")
         auc_score = roc_auc_score(
-            y_test, model.predict_proba(X_test_sub), multi_class="ovo"
+            y_test, model.predict_proba(X_test_sub), multi_class="ovr", average=None
         )
         preds = model.predict(X_test_sub)
+        preds = le.inverse_transform(preds)
+        y_test = le.inverse_transform(y_test)
         pred_prob = model.predict_proba(X_test_sub)
         # confusion matrix
         true_counts = np.asarray([np.sum(y_test == i) for i in [1, 2, 3]])
@@ -788,7 +817,7 @@ def xgb_classification(subID):
     auc_df["Score"] = mean_score
 
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
-    out_fname_template_auc = f"sub-{subID}_{space}_{task}_operation_auc.csv"
+    out_fname_template_auc = f"sub-{subID}_{space}_{task}_operation_auc_XBG.csv"
     print("\n *** Saving AUC values with subject dataframe ***")
     auc_df.to_csv(os.path.join(sub_dir, out_fname_template_auc))
 
@@ -811,7 +840,7 @@ def xgb_classification(subID):
 
     # this will export the subject level evidence to the subject's folder
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
-    out_fname_template = f"sub-{subID}_{space}_{task}_operation_evidence.csv"
+    out_fname_template = f"sub-{subID}_{space}_{task}_operation_evidence_XGB.csv"
     print("\n *** Saving evidence values with subject dataframe ***")
     evidence_df.to_csv(os.path.join(sub_dir, out_fname_template))
 

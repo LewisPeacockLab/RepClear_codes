@@ -38,7 +38,6 @@ from sklearn import preprocessing
 from sklearn.metrics import roc_auc_score
 from joblib import Parallel, delayed
 
-
 subs = [
     "02",
     "03",
@@ -63,7 +62,7 @@ subs = [
     "25",
     "26",
 ]
-brain_flag = "T1w"
+brain_flag = "MNI"
 
 # code for the item level voxel activity for faces and scenes
 
@@ -254,7 +253,7 @@ def item_representation_study(subID):
 
     """load in the denoised bold data and events file"""
     events = pd.read_csv(
-        "/work/06873/zbretton/ls6/repclear_dataset/BIDS/task-study_events.tsv", sep="\t"
+        "/scratch/06873/zbretton/repclear_dataset/BIDS/task-study_events.tsv", sep="\t"
     )
     # now will need to create a loop where I iterate over the face & scene indexes
     # I then relabel that trial of the face or scene as "face_trial#" or "scene_trial#" and then label rest and all other trials as "other"

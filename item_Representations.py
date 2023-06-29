@@ -64,7 +64,7 @@ subs = [
     "26",
 ]
 # subs=['12','13','14','15','16','17','18','20','23','24','25','26']
-brain_flag = "T1w"  # T1w
+brain_flag = "MNI"  # T1w
 
 # code for the item level voxel activity for faces and scenes
 
@@ -78,6 +78,8 @@ def pad_contrast(contrast_, n_columns):
     """A small routine to append zeros in contrast vectors"""
     return np.hstack((contrast_, np.zeros(n_columns - len(contrast_))))
 
+
+def confound_cleaner(confounds):
     COI = [
         "a_comp_cor_00",
         "a_comp_cor_01",

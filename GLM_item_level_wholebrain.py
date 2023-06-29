@@ -244,7 +244,7 @@ def GLM_item_level(subID):
     # img_clean=clean_img(img,sessions=run_list,t_r=1,detrend=False,standardize='zscore')
     """load in the denoised bold data and events file"""
     events = pd.read_csv(
-        "/work/06873/zbretton/ls6/repclear_dataset/BIDS/task-preremoval_events.tsv",
+        "/scratch/06873/zbretton/repclear_dataset/BIDS/task-preremoval_events.tsv",
         sep="\t",
     )
     # this is some code that will split up this tsv into separate dicts per run
