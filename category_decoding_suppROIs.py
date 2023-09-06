@@ -41,6 +41,7 @@ from statsmodels.stats.anova import AnovaRM
 from statsmodels.stats.multitest import multipletests
 from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter
+from typing import Tuple
 
 
 # global consts
@@ -244,7 +245,7 @@ def load_process_data(
 
 
 def get_shifted_labels(
-    task: str, shift_size_TR: int, rest_tag: int = 0
+    subID, task: str, shift_size_TR: int, rest_tag: int = 0
 ) -> pd.DataFrame:
     """
     Load labels and apply a temporal shift to account for the hemodynamic response delay.
@@ -574,7 +575,7 @@ def classification(subID):
         full_data = load_process_data(subID, task, space, [roi])
         print(f"Full_data shape: {full_data.shape}")
 
-        label_df = get_shifted_labels(task, shift_size_TR, rest_tag)
+        label_df = get_shifted_labels(subID, task, shift_size_TR, rest_tag)
         print(f"Category label shape: {label_df.shape}")
 
         # Consistency check
@@ -598,10 +599,12 @@ def classification(subID):
                 Y
             ), f"Length of X ({len(X)}) doesn't match length of Y({len(Y)})"
 
-            # Model fitting
-            score, auc_score, cm, trained_model, fpr = fit_model(
-                X, Y, groups, save=False, v=True
-            )
+            results = fit_model(X, Y, groups, save=False, v=True)
+            score = results["scores"]
+            auc_score = results["auc_scores"]
+            cm = results["cms"]
+            trained_model = results["trained_models"]
+            fpr = results["fprs"]
 
             scores.append(score)
             auc_scores.append(auc_score)
@@ -627,7 +630,7 @@ def classification(subID):
         full_data2 = load_process_data(subID, task2, space, [roi])
         print(f"Full_data shape: {full_data2.shape}")
 
-        label_df2 = get_shifted_labels(task2, shift_size_TR, rest_tag)
+        label_df2 = get_shifted_labels(subID, task2, shift_size_TR, rest_tag)
         print(f"Category label shape: {label_df2.shape}")
 
         # Decode the second task
@@ -655,13 +658,13 @@ def organize_evidence(subID, save=True):
     task = "preremoval"
     task2 = "study"
     space = "T1w"
-    ROIs = ["VVS"]
+    ROIs = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
 
     print("\n *** loading evidence values from subject dataframe ***")
 
     sub_dir = os.path.join(data_dir, f"sub-{subID}")
     in_fname_template = (
-        f"sub-{subID}_{space}_trained-{task}_tested-{task2}_evidence.csv"
+        f"sub-{subID}_{space}_trained-{task}_tested-{task2}_{roi}_evidence.csv"
     )
 
     sub_df = pd.read_csv(os.path.join(sub_dir, in_fname_template))
