@@ -127,7 +127,8 @@ for num in range(len(subs)):
     localizer_files.sort()
     if brain_flag == "MNI":
         vtc_mask_path = os.path.join(
-            "/scratch/06873/zbretton/fmriprep/group_%s_VTC_mask.nii.gz" % brain_flag
+            "/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_%s_VTC_mask.nii.gz"
+            % brain_flag
         )
 
     else:
@@ -220,7 +221,7 @@ for num in range(len(subs)):
 
     # load in the events file
     events = pd.read_csv(
-        "/work/06873/zbretton/ls6/repclear_dataset/BIDS/task-preremoval_events.tsv",
+        "/scratch/06873/zbretton/repclear_dataset/BIDS/task-preremoval_events.tsv",
         sep="\t",
     )
     # this is some code that will split up this tsv into separate dicts per run
@@ -401,7 +402,7 @@ for contrast in contrasts:
     """initialize and fit the GLM"""
     second_level_model = SecondLevelModel(
         smoothing_fwhm=None,
-        mask_img="/scratch/06873/zbretton/fmriprep/group_MNI_VTC_mask.nii.gz",
+        mask_img="/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_MNI_VTC_mask.nii.gz",
         verbose=2,
         n_jobs=-1,
     )
