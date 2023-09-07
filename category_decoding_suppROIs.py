@@ -654,133 +654,133 @@ def classification(subID):
 
 
 # now I need to create a function to take each subject's evidence DF, and then sort, organize and then visualize:
-def organize_evidence(subID, save=True):
-    task = "preremoval"
-    task2 = "study"
-    space = "T1w"
-    ROIs = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
+# def organize_evidence(subID, save=True):
+#     task = "preremoval"
+#     task2 = "study"
+#     space = "T1w"
+#     ROIs = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
 
-    print("\n *** loading evidence values from subject dataframe ***")
+#     print("\n *** loading evidence values from subject dataframe ***")
 
-    sub_dir = os.path.join(data_dir, f"sub-{subID}")
-    in_fname_template = (
-        f"sub-{subID}_{space}_trained-{task}_tested-{task2}_{roi}_evidence.csv"
-    )
+#     sub_dir = os.path.join(data_dir, f"sub-{subID}")
+#     in_fname_template = (
+#         f"sub-{subID}_{space}_trained-{task}_tested-{task2}_{roi}_evidence.csv"
+#     )
 
-    sub_df = pd.read_csv(os.path.join(sub_dir, in_fname_template))
-    sub_df.drop(
-        columns=sub_df.columns[0], axis=1, inplace=True
-    )  # now drop the extra index column
+#     sub_df = pd.read_csv(os.path.join(sub_dir, in_fname_template))
+#     sub_df.drop(
+#         columns=sub_df.columns[0], axis=1, inplace=True
+#     )  # now drop the extra index column
 
-    sub_images, sub_index = np.unique(
-        sub_df["image_id"], return_index=True
-    )  # this searches through the dataframe to find each occurance of the image_id. This allows me to find the start of each trial, and linked to the image_ID #
+#     sub_images, sub_index = np.unique(
+#         sub_df["image_id"], return_index=True
+#     )  # this searches through the dataframe to find each occurance of the image_id. This allows me to find the start of each trial, and linked to the image_ID #
 
-    # now to sort the trials, we need to figure out what the operation performed is:
-    sub_condition_list = sub_df["condition"][sub_index].values.astype(
-        int
-    )  # so using the above indices, we will now grab what the condition is of each image
+#     # now to sort the trials, we need to figure out what the operation performed is:
+#     sub_condition_list = sub_df["condition"][sub_index].values.astype(
+#         int
+#     )  # so using the above indices, we will now grab what the condition is of each image
 
-    counter = 0
-    maintain_trials = {}
-    replace_trials = {}
-    suppress_trials = {}
+#     counter = 0
+#     maintain_trials = {}
+#     replace_trials = {}
+#     suppress_trials = {}
 
-    for i in sub_condition_list:
-        if (
-            i == 0
-        ):  # this is the first rest period (because we had to shift of hemodynamics. So this "0" condition is nothing)
-            print("i==0")
-            counter += 1
-            continue
-        elif i == 1:
-            temp_image = sub_images[counter]
-            maintain_trials[temp_image] = sub_df[["rest_evi", "scene_evi", "face_evi"]][
-                sub_index[counter] - 5 : sub_index[counter] + 9
-            ].values
-            counter += 1
+#     for i in sub_condition_list:
+#         if (
+#             i == 0
+#         ):  # this is the first rest period (because we had to shift of hemodynamics. So this "0" condition is nothing)
+#             print("i==0")
+#             counter += 1
+#             continue
+#         elif i == 1:
+#             temp_image = sub_images[counter]
+#             maintain_trials[temp_image] = sub_df[["rest_evi", "scene_evi", "face_evi"]][
+#                 sub_index[counter] - 5 : sub_index[counter] + 9
+#             ].values
+#             counter += 1
 
-        elif i == 2:
-            temp_image = sub_images[counter]
-            replace_trials[temp_image] = sub_df[["rest_evi", "scene_evi", "face_evi"]][
-                sub_index[counter] - 5 : sub_index[counter] + 9
-            ].values
-            counter += 1
+#         elif i == 2:
+#             temp_image = sub_images[counter]
+#             replace_trials[temp_image] = sub_df[["rest_evi", "scene_evi", "face_evi"]][
+#                 sub_index[counter] - 5 : sub_index[counter] + 9
+#             ].values
+#             counter += 1
 
-        elif i == 3:
-            temp_image = sub_images[counter]
-            suppress_trials[temp_image] = sub_df[["rest_evi", "scene_evi", "face_evi"]][
-                sub_index[counter] - 5 : sub_index[counter] + 9
-            ].values
-            counter += 1
+#         elif i == 3:
+#             temp_image = sub_images[counter]
+#             suppress_trials[temp_image] = sub_df[["rest_evi", "scene_evi", "face_evi"]][
+#                 sub_index[counter] - 5 : sub_index[counter] + 9
+#             ].values
+#             counter += 1
 
-    # now that the trials are sorted, we need to get the subject average for each condition:
-    avg_maintain = pd.DataFrame(data=np.dstack(maintain_trials.values()).mean(axis=2))
-    avg_replace = pd.DataFrame(data=np.dstack(replace_trials.values()).mean(axis=2))
-    avg_suppress = pd.DataFrame(data=np.dstack(suppress_trials.values()).mean(axis=2))
+#     # now that the trials are sorted, we need to get the subject average for each condition:
+#     avg_maintain = pd.DataFrame(data=np.dstack(maintain_trials.values()).mean(axis=2))
+#     avg_replace = pd.DataFrame(data=np.dstack(replace_trials.values()).mean(axis=2))
+#     avg_suppress = pd.DataFrame(data=np.dstack(suppress_trials.values()).mean(axis=2))
 
-    # now I will have to change the structure to be able to plot in seaborn:
-    avg_maintain = (
-        avg_maintain.T.melt()
-    )  # now you get 2 columns: variable (TR) and value (evidence)
-    avg_maintain["sub"] = np.repeat(
-        subID, len(avg_maintain)
-    )  # input the subject so I can stack melted dfs
-    avg_maintain["evidence_class"] = np.tile(
-        ["rest", "scenes", "faces"], 14
-    )  # add in the labels so we know what each data point is refering to
-    avg_maintain.rename(
-        columns={"variable": "TR", "value": "evidence"}, inplace=True
-    )  # renamed the melted column names
-    avg_maintain[
-        "condition"
-    ] = "maintain"  # now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+#     # now I will have to change the structure to be able to plot in seaborn:
+#     avg_maintain = (
+#         avg_maintain.T.melt()
+#     )  # now you get 2 columns: variable (TR) and value (evidence)
+#     avg_maintain["sub"] = np.repeat(
+#         subID, len(avg_maintain)
+#     )  # input the subject so I can stack melted dfs
+#     avg_maintain["evidence_class"] = np.tile(
+#         ["rest", "scenes", "faces"], 14
+#     )  # add in the labels so we know what each data point is refering to
+#     avg_maintain.rename(
+#         columns={"variable": "TR", "value": "evidence"}, inplace=True
+#     )  # renamed the melted column names
+#     avg_maintain[
+#         "condition"
+#     ] = "maintain"  # now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
 
-    avg_replace = (
-        avg_replace.T.melt()
-    )  # now you get 2 columns: variable (TR) and value (evidence)
-    avg_replace["sub"] = np.repeat(
-        subID, len(avg_replace)
-    )  # input the subject so I can stack melted dfs
-    avg_replace["evidence_class"] = np.tile(
-        ["rest", "scenes", "faces"], 14
-    )  # add in the labels so we know what each data point is refering to
-    avg_replace.rename(
-        columns={"variable": "TR", "value": "evidence"}, inplace=True
-    )  # renamed the melted column names
-    avg_replace[
-        "condition"
-    ] = "replace"  # now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+#     avg_replace = (
+#         avg_replace.T.melt()
+#     )  # now you get 2 columns: variable (TR) and value (evidence)
+#     avg_replace["sub"] = np.repeat(
+#         subID, len(avg_replace)
+#     )  # input the subject so I can stack melted dfs
+#     avg_replace["evidence_class"] = np.tile(
+#         ["rest", "scenes", "faces"], 14
+#     )  # add in the labels so we know what each data point is refering to
+#     avg_replace.rename(
+#         columns={"variable": "TR", "value": "evidence"}, inplace=True
+#     )  # renamed the melted column names
+#     avg_replace[
+#         "condition"
+#     ] = "replace"  # now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
 
-    avg_suppress = (
-        avg_suppress.T.melt()
-    )  # now you get 2 columns: variable (TR) and value (evidence)
-    avg_suppress["sub"] = np.repeat(
-        subID, len(avg_suppress)
-    )  # input the subject so I can stack melted dfs
-    avg_suppress["evidence_class"] = np.tile(
-        ["rest", "scenes", "faces"], 14
-    )  # add in the labels so we know what each data point is refering to
-    avg_suppress.rename(
-        columns={"variable": "TR", "value": "evidence"}, inplace=True
-    )  # renamed the melted column names
-    avg_suppress[
-        "condition"
-    ] = "suppress"  # now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+#     avg_suppress = (
+#         avg_suppress.T.melt()
+#     )  # now you get 2 columns: variable (TR) and value (evidence)
+#     avg_suppress["sub"] = np.repeat(
+#         subID, len(avg_suppress)
+#     )  # input the subject so I can stack melted dfs
+#     avg_suppress["evidence_class"] = np.tile(
+#         ["rest", "scenes", "faces"], 14
+#     )  # add in the labels so we know what each data point is refering to
+#     avg_suppress.rename(
+#         columns={"variable": "TR", "value": "evidence"}, inplace=True
+#     )  # renamed the melted column names
+#     avg_suppress[
+#         "condition"
+#     ] = "suppress"  # now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
 
-    avg_subject_df = pd.concat(
-        [avg_maintain, avg_replace, avg_suppress], ignore_index=True, sort=False
-    )
+#     avg_subject_df = pd.concat(
+#         [avg_maintain, avg_replace, avg_suppress], ignore_index=True, sort=False
+#     )
 
-    # save for future use
-    if save:
-        sub_dir = os.path.join(data_dir, f"sub-{subID}")
-        out_fname_template = f"sub-{subID}_{space}_{task2}_evidence_dataframe.csv"
-        print(
-            f"\n Saving the sorted evidence dataframe for {subID} - phase: {task2} - as {out_fname_template}"
-        )
-        avg_subject_df.to_csv(os.path.join(sub_dir, out_fname_template))
-    return avg_subject_df
+#     # save for future use
+#     if save:
+#         sub_dir = os.path.join(data_dir, f"sub-{subID}")
+#         out_fname_template = f"sub-{subID}_{space}_{task2}_evidence_dataframe.csv"
+#         print(
+#             f"\n Saving the sorted evidence dataframe for {subID} - phase: {task2} - as {out_fname_template}"
+#         )
+#         avg_subject_df.to_csv(os.path.join(sub_dir, out_fname_template))
+#     return avg_subject_df
 
 
 for sub in subIDs:
