@@ -10,6 +10,7 @@ import os
 import fnmatch
 import numpy as np
 import pandas as pd
+from joblib import Parallel, delayed
 
 # Define subjects and new ROIs
 subs = [
@@ -205,9 +206,11 @@ def process_subject(sub, container_path, new_rois):
 
 
 # Main Loop
-for sub_num in subs:
-    sub = f"sub-0{sub_num}"
-    process_subject(sub, container_path, new_rois)
+# Parallel execution
+Parallel(n_jobs=-1, verbose=1)(
+    delayed(process_subject)(f"sub-0{sub_num}", container_path, new_rois)
+    for sub_num in subs
+)
 
 
 def second_level_analysis(subs, rois, contrasts, container_path):
@@ -278,3 +281,13 @@ def second_level_analysis(subs, rois, contrasts, container_path):
 
             # Free up resources
             del thresholded_map, t_map, second_level_model, maps
+
+
+# Ensure the subs list is formatted correctly
+formatted_subs = [f"sub-0{sub_num}" for sub_num in subs]
+
+# Define the contrasts
+contrasts = ["face", "scene"]
+
+# Call the second-level analysis function
+second_level_analysis(formatted_subs, new_rois, contrasts, container_path)
