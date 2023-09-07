@@ -216,7 +216,7 @@ def process_and_save_trials(
 
             out_folder = os.path.join(
                 container_path,
-                f"sub-{subID}",
+                f"sub-0{subID}",
                 f"item_representations_{roi_name}_{brain_flag}",
             )
             if not os.path.exists(out_folder):
@@ -281,7 +281,7 @@ def item_representation(subID, phase, roi_name):
 
 
 # Run the function for each subject and each ROI
-rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
+rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]  # VTC
 phases = ["preremoval", "study", "postremoval"]
 
 for roi in rois:
