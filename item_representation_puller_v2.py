@@ -115,7 +115,7 @@ def load_and_preprocess_bold_data(subID, brain_flag, phase, roi_name):
     processed_file_name = f"sub-0{subID}_{brain_flag}_{phase}_{roi_name}.nii"
     processed_file_path = os.path.join(bold_path, processed_file_name)
 
-    if os.path.exists(processed_file_path):
+    if False:  # os.path.exists(processed_file_path):
         img = nib.load(processed_file_path)
         print(f"{brain_flag} Concatenated Localizer BOLD Loaded...")
     else:
@@ -156,7 +156,7 @@ def process_and_clean_bold_data(
     cleaned_file_name = f"sub-0{subID}_{brain_flag}_{phase}_{roi_name}_cleaned.nii.gz"
     cleaned_file_path = os.path.join(bold_path, cleaned_file_name)
 
-    if os.path.exists(cleaned_file_path):
+    if False:  # os.path.exists(cleaned_file_path):
         img_clean = nib.load(cleaned_file_path)
         print(
             f"{brain_flag} Concatenated, Cleaned and {roi_name} Masked Localizer BOLD...LOADED"
@@ -339,8 +339,29 @@ missing_combinations = check_missing_runs(subs, phases, rois)
 # Build the missing dictionary
 missing_dict = build_missing_dict(missing_combinations)
 
+# Create a list to store combinations that failed
+failed_combinations = []
+
 # Only run the missing combinations
 for sub in missing_dict.keys():
     for phase in missing_dict[sub].keys():
         for roi in missing_dict[sub][phase]:
-            item_representation(sub, phase, roi)
+            try:
+                # Call your existing function
+                item_representation(sub, phase, roi)
+            except Exception as e:
+                # Log the exception
+                print(
+                    f"Failed to process Subject: {sub}, Phase: {phase}, ROI: {roi} due to {e}"
+                )
+
+                # Store the failed combination
+                failed_combinations.append((sub, phase, roi))
+
+# Output the failed combinations at the end
+if failed_combinations:
+    print("The following combinations failed:")
+    for sub, phase, roi in failed_combinations:
+        print(f"Failed combination: Subject {sub}, Phase {phase}, ROI {roi}")
+else:
+    print("All combinations processed successfully.")
