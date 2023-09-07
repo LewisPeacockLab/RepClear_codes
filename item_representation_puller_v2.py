@@ -242,6 +242,7 @@ def process_and_save_trials(
 
 
 def item_representation(subID, phase, roi_name):
+    print(f"Processing subject: {subID}, ROI: {roi_name}, Phase: {phase}")
     # Validate phase argument
     if phase not in ["preremoval", "study", "postremoval"]:
         print(
@@ -282,8 +283,64 @@ def item_representation(subID, phase, roi_name):
 
 # Run the function for each subject and each ROI
 rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]  # VTC
-phases = ["preremoval", "study", "postremoval"]
+phases = ["preremoval", "postremoval"]
 
 for roi in rois:
     for phase in phases:
-        Parallel(n_jobs=4)(delayed(item_representation)(i, phase, roi) for i in subs)
+        Parallel(n_jobs=2)(delayed(item_representation)(i, phase, roi) for i in subs)
+
+
+def check_missing_runs(subs, phases, rois):
+    missing_combinations = []
+
+    # Root directory where output files are saved
+    root_dir = "/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep"
+
+    for subID in subs:
+        for phase in phases:
+            for roi in rois:
+                # Construct the expected output folder path
+                out_folder = os.path.join(
+                    root_dir,
+                    f"sub-0{subID}",
+                    f"item_representations_{roi}_MNI",  # Assuming MNI as brain_flag
+                )
+
+                # If the folder itself doesn't exist, then it's a missing run
+                if not os.path.exists(out_folder):
+                    missing_combinations.append((subID, phase, roi))
+                    continue
+
+                # Otherwise, check the existence of specific output files
+                # Adjust this file name pattern according to your actual output files
+                expected_file = f"Sub-{subID}_{phase}_face_trial1_result.nii.gz"
+                expected_path = os.path.join(out_folder, expected_file)
+
+                if not os.path.exists(expected_path):
+                    missing_combinations.append((subID, phase, roi))
+
+    return missing_combinations
+
+
+def build_missing_dict(missing_combinations):
+    missing_dict = {}
+    for sub, phase, roi in missing_combinations:
+        if sub not in missing_dict:
+            missing_dict[sub] = {}
+        if phase not in missing_dict[sub]:
+            missing_dict[sub][phase] = []
+        missing_dict[sub][phase].append(roi)
+    return missing_dict
+
+
+# After running check_missing_runs
+missing_combinations = check_missing_runs(subs, phases, rois)
+
+# Build the missing dictionary
+missing_dict = build_missing_dict(missing_combinations)
+
+# Only run the missing combinations
+for sub in missing_dict.keys():
+    for phase in missing_dict[sub].keys():
+        for roi in missing_dict[sub][phase]:
+            item_representation(sub, phase, roi)
