@@ -144,7 +144,7 @@ def load_pre_post_localizer_data(
 
     # Logic for loading prelocalizer BOLDs
     bold_dir_1 = os.path.join(
-        container_path, f"sub-0{subID}", f"item_representations_{brain_flag}"
+        container_path, f"sub-0{subID}", f"item_representations_{brain_flag}_{roi}"
     )
     bolds_arr_1 = []
     for cateID in sub_cates.keys():
@@ -155,7 +155,7 @@ def load_pre_post_localizer_data(
 
     # Logic for loading postlocalizer BOLDs
     bold_dir_3 = os.path.join(
-        container_path, f"sub-0{subID}", f"item_representations_{brain_flag}"
+        container_path, f"sub-0{subID}", f"item_representations_{brain_flag}_{roi}"
     )
     bolds_arr_3 = []
     for cateID in sub_cates.keys():

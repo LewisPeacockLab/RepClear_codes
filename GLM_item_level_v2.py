@@ -572,6 +572,6 @@ Parallel(n_jobs=4, verbose=1)(
 )
 
 # sequential test:
-for sub_num in ["05", "06", "07"]:
+for sub_num in subs:
     for roi in rois:
         LSA_GLM(sub_num, roi)
