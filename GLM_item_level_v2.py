@@ -11,6 +11,7 @@ import fnmatch
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
+import glob
 
 # Define subjects and new ROIs
 subs = [
@@ -308,7 +309,7 @@ def face_model_contrast(model_face, face_trials, img, events_list, confounds, ro
 
 
 def scene_model_contrast(
-    scene_model, scene_trials, img, events_list, confounds, roi, sub
+    model_scene, scene_trials, img, events_list, confounds, roi, sub
 ):
     # Create mean image
     mean_img_ = mean_img(img)
@@ -493,9 +494,27 @@ def load_roi_mask(roi_name, roi_directory):
         return None
 
 
+def is_subject_processed(sub, roi, brain_flag, container_path):
+    # Define the output directory where the z-maps and t-maps are saved
+    out_folder = os.path.join(
+        container_path, sub, f"preremoval_item_level_{brain_flag}_{roi}"
+    )
+
+    # Check if both z-maps and t-maps exist
+    existing_z_maps = glob.glob(os.path.join(out_folder, "*trial120*_full_zmap.nii.gz"))
+    existing_t_maps = glob.glob(os.path.join(out_folder, "*trial120*_full_tmap.nii.gz"))
+
+    return len(existing_z_maps) > 0 and len(existing_t_maps) > 0
+
+
 def LSA_GLM(subID, roi):
     # Main Logic
     sub, container_path = setup_paths(subID, "MNI")
+
+    # Check if subject has already been processed
+    if is_subject_processed(sub, roi, "MNI", container_path):
+        print(f"Skipping {sub} for ROI {roi} as it has already been processed.")
+        return
 
     # Load and sort files
     bold_path = os.path.join(container_path, sub, "func")
@@ -553,6 +572,6 @@ Parallel(n_jobs=4, verbose=1)(
 )
 
 # sequential test:
-sub_num = subs[2]
-for roi in rois:
-    LSA_GLM(sub_num, roi)
+for sub_num in ["05", "06", "07"]:
+    for roi in rois:
+        LSA_GLM(sub_num, roi)
