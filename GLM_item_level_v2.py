@@ -37,8 +37,9 @@ subs = [
     "25",
     "26",
 ]
-new_rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
+rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
 container_path = "/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep"
+brain_flag = "MNI"
 
 
 def mkdir(path, local=False):
@@ -488,7 +489,7 @@ def load_roi_mask(roi_name, roi_directory):
 
 def LSA_GLM(subID, roi):
     # Main Logic
-    sub, container_path = setup_paths(subID, "MNI")  # Assuming MNI space
+    sub, container_path = setup_paths(subID, "MNI")
 
     # Load and sort files
     bold_path = os.path.join(container_path, sub, "func")
