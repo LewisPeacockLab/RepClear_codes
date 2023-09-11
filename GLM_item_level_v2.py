@@ -223,7 +223,9 @@ def fit_and_save_contrasts(
     return contrasts, model
 
 
-def face_model_contrast(model_face, face_trials, img, events_list, confounds, roi):
+def face_model_contrast(model_face, face_trials, img, events_list, confounds, roi, sub):
+    # Create mean image
+    mean_img_ = mean_img(img)
     model_face.fit(run_imgs=img[:2], events=events_list[:2], confounds=confounds[:2])
     for trial in range(face_trials):
         """grab the number of regressors in the model"""
@@ -305,7 +307,11 @@ def face_model_contrast(model_face, face_trials, img, events_list, confounds, ro
         del item_contrast
 
 
-def scene_model_contrast(scene_model, scene_trials, img, events_list, confounds, roi):
+def scene_model_contrast(
+    scene_model, scene_trials, img, events_list, confounds, roi, sub
+):
+    # Create mean image
+    mean_img_ = mean_img(img)
     model_scene.fit(run_imgs=img[2:], events=events_list[2:], confounds=confounds[2:])
     for trial in range(scene_trials):
         """grab the number of regressors in the model"""
@@ -498,9 +504,6 @@ def LSA_GLM(subID, roi):
     # Prepare images
     img = prepare_images(localizer_files)
 
-    # Create mean image
-    mean_img_ = mean_img(img)
-
     # Load ROI mask
     roi_directory = container_path
     roi_mask = load_roi_mask(roi, roi_directory)
@@ -514,8 +517,8 @@ def LSA_GLM(subID, roi):
     # Initialize GLMs
     model_face, model_scene = init_GLM(roi_mask)
 
-    face_model_contrast(model_face, 60, img, events_list, confounds, roi)
-    scene_model_contrast(model_scene, 120, img, events_list, confounds, roi)
+    face_model_contrast(model_face, 60, img, events_list, confounds, roi, sub)
+    scene_model_contrast(model_scene, 120, img, events_list, confounds, roi, sub)
 
     # # Fit and save contrasts
     # fit_and_save_contrasts(
@@ -545,6 +548,11 @@ def LSA_GLM(subID, roi):
 
 
 # Parallel execution
-Parallel(n_jobs=-1, verbose=1)(
-    delayed(LSA_GLM)(sub_num, roi) for sub_num in subs for roi in new_rois
+Parallel(n_jobs=4, verbose=1)(
+    delayed(LSA_GLM)(sub_num, roi) for sub_num in subs for roi in rois
 )
+
+# sequential test:
+sub_num = subs[2]
+for roi in rois:
+    LSA_GLM(sub_num, roi)
