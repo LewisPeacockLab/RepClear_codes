@@ -463,11 +463,13 @@ def segregate_by_memory_outcome(
             & (item_weighted_df["Operation"] == operation)
         ]
         if memory_outcome == 1:
-            itemw_remembered_df = itemw_remembered_df.append(
-                itemw_data, ignore_index=True
+            itemw_remembered_df = pd.concat(
+                [itemw_remembered_df, itemw_data], ignore_index=True
             )
         else:
-            itemw_forgot_df = itemw_forgot_df.append(itemw_data, ignore_index=True)
+            itemw_forgot_df = pd.concat(
+                [itemw_forgot_df, itemw_data], ignore_index=True
+            )
 
         # Segregate category-weighted data
         catew_data = cate_weighted_df[
@@ -475,11 +477,13 @@ def segregate_by_memory_outcome(
             & (cate_weighted_df["Operation"] == operation)
         ]
         if memory_outcome == 1:
-            catew_remembered_df = catew_remembered_df.append(
-                catew_data, ignore_index=True
+            catew_remembered_df = pd.concat(
+                [catew_remembered_df, catew_data], ignore_index=True
             )
         else:
-            catew_forgot_df = catew_forgot_df.append(catew_data, ignore_index=True)
+            catew_forgot_df = pd.concat(
+                [catew_forgot_df, catew_data], ignore_index=True
+            )
 
     # Save the segregated DataFrames to CSV files
     itemw_remembered_df.to_csv(
@@ -598,8 +602,8 @@ def rsa_pipeline_for_new_ROIs(subID, roi, brain_flag="MNI"):
         catew_remembered_df,
         catew_forgot_df,
     ) = segregate_by_memory_outcome(
-        item_weighted_df=item_weighted_df,
-        cate_weighted_df=cate_weighted_df,
+        item_weighted_df=iw_fidelity_df,
+        cate_weighted_df=cw_fidelity_df,
         trial_info_df=trial_info_df,
         container_path=container_path,
         brain_flag=brain_flag,
