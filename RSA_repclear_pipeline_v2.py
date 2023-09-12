@@ -526,8 +526,6 @@ def rsa_pipeline_for_new_ROIs(subID, roi, brain_flag="MNI"):
     )
     param_dir = "/scratch/06873/zbretton/repclear_dataset/BIDS/params"
 
-    mkdir(save_path)
-
     save_path = os.path.join(
         container_path, f"sub-0{subID}", f"Representational_Changes_{brain_flag}_{roi}"
     )
@@ -536,6 +534,7 @@ def rsa_pipeline_for_new_ROIs(subID, roi, brain_flag="MNI"):
             f"Skipping RSA pipeline for sub-0{subID} and ROI {roi} as it has already been run."
         )
         return
+    mkdir(save_path)
 
     # Get the scene orders for pre, study, and post phases
     pre_scene_order, study_scene_order, post_scene_order = get_scene_orders(
@@ -584,8 +583,8 @@ def rsa_pipeline_for_new_ROIs(subID, roi, brain_flag="MNI"):
 
     # Calculate and save fidelities
     iw_fidelity_df, cw_fidelity_df = calculate_and_save_fidelities(
-        item_weighted=item_weighted_df,
-        cate_weighted=cate_weighted_df,
+        item_weighted_df=item_weighted_df,
+        cate_weighted_df=cate_weighted_df,
         trial_info=trial_info_df,
         save_path=save_path,
         roi_name=roi,
