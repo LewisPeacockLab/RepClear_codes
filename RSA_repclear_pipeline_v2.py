@@ -4,9 +4,10 @@ import numpy as np
 import pandas as pd
 import nibabel as nib
 import re
+from joblib import Parallel, delayed
 
 subs = [
-    "02",
+    # "02",
     "03",
     "04",
     "05",
@@ -32,6 +33,7 @@ subs = [
 brain_flag = "MNI"
 stim_labels = {0: "Rest", 1: "Scenes", 2: "Faces"}
 sub_cates = {"scene": ["manmade", "natural"]}  # 120
+rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
 
 
 def mkdir(path, local=False):
@@ -144,36 +146,70 @@ def load_pre_post_localizer_data(
 
     # Logic for loading prelocalizer BOLDs
     bold_dir_1 = os.path.join(
-        container_path, f"sub-0{subID}", f"item_representations_{brain_flag}_{roi}"
+        container_path, f"sub-0{subID}", f"item_representations_{roi}_{brain_flag}"
     )
-    bolds_arr_1 = []
+    print(f"Loading preprocessed BOLDs for pre-localizer...")
+    all_bolds_1 = {}  # {cateID: {trialID: bold}}
+    bolds_arr_1 = []  # sample x vox
     for cateID in sub_cates.keys():
         cate_bolds_fnames_1 = glob.glob(f"{bold_dir_1}/*pre*{cateID}*")
-        cate_bolds_1 = [nib.load(fname).get_fdata() for fname in cate_bolds_fnames_1]
-        bolds_arr_1.extend(cate_bolds_1)
+        cate_bolds_1 = {}
+
+        for fname in cate_bolds_fnames_1:
+            trialID = fname.split("/")[-1].split("_")[-2]  # "trial1"
+            trialID = int(trialID[5:])
+            cate_bolds_1[trialID] = nib.load(fname).get_fdata()  # .flatten()
+        cate_bolds_1 = {i: cate_bolds_1[i] for i in sorted(cate_bolds_1.keys())}
+        all_bolds_1[cateID] = cate_bolds_1
+
+        bolds_arr_1.append(
+            np.stack([cate_bolds_1[i] for i in sorted(cate_bolds_1.keys())])
+        )
+
     bolds_arr_1 = np.vstack(bolds_arr_1)
+    print("bolds for prelocalizer - shape: ", bolds_arr_1.shape)
 
     # Logic for loading postlocalizer BOLDs
     bold_dir_3 = os.path.join(
-        container_path, f"sub-0{subID}", f"item_representations_{brain_flag}_{roi}"
+        container_path, f"sub-0{subID}", f"item_representations_{roi}_{brain_flag}"
     )
-    bolds_arr_3 = []
+    print(f"Loading preprocessed BOLDs for post-localizer...")
+    all_bolds_3 = {}  # {cateID: {trialID: bold}}
+    bolds_arr_3 = []  # sample x vox
     for cateID in sub_cates.keys():
-        cate_bolds_fnames_3 = glob.glob(f"{bold_dir_3}/*post*{cateID}*")
-        cate_bolds_3 = [nib.load(fname).get_fdata() for fname in cate_bolds_fnames_3]
-        bolds_arr_3.extend(cate_bolds_3)
+        cate_bolds_fnames_3 = glob.glob(f"{bold_dir_1}/*post*{cateID}*")
+        cate_bolds_3 = {}
+
+        for fname in cate_bolds_fnames_3:
+            trialID = fname.split("/")[-1].split("_")[-2]  # "trial1"
+            trialID = int(trialID[5:])
+            cate_bolds_3[trialID] = nib.load(fname).get_fdata()  # .flatten()
+        cate_bolds_3 = {i: cate_bolds_3[i] for i in sorted(cate_bolds_3.keys())}
+        all_bolds_3[cateID] = cate_bolds_3
+
+        bolds_arr_3.append(
+            np.stack([cate_bolds_3[i] for i in sorted(cate_bolds_3.keys())])
+        )
+
     bolds_arr_3 = np.vstack(bolds_arr_3)
+    print("bolds for prelocalizer - shape: ", bolds_arr_3.shape)
 
     # Apply the mask on the BOLD data
-    masked_bolds_arr_1 = [
-        apply_mask(mask=mask.get_fdata(), target=bold).flatten() for bold in bolds_arr_1
-    ]
+    masked_bolds_arr_1 = []
+    for bold in bolds_arr_1:
+        masked_bolds_arr_1.append(
+            apply_mask(mask=mask.get_fdata(), target=bold).flatten()
+        )
     masked_bolds_arr_1 = np.vstack(masked_bolds_arr_1)
+    print("masked prelocalizer bold array shape: ", masked_bolds_arr_1.shape)
 
-    masked_bolds_arr_3 = [
-        apply_mask(mask=mask.get_fdata(), target=bold).flatten() for bold in bolds_arr_3
-    ]
+    masked_bolds_arr_3 = []
+    for bold in bolds_arr_3:
+        masked_bolds_arr_3.append(
+            apply_mask(mask=mask.get_fdata(), target=bold).flatten()
+        )
     masked_bolds_arr_3 = np.vstack(masked_bolds_arr_3)
+    print("masked postlocalizer bold array shape: ", masked_bolds_arr_3.shape)
 
     return masked_bolds_arr_1, masked_bolds_arr_3
 
@@ -254,7 +290,7 @@ def apply_weighting_to_bold(
             study_scene_order["trial_id"] == trial
         ].tolist()[0]
         study_image_id = study_scene_order.loc[study_trial_index, "image_id"]
-        image_condition = study_scene_order.loc[study_trial_index, "image_condition"]
+        image_condition = study_scene_order.loc[study_trial_index, "condition"]
 
         # Find corresponding 'pre' trial
         pre_trial_index = pre_scene_order.index[
@@ -267,6 +303,19 @@ def apply_weighting_to_bold(
             post_scene_order["image_id"] == study_image_id
         ].tolist()[0]
         post_trial_num = post_scene_order.loc[post_trial_index, "trial_id"]
+
+        # Debugging print statements
+        print(f"For study trial with image ID {study_image_id}:")
+        print(f"  Corresponding pre-trial number is {pre_trial_num}")
+        print(f"  Corresponding post-trial number is {post_trial_num}")
+
+        # Confirm that the pre and post image IDs are the same as the study image ID
+        pre_image_id_check = pre_scene_order.loc[pre_trial_index, "image_id"]
+        post_image_id_check = post_scene_order.loc[post_trial_index, "image_id"]
+
+        # Additional debugging print statements
+        print(f"  Confirming image ID for pre-trial: {pre_image_id_check}")
+        print(f"  Confirming image ID for post-trial: {post_image_id_check}")
 
         # Apply item-based weights
         item_weighted_pre = np.multiply(
@@ -310,54 +359,66 @@ def apply_weighting_to_bold(
 
 
 def calculate_and_save_fidelities(
-    pre_weighted, post_weighted, trial_info, save_path, roi_name, brain_flag
+    item_weighted_df, cate_weighted_df, trial_info, save_path, roi_name, brain_flag
 ):
-    # Initialize dictionaries to hold fidelities
-    iw_fidelity_dict = {}
-    cw_fidelity_dict = {}
+    # Initialize lists to hold fidelities
+    iw_fidelity_list = []
+    cw_fidelity_list = []
 
     # Counter for debugging purposes
     counter = 0
+
+    pre_weighted_iw = item_weighted_df["pre"]
+    post_weighted_iw = item_weighted_df["post"]
+    pre_weighted_cw = cate_weighted_df["pre"]
+    post_weighted_cw = cate_weighted_df["post"]
 
     for trial_id, image_id, image_condition in zip(
         trial_info["trial_id"], trial_info["image_id"], trial_info["image_condition"]
     ):
         # Calculate the fidelity from pre to post (item_weighted)
         pre_post_iw_fidelity = np.corrcoef(
-            pre_weighted[trial_id], post_weighted[trial_id]
+            pre_weighted_iw.loc[trial_id], post_weighted_iw.loc[trial_id]
         )[0, 1]
 
-        if brain_flag == "MNI":
-            # Calculate the fidelity from pre to post (category_weighted)
-            pre_post_cw_fidelity = np.corrcoef(
-                pre_weighted[trial_id], post_weighted[trial_id]
-            )[0, 1]
+        # Calculate the fidelity from pre to post (category_weighted)
+        pre_post_cw_fidelity = np.corrcoef(
+            pre_weighted_cw.loc[trial_id], post_weighted_cw.loc[trial_id]
+        )[0, 1]
 
-            cw_fidelity_dict[f"image ID: {image_id}"] = pre_post_cw_fidelity
+        # Map the image_condition to its textual representation
+        condition_map = {1: "Maintain", 2: "Replace", 3: "Suppress"}
+        operation = condition_map[image_condition]
 
-        # Store fidelities in dictionaries based on image_condition
-        if image_condition == 1:  # Maintain
-            iw_fidelity_dict[f"Maintain_image ID: {image_id}"] = pre_post_iw_fidelity
-        elif image_condition == 2:  # Replace
-            iw_fidelity_dict[f"Replace_image ID: {image_id}"] = pre_post_iw_fidelity
-        elif image_condition == 3:  # Suppress
-            iw_fidelity_dict[f"Suppress_image ID: {image_id}"] = pre_post_iw_fidelity
+        # Store fidelities in lists of dictionaries
+        iw_fidelity_list.append(
+            {
+                "Image_ID": image_id,
+                "Operation": operation,
+                "Fidelity": pre_post_iw_fidelity,
+            }
+        )
+
+        # Store CW fidelities in list
+        cw_fidelity_list.append(
+            {
+                "Image_ID": image_id,
+                "Operation": operation,
+                "Fidelity": pre_post_cw_fidelity,
+            }
+        )
 
         counter += 1  # Increment counter
 
-    # Convert dictionaries to DataFrames
-    iw_fidelity_df = pd.DataFrame(
-        list(iw_fidelity_dict.items()), columns=["Image_ID", "IW_Fidelity"]
-    )
-    if brain_flag == "MNI":
-        cw_fidelity_df = pd.DataFrame(
-            list(cw_fidelity_dict.items()), columns=["Image_ID", "CW_Fidelity"]
-        )
+    # Convert lists to DataFrames
+    iw_fidelity_df = pd.DataFrame(iw_fidelity_list)
+    cw_fidelity_df = pd.DataFrame(cw_fidelity_list)
 
     # Save as CSV files
     iw_fidelity_df.to_csv(f"{save_path}/{roi_name}_IW_Fidelity.csv", index=False)
-    if brain_flag == "MNI":
-        cw_fidelity_df.to_csv(f"{save_path}/{roi_name}_CW_Fidelity.csv", index=False)
+    cw_fidelity_df.to_csv(f"{save_path}/{roi_name}_CW_Fidelity.csv", index=False)
+
+    return iw_fidelity_df, cw_fidelity_df
 
 
 def segregate_by_memory_outcome(
@@ -369,16 +430,16 @@ def segregate_by_memory_outcome(
     subID,
     roi_name,
 ):
-    memory_csv_path = f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/subject_designs/memory_and_familiar_{subID}.csv"
+    memory_csv_path = f"/scratch/06873/zbretton/repclear_dataset/BIDS/params/memory_and_familiar_sub-0{subID}.csv"
     # Load memory outcome data
     memory_csv = pd.read_csv(memory_csv_path)
 
     # Initialize empty DataFrames to hold segregated data
-    itemw_remembered_df = pd.DataFrame()
-    itemw_forgot_df = pd.DataFrame()
+    itemw_remembered_df = pd.DataFrame(columns=["Image_ID", "Operation", "Fidelity"])
+    itemw_forgot_df = pd.DataFrame(columns=["Image_ID", "Operation", "Fidelity"])
 
-    catew_remembered_df = pd.DataFrame()
-    catew_forgot_df = pd.DataFrame()
+    catew_remembered_df = pd.DataFrame(columns=["Image_ID", "Operation", "Fidelity"])
+    catew_forgot_df = pd.DataFrame(columns=["Image_ID", "Operation", "Fidelity"])
 
     # Loop through each trial
     for index, row in trial_info_df.iterrows():
@@ -389,22 +450,36 @@ def segregate_by_memory_outcome(
 
         # Find corresponding memory outcome
         memory_outcome = memory_csv.loc[
-            memory_csv["image_id"] == image_id, "memory"
+            memory_csv["image_num"] == image_id, "memory"
         ].values[0]
 
+        # Identify the operation for this trial
+        condition_map = {1: "Maintain", 2: "Replace", 3: "Suppress"}
+        operation = condition_map[image_condition]
+
         # Segregate item-weighted data
-        itemw_data = item_weighted_df.loc[item_weighted_df["trial_id"] == trial_id]
+        itemw_data = item_weighted_df[
+            (item_weighted_df["Image_ID"] == image_id)
+            & (item_weighted_df["Operation"] == operation)
+        ]
         if memory_outcome == 1:
-            itemw_remembered_df = itemw_remembered_df.append(itemw_data)
+            itemw_remembered_df = itemw_remembered_df.append(
+                itemw_data, ignore_index=True
+            )
         else:
-            itemw_forgot_df = itemw_forgot_df.append(itemw_data)
+            itemw_forgot_df = itemw_forgot_df.append(itemw_data, ignore_index=True)
 
         # Segregate category-weighted data
-        catew_data = cate_weighted_df.loc[cate_weighted_df["trial_id"] == trial_id]
+        catew_data = cate_weighted_df[
+            (cate_weighted_df["Image_ID"] == image_id)
+            & (cate_weighted_df["Operation"] == operation)
+        ]
         if memory_outcome == 1:
-            catew_remembered_df = catew_remembered_df.append(catew_data)
+            catew_remembered_df = catew_remembered_df.append(
+                catew_data, ignore_index=True
+            )
         else:
-            catew_forgot_df = catew_forgot_df.append(catew_data)
+            catew_forgot_df = catew_forgot_df.append(catew_data, ignore_index=True)
 
     # Save the segregated DataFrames to CSV files
     itemw_remembered_df.to_csv(
@@ -449,11 +524,18 @@ def rsa_pipeline_for_new_ROIs(subID, roi, brain_flag="MNI"):
     container_path = (
         "/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep"
     )
-    param_dir = "/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/param"
+    param_dir = "/scratch/06873/zbretton/repclear_dataset/BIDS/params"
+
+    mkdir(save_path)
+
     save_path = os.path.join(
         container_path, f"sub-0{subID}", f"Representational_Changes_{brain_flag}_{roi}"
     )
-    mkdir(save_path)
+    if os.path.exists(f"{save_path}/{roi}_IW_Fidelity.csv"):
+        print(
+            f"Skipping RSA pipeline for sub-0{subID} and ROI {roi} as it has already been run."
+        )
+        return
 
     # Get the scene orders for pre, study, and post phases
     pre_scene_order, study_scene_order, post_scene_order = get_scene_orders(
@@ -473,9 +555,7 @@ def rsa_pipeline_for_new_ROIs(subID, roi, brain_flag="MNI"):
     # Load the weights
     mask_path = os.path.join(
         container_path,
-        f"sub-0{subID}",
-        f"item_representations_{brain_flag}",
-        f"{roi}_mask.nii.gz",
+        f"group_MNI_{roi}.nii.gz",
     )
     mask = nib.load(mask_path)
     masked_cate_weights_arr, masked_item_weights_arr = load_weights(
@@ -499,10 +579,13 @@ def rsa_pipeline_for_new_ROIs(subID, roi, brain_flag="MNI"):
         masked_cate_weights_arr=masked_cate_weights_arr,
     )
 
+    item_weighted_df.set_index("trial_id", inplace=True)
+    cate_weighted_df.set_index("trial_id", inplace=True)
+
     # Calculate and save fidelities
-    calculate_and_save_fidelities(
-        pre_weighted=item_weighted_df["pre"],
-        post_weighted=item_weighted_df["post"],
+    iw_fidelity_df, cw_fidelity_df = calculate_and_save_fidelities(
+        item_weighted=item_weighted_df,
+        cate_weighted=cate_weighted_df,
         trial_info=trial_info_df,
         save_path=save_path,
         roi_name=roi,
@@ -526,3 +609,11 @@ def rsa_pipeline_for_new_ROIs(subID, roi, brain_flag="MNI"):
     )
 
     print(f"RSA pipeline for sub-0{subID} and ROI {roi} completed.")
+
+
+# Parallel execution
+Parallel(n_jobs=-1, verbose=1)(
+    delayed(rsa_pipeline_for_new_ROIs)(sub_num, roi, brain_flag="MNI")
+    for sub_num in subs
+    for roi in rois
+)
