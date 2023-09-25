@@ -5,6 +5,8 @@ from scipy import stats
 import os
 from matplotlib.legend_handler import HandlerTuple
 
+rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
+
 
 def load_data(file_path):
     """
@@ -18,25 +20,26 @@ def aggregate_data(df, memory_status):
     Aggregate the data by operation and calculate the mean fidelity.
     Adds a 'Memory' column to indicate if the data is from remembered or forgotten instances.
     """
+    df = df[df["Fidelity"].notna()]
     agg_df = df.groupby("Operation")["Fidelity"].mean().reset_index()
     agg_df["Memory"] = memory_status
     return agg_df
 
 
-def perform_t_tests(agg_remembered_df, agg_forgot_df):
-    """
-    Perform paired t-tests between remembered and forgotten data for each operation.
-    """
-    operations = agg_remembered_df["Operation"].unique()
+def perform_t_tests(agg_df1, agg_df2, test_type="paired"):
+    operations = agg_df1["Operation"].unique()
     for op in operations:
-        remembered_fidelity = agg_remembered_df.loc[
-            agg_remembered_df["Operation"] == op, "Fidelity"
-        ]
-        forgot_fidelity = agg_forgot_df.loc[
-            agg_forgot_df["Operation"] == op, "Fidelity"
-        ]
-        t_stat, p_val = stats.ttest_rel(remembered_fidelity, forgot_fidelity)
-        print(f"Paired t-test for operation {op}: t = {t_stat}, p = {p_val}")
+        data1 = agg_df1.loc[agg_df1["Operation"] == op, "Fidelity"]
+        data2 = agg_df2.loc[agg_df2["Operation"] == op, "Fidelity"]
+
+        if test_type == "paired":
+            t_stat, p_val = stats.ttest_rel(data1, data2, nan_policy="omit")
+        else:
+            t_stat, p_val = stats.ttest_ind(data1, data2, nan_policy="omit")
+
+        print(
+            f"{test_type.capitalize()} t-test for operation {op}: t = {t_stat}, p = {p_val}"
+        )
 
 
 def plot_data(combined_df, plot_title, save_path):
@@ -60,7 +63,6 @@ def plot_data(combined_df, plot_title, save_path):
     fig.set_xlabel("Operations")
     fig.set_ylabel("Fidelity of item-RSA")
     plt.tight_layout()
-    fig.set_ylim([0, 0.05])
 
     fig.legend(
         handles=[tuple(bar_group) for bar_group in fig.containers],
@@ -74,30 +76,237 @@ def plot_data(combined_df, plot_title, save_path):
     plt.clf()
 
 
-def main():
-    # file paths
-    remembered_csv_path = "path/to/remembered_csv"
-    forgot_csv_path = "path/to/forgot_csv"
+def check_for_nans(df, df_name, subID):
+    nan_columns = df.columns[df.isna().any()].tolist()
+    if nan_columns:
+        print(
+            f"Subject {subID}, DataFrame {df_name} contains NaN values in columns: {nan_columns}"
+        )
+        for col in nan_columns:
+            print(f"Number of NaNs in column {col}: {df[col].isna().sum()}")
 
-    # Load the data
-    remembered_df = load_data(remembered_csv_path)
-    forgot_df = load_data(forgot_csv_path)
 
-    # Aggregate the data
-    agg_remembered_df = aggregate_data(remembered_df, "Remembered")
-    agg_forgot_df = aggregate_data(forgot_df, "Forgot")
+def check_missing_operations(df, expected_operations):
+    present_operations = df["Operation"].unique()
+    missing_operations = [
+        op for op in expected_operations if op not in present_operations
+    ]
+    return missing_operations
 
-    # Perform t-tests
-    perform_t_tests(agg_remembered_df, agg_forgot_df)
 
-    # Combine the data for plotting
-    combined_df = pd.concat([agg_remembered_df, agg_forgot_df])
+expected_operations = ["Replace", "Maintain", "Suppress"]
 
-    # Generate and save plots
+
+def main(roi):
+    subject_ids = [
+        # "02",
+        "03",
+        "04",
+        "05",
+        "06",
+        "07",
+        "08",
+        "09",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "20",
+        "23",
+        "24",
+        "25",
+        "26",
+    ]
+    unpaired_all_remembered_item = pd.DataFrame()
+    unpaired_all_forgot_item = pd.DataFrame()
+    unpaired_all_remembered_cate = pd.DataFrame()
+    unpaired_all_forgot_cate = pd.DataFrame()
+
+    paired_agg_all_remembered_item = pd.DataFrame()
+    paired_agg_all_forgot_item = pd.DataFrame()
+    paired_agg_all_remembered_cate = pd.DataFrame()
+    paired_agg_all_forgot_cate = pd.DataFrame()
+
+    for subID in subject_ids:
+        base_path = f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/sub-0{subID}/Representational_Changes_MNI_{roi}"
+        remembered_item_df = load_data(
+            os.path.join(base_path, "itemweighted_remembered_fidelity.csv")
+        )
+        check_for_nans(remembered_item_df, "remembered_item_df", subID)
+
+        forgot_item_df = load_data(
+            os.path.join(base_path, "itemweighted_forgot_fidelity.csv")
+        )
+        check_for_nans(forgot_item_df, "forgot_item_df", subID)
+
+        remembered_cate_df = load_data(
+            os.path.join(base_path, "cateweighted_remembered_fidelity.csv")
+        )
+        check_for_nans(remembered_cate_df, "remembered_cate_df", subID)
+
+        forgot_cate_df = load_data(
+            os.path.join(base_path, "cateweighted_forgot_fidelity.csv")
+        )
+        check_for_nans(forgot_cate_df, "forgot_cate_df", subID)
+
+        # Add the 'Subject' column to the raw data DataFrames
+        remembered_item_df["Subject"] = subID
+        remembered_item_df["Memory"] = "remembered"
+        forgot_item_df["Subject"] = subID
+        forgot_item_df["Memory"] = "forgot"
+        remembered_cate_df["Subject"] = subID
+        remembered_cate_df["Memory"] = "remembered"
+        forgot_cate_df["Subject"] = subID
+        forgot_cate_df["Memory"] = "forgot"
+
+        # Concatenate to unpaired DataFrames without aggregation
+        unpaired_all_remembered_item = pd.concat(
+            [unpaired_all_remembered_item, remembered_item_df]
+        )
+        unpaired_all_forgot_item = pd.concat([unpaired_all_forgot_item, forgot_item_df])
+        unpaired_all_remembered_cate = pd.concat(
+            [unpaired_all_remembered_cate, remembered_cate_df]
+        )
+        unpaired_all_forgot_cate = pd.concat([unpaired_all_forgot_cate, forgot_cate_df])
+
+        # Check for missing operations
+        missing_ops = check_missing_operations(forgot_item_df, expected_operations)
+        if missing_ops:
+            print(f"Subject {subID} is missing the following operations: {missing_ops}")
+            continue  # Skip this subject for paired analysis, but still use it for unpaired analysis
+
+        # Aggregate and append to paired DataFrames
+        agg_remembered_item = aggregate_data(remembered_item_df, "remembered")
+        agg_remembered_item["Subject"] = subID
+        paired_agg_all_remembered_item = pd.concat(
+            [paired_agg_all_remembered_item, agg_remembered_item]
+        )
+
+        agg_forgot_item = aggregate_data(forgot_item_df, "forgot")
+        agg_forgot_item["Subject"] = subID
+        paired_agg_all_forgot_item = pd.concat(
+            [paired_agg_all_forgot_item, agg_forgot_item]
+        )
+
+        agg_remembered_cate = aggregate_data(remembered_cate_df, "remembered")
+        agg_remembered_cate["Subject"] = subID
+        paired_agg_all_remembered_cate = pd.concat(
+            [paired_agg_all_remembered_cate, agg_remembered_cate]
+        )
+
+        agg_forgot_cate = aggregate_data(forgot_cate_df, "forgot")
+        agg_forgot_cate["Subject"] = subID
+        paired_agg_all_forgot_cate = pd.concat(
+            [paired_agg_all_forgot_cate, agg_forgot_cate]
+        )
+
+    # Path to save group-level CSVs
+    group_save_path = f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/{roi}_group_level_data"
+    if not os.path.exists(group_save_path):
+        os.makedirs(group_save_path)
+    # Save group-level data
+    paired_agg_all_remembered_item.to_csv(
+        os.path.join(
+            group_save_path, f"paired_group_itemweighted_remembered_fidelity_{roi}.csv"
+        ),
+        index=False,
+    )
+    paired_agg_all_forgot_item.to_csv(
+        os.path.join(
+            group_save_path, f"paired_group_itemweighted_forgot_fidelity_{roi}.csv"
+        ),
+        index=False,
+    )
+    paired_agg_all_remembered_cate.to_csv(
+        os.path.join(
+            group_save_path, f"paired_group_cateweighted_remembered_fidelity_{roi}.csv"
+        ),
+        index=False,
+    )
+    paired_agg_all_forgot_cate.to_csv(
+        os.path.join(
+            group_save_path, f"paired_group_cateweighted_forgot_fidelity_{roi}.csv"
+        ),
+        index=False,
+    )
+
+    unpaired_all_remembered_item.to_csv(
+        os.path.join(
+            group_save_path, f"unpaired_all_itemweighted_remembered_fidelity_{roi}.csv"
+        ),
+        index=False,
+    )
+    unpaired_all_forgot_item.to_csv(
+        os.path.join(
+            group_save_path, f"unpaired_all_itemweighted_forgot_fidelity_{roi}.csv"
+        ),
+        index=False,
+    )
+    unpaired_all_remembered_cate.to_csv(
+        os.path.join(
+            group_save_path, f"unpaired_all_cateweighted_remembered_fidelity_{roi}.csv"
+        ),
+        index=False,
+    )
+    unpaired_all_forgot_cate.to_csv(
+        os.path.join(
+            group_save_path, f"unpaired_all_cateweighted_forgot_fidelity_{roi}.csv"
+        ),
+        index=False,
+    )
+
+    # Perform t-tests for paired data
+    print("Performing Paired t-tests for Item Weighted Data:")
+    perform_t_tests(
+        paired_agg_all_remembered_item, paired_agg_all_forgot_item, "paired"
+    )
+    print("--------------------------------------------------")
+
+    print("Performing Paired t-tests for Category Weighted Data:")
+    perform_t_tests(
+        paired_agg_all_remembered_cate, paired_agg_all_forgot_cate, "paired"
+    )
+    print("--------------------------------------------------")
+
+    # Perform t-tests for unpaired data
+    print("Performing Unpaired t-tests for Item Weighted Data:")
+    perform_t_tests(unpaired_all_remembered_item, unpaired_all_forgot_item, "unpaired")
+    print("--------------------------------------------------")
+
+    print("Performing Unpaired t-tests for Category Weighted Data:")
+    perform_t_tests(unpaired_all_remembered_cate, unpaired_all_forgot_cate, "unpaired")
+    print("--------------------------------------------------")
+
+    # Generate and save plots for paired data
     plot_data(
-        combined_df, "Item Weighted - Pre vs. Post RSA", "path/to/save/summary_plot.svg"
+        pd.concat([paired_agg_all_remembered_item, paired_agg_all_forgot_item]),
+        f"Paired Item Weighted - {roi}",
+        f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/figs/paired_item_summary_plot_{roi}.svg",
+    )
+    plot_data(
+        pd.concat([paired_agg_all_remembered_cate, paired_agg_all_forgot_cate]),
+        f"Paired Category Weighted - {roi}",
+        f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/figs/paired_cate_summary_plot_{roi}.svg",
+    )
+
+    # Generate and save plots for unpaired data
+    plot_data(
+        pd.concat([unpaired_all_remembered_item, unpaired_all_forgot_item]),
+        f"Unpaired Item Weighted - {roi}",
+        f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/figs/unpaired_item_summary_plot_{roi}.svg",
+    )
+    plot_data(
+        pd.concat([unpaired_all_remembered_cate, unpaired_all_forgot_cate]),
+        f"Unpaired Category Weighted - {roi}",
+        f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/figs/unpaired_cate_summary_plot_{roi}.svg",
     )
 
 
 if __name__ == "__main__":
-    main()
+    for roi in ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]:
+        main(roi)

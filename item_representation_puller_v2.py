@@ -20,7 +20,7 @@ phase_to_runs = {"preremoval": 6, "study": 3, "postremoval": 6}
 
 # Subjects list
 subs = [
-    "02",
+    # "02",
     "03",
     "04",
     "05",
@@ -282,7 +282,8 @@ def item_representation(subID, phase, roi_name):
 
 
 # Run the function for each subject and each ROI
-rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]  # VTC
+# rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]  # VTC
+rois = ["hippocampus_ROI"]  # added in for additional analyses
 phases = ["preremoval", "postremoval"]
 
 for roi in rois:

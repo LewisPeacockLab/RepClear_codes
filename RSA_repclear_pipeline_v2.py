@@ -533,11 +533,11 @@ def rsa_pipeline_for_new_ROIs(subID, roi, brain_flag="MNI"):
     save_path = os.path.join(
         container_path, f"sub-0{subID}", f"Representational_Changes_{brain_flag}_{roi}"
     )
-    if os.path.exists(f"{save_path}/cateweighted_forgot_fidelity.csv"):
-        print(
-            f"Skipping RSA pipeline for sub-0{subID} and ROI {roi} as it has already been run."
-        )
-        return
+    # if os.path.exists(f"{save_path}/cateweighted_forgot_fidelity.csv"):
+    #     print(
+    #         f"Skipping RSA pipeline for sub-0{subID} and ROI {roi} as it has already been run."
+    #     )
+    #     return
     mkdir(save_path)
 
     # Get the scene orders for pre, study, and post phases
