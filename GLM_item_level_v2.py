@@ -38,7 +38,8 @@ subs = [
     "25",
     "26",
 ]
-rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
+# rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
+rois = ["hippocampal_ROI"]
 container_path = "/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep"
 brain_flag = "MNI"
 

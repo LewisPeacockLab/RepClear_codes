@@ -33,7 +33,8 @@ subs = [
 brain_flag = "MNI"
 stim_labels = {0: "Rest", 1: "Scenes", 2: "Faces"}
 sub_cates = {"scene": ["manmade", "natural"]}  # 120
-rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
+# rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
+rois = ["hippocampal_ROI"]
 
 
 def mkdir(path, local=False):
