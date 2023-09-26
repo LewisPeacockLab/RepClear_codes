@@ -308,5 +308,10 @@ def main(roi):
 
 
 if __name__ == "__main__":
-    for roi in ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]:
+    for roi in [
+        "Prefrontal_ROI",
+        "Higher_Order_Visual_ROI",
+        "hippocampus_ROI",
+        "VTC_mask",
+    ]:
         main(roi)

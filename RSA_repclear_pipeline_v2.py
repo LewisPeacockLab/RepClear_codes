@@ -34,7 +34,7 @@ brain_flag = "MNI"
 stim_labels = {0: "Rest", 1: "Scenes", 2: "Faces"}
 sub_cates = {"scene": ["manmade", "natural"]}  # 120
 # rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
-rois = ["hippocampal_ROI"]
+rois = ["hippocampus_ROI", "VTC_mask"]
 
 
 def mkdir(path, local=False):
@@ -135,12 +135,7 @@ def load_pre_post_localizer_data(
 
     # Determine the mask path based on the brain_flag and roi
     if brain_flag == "MNI":
-        if roi == "Prefrontal_ROI":
-            mask_path = "/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_MNI_Prefrontal_ROI.nii.gz"
-        elif roi == "Higher_Order_Visual_ROI":
-            mask_path = "/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_MNI_Higher_Order_Visual_ROI.nii.gz"
-        else:
-            mask_path = os.path.join(container_path, "group_MNI_VTC_mask.nii.gz")
+        mask_path = f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_MNI_{roi}.nii.gz"
 
     # Load the mask
     mask = nib.load(mask_path)
