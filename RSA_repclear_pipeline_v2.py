@@ -33,7 +33,8 @@ subs = [
 brain_flag = "MNI"
 stim_labels = {0: "Rest", 1: "Scenes", 2: "Faces"}
 sub_cates = {"scene": ["manmade", "natural"]}  # 120
-rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
+# rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
+rois = ["hippocampal_ROI"]
 
 
 def mkdir(path, local=False):
@@ -533,11 +534,11 @@ def rsa_pipeline_for_new_ROIs(subID, roi, brain_flag="MNI"):
     save_path = os.path.join(
         container_path, f"sub-0{subID}", f"Representational_Changes_{brain_flag}_{roi}"
     )
-    if os.path.exists(f"{save_path}/cateweighted_forgot_fidelity.csv"):
-        print(
-            f"Skipping RSA pipeline for sub-0{subID} and ROI {roi} as it has already been run."
-        )
-        return
+    # if os.path.exists(f"{save_path}/cateweighted_forgot_fidelity.csv"):
+    #     print(
+    #         f"Skipping RSA pipeline for sub-0{subID} and ROI {roi} as it has already been run."
+    #     )
+    #     return
     mkdir(save_path)
 
     # Get the scene orders for pre, study, and post phases
