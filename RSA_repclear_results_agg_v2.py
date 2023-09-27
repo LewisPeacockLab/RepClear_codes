@@ -3,9 +3,10 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy import stats
 import os
+import pingouin as pg
 from matplotlib.legend_handler import HandlerTuple
 
-rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
+rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI", "hippocampus_ROI", "VTC_mask"]
 
 
 def load_data(file_path):
@@ -34,11 +35,15 @@ def perform_t_tests(agg_df1, agg_df2, test_type="paired"):
 
         if test_type == "paired":
             t_stat, p_val = stats.ttest_rel(data1, data2, nan_policy="omit")
+            bayes_result = pg.ttest(data1, data2, paired=True, bayesfactor=True)
         else:
             t_stat, p_val = stats.ttest_ind(data1, data2, nan_policy="omit")
+            bayes_result = pg.ttest(data1, data2, paired=False, bayesfactor=True)
+
+        bayes_factor = bayes_result.at[0, "BF10"]
 
         print(
-            f"{test_type.capitalize()} t-test for operation {op}: t = {t_stat}, p = {p_val}"
+            f"{test_type.capitalize()} t-test for operation {op}: t = {t_stat}, p = {p_val}, BF10 = {bayes_factor}"
         )
 
 

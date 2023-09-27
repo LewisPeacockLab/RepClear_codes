@@ -20,7 +20,7 @@ phase_to_runs = {"preremoval": 6, "study": 3, "postremoval": 6}
 
 # Subjects list
 subs = [
-    # "02",
+    "02",
     "03",
     "04",
     "05",
