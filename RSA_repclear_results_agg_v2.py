@@ -35,12 +35,15 @@ def perform_t_tests(agg_df1, agg_df2, test_type="paired"):
 
         if test_type == "paired":
             t_stat, p_val = stats.ttest_rel(data1, data2, nan_policy="omit")
-            bayes_result = pg.ttest(data1, data2, paired=True, bayesfactor=True)
+            bayes_result = pg.ttest(data1, data2, paired=True)
         else:
             t_stat, p_val = stats.ttest_ind(data1, data2, nan_policy="omit")
-            bayes_result = pg.ttest(data1, data2, paired=False, bayesfactor=True)
+            bayes_result = pg.ttest(data1, data2, paired=False)
 
-        bayes_factor = bayes_result.at[0, "BF10"]
+        if bayes_result.shape[0] > 0:
+            bayes_factor = bayes_result.iloc[0]["BF10"]
+        else:
+            bayes_factor = "DataFrame is empty"
 
         print(
             f"{test_type.capitalize()} t-test for operation {op}: t = {t_stat}, p = {p_val}, BF10 = {bayes_factor}"
@@ -104,7 +107,7 @@ expected_operations = ["Replace", "Maintain", "Suppress"]
 
 def main(roi):
     subject_ids = [
-        # "02",
+        "02",
         "03",
         "04",
         "05",

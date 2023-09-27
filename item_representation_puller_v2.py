@@ -282,8 +282,12 @@ def item_representation(subID, phase, roi_name):
 
 
 # Run the function for each subject and each ROI
-# rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]  # VTC
-rois = ["hippocampus_ROI"]  # added in for additional analyses
+rois = [
+    "Prefrontal_ROI",
+    "Higher_Order_Visual_ROI",
+    "hippocampus_ROI",
+    "VTC_mask",
+]  # VTC
 phases = ["preremoval", "postremoval"]
 
 for roi in rois:
@@ -314,7 +318,7 @@ def check_missing_runs(subs, phases, rois):
 
                 # Otherwise, check the existence of specific output files
                 # Adjust this file name pattern according to your actual output files
-                expected_file = f"Sub-{subID}_{phase}_face_trial1_result.nii.gz"
+                expected_file = f"Sub-{subID}_{phase}_scene_trial120_result.nii.gz"
                 expected_path = os.path.join(out_folder, expected_file)
 
                 if not os.path.exists(expected_path):

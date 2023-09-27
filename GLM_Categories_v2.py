@@ -38,7 +38,7 @@ subs = [
     "26",
 ]
 # new_rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
-new_rois = ["hippocampus_ROI"]  # new ROI for final analyses
+new_rois = ["hippocampus_ROI", "VTC_mask"]  # new ROI for final analyses
 container_path = "/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep"
 
 

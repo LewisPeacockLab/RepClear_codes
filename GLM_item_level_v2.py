@@ -38,8 +38,8 @@ subs = [
     "25",
     "26",
 ]
-# rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
-rois = ["hippocampus_ROI"]
+rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI", "hippocampus_ROI", "VTC_mask"]
+# rois = ["VTC_mask"]
 container_path = "/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep"
 brain_flag = "MNI"
 
@@ -572,7 +572,7 @@ Parallel(n_jobs=4, verbose=1)(
     delayed(LSA_GLM)(sub_num, roi) for sub_num in subs for roi in rois
 )
 
-# sequential test:
-for sub_num in subs:
-    for roi in rois:
-        LSA_GLM(sub_num, roi)
+# # sequential test:
+# for sub_num in subs:
+#     for roi in rois:
+#         LSA_GLM(sub_num, roi)

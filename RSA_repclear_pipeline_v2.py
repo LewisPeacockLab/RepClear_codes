@@ -7,7 +7,7 @@ import re
 from joblib import Parallel, delayed
 
 subs = [
-    # "02",
+    "02",
     "03",
     "04",
     "05",
@@ -33,8 +33,7 @@ subs = [
 brain_flag = "MNI"
 stim_labels = {0: "Rest", 1: "Scenes", 2: "Faces"}
 sub_cates = {"scene": ["manmade", "natural"]}  # 120
-# rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
-rois = ["hippocampus_ROI", "VTC_mask"]
+rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI", "hippocampus_ROI", "VTC_mask"]
 
 
 def mkdir(path, local=False):
