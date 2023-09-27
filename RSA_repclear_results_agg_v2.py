@@ -5,6 +5,8 @@ from scipy import stats
 import os
 import pingouin as pg
 from matplotlib.legend_handler import HandlerTuple
+from sklearn.utils import resample
+import numpy as np
 
 rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI", "hippocampus_ROI", "VTC_mask"]
 
@@ -27,12 +29,30 @@ def aggregate_data(df, memory_status):
     return agg_df
 
 
-def perform_t_tests(agg_df1, agg_df2, test_type="paired"):
+def perform_t_tests(agg_df1, agg_df2, roi, test_type="paired", n_iterations=1000):
     operations = agg_df1["Operation"].unique()
+    stats_results = []
     for op in operations:
         data1 = agg_df1.loc[agg_df1["Operation"] == op, "Fidelity"]
         data2 = agg_df2.loc[agg_df2["Operation"] == op, "Fidelity"]
+        DoF = len(data1) - 1 if test_type == "paired" else len(data1) + len(data2) - 2
 
+        # Bootstrap
+        bootstrap_t_stats = []
+        for i in range(n_iterations):
+            sample1 = resample(data1, replace=True)
+            sample2 = resample(data2, replace=True)
+            if test_type == "paired":
+                t_stat, _ = stats.ttest_rel(sample1, sample2, nan_policy="omit")
+            else:
+                t_stat, _ = stats.ttest_ind(sample1, sample2, nan_policy="omit")
+            bootstrap_t_stats.append(t_stat)
+
+        # Calculate 95% CI for t-statistic
+        lower = np.percentile(bootstrap_t_stats, 2.5)
+        upper = np.percentile(bootstrap_t_stats, 97.5)
+
+        # Existing t-test and Bayes Factor calculation
         if test_type == "paired":
             t_stat, p_val = stats.ttest_rel(data1, data2, nan_policy="omit")
             bayes_result = pg.ttest(data1, data2, paired=True)
@@ -46,8 +66,34 @@ def perform_t_tests(agg_df1, agg_df2, test_type="paired"):
             bayes_factor = "DataFrame is empty"
 
         print(
-            f"{test_type.capitalize()} t-test for operation {op}: t = {t_stat}, p = {p_val}, BF10 = {bayes_factor}"
+            f"{test_type.capitalize()} t-test for operation {op}: t = {t_stat}, p = {p_val}, BF10 = {bayes_factor}, DoF = {DoF}, Bootstrap 95% CI = ({lower}, {upper})"
         )
+        stats_results.append({
+            'Operation': op,
+            'TestType': test_type,
+            't_stat': t_stat,
+            'p_val': p_val,
+            'BF10': bayes_factor,
+            'DoF': DoF,
+            'Bootstrap_CI_lower': lower,
+            'Bootstrap_CI_upper': upper
+        })
+
+    # Save to text file
+    stats_df = pd.DataFrame(stats_results)
+
+    save_path = f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/ROI_{roi}_{test_type}_t_test_stats.txt"
+    if os.path.exists(save_path):
+        write_mode = 'a'  # append if already exists
+    else:
+        write_mode = 'w'  # make a new file if not
+
+    with open(save_path, write_mode) as file:
+        # Write the statistics to the file
+        file.write(stats_df.to_csv(index=False, sep='\t'))
+        
+        # Add a separator for readability
+        file.write("--------------------------------------------------\n")
 
 
 def plot_data(combined_df, plot_title, save_path):
@@ -100,6 +146,13 @@ def check_missing_operations(df, expected_operations):
         op for op in expected_operations if op not in present_operations
     ]
     return missing_operations
+
+
+def save_statistics_to_file(roi, stats_list):
+    with open(f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/{roi}_statistics.txt", "a") as file:
+        for stat in stats_list:
+            file.write(f"{stat}\n")
+        file.write("--------------------------------------------------\n")
 
 
 expected_operations = ["Replace", "Maintain", "Suppress"]
@@ -271,23 +324,23 @@ def main(roi):
     # Perform t-tests for paired data
     print("Performing Paired t-tests for Item Weighted Data:")
     perform_t_tests(
-        paired_agg_all_remembered_item, paired_agg_all_forgot_item, "paired"
+        paired_agg_all_remembered_item, paired_agg_all_forgot_item, roi, "paired"
     )
     print("--------------------------------------------------")
 
     print("Performing Paired t-tests for Category Weighted Data:")
     perform_t_tests(
-        paired_agg_all_remembered_cate, paired_agg_all_forgot_cate, "paired"
+        paired_agg_all_remembered_cate, paired_agg_all_forgot_cate, roi, "paired"
     )
     print("--------------------------------------------------")
 
     # Perform t-tests for unpaired data
     print("Performing Unpaired t-tests for Item Weighted Data:")
-    perform_t_tests(unpaired_all_remembered_item, unpaired_all_forgot_item, "unpaired")
+    perform_t_tests(unpaired_all_remembered_item, unpaired_all_forgot_item, roi, "unpaired")
     print("--------------------------------------------------")
 
     print("Performing Unpaired t-tests for Category Weighted Data:")
-    perform_t_tests(unpaired_all_remembered_cate, unpaired_all_forgot_cate, "unpaired")
+    perform_t_tests(unpaired_all_remembered_cate, unpaired_all_forgot_cate, roi, "unpaired")
     print("--------------------------------------------------")
 
     # Generate and save plots for paired data
