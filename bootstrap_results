@@ -24,6 +24,8 @@ X on M is significant for replace (negative association: -0.10 - -0.03)
 X on Y is not significant for replace: association: -0.1698 - 0.1497
 X+M on Y is not significant for replace: association: -0.1834 - 0.1418
 
+95% CI for face: 0.10135851983767193 - 0.1887814568108028
+
 Operation: suppress
 ------------------------------
 ACME is not significant for suppress: mediation: -0.0001 - 0.0082
@@ -136,3 +138,167 @@ T-stat = 12.929458526218461
 p-value = 1.8176761714388248e-11
 cohens d =  2.821439161485156
 
+
+
+------
+
+stats for fidelity of same vs different
+
+Results of Subject level analysis: T(21)=6.955067901300315    p = 7.192638131238563e-07!
+
+
+-----
+
+STATS for additional ROI analysis:
+
+Prefrontal:
+
+Performing Paired t-tests for Item Weighted Data:
+Paired t-test for operation Maintain: t = -0.04509045681061676, p = 0.9645931811338136
+Paired t-test for operation Replace: t = -1.6285312320766216, p = 0.12294015715259343
+Paired t-test for operation Suppress: t = 1.4069704643658245, p = 0.17856400379801263
+--------------------------------------------------
+Performing Paired t-tests for Category Weighted Data:
+Paired t-test for operation Maintain: t = -0.05793118242427893, p = 0.9545207830173992
+Paired t-test for operation Replace: t = -2.030402457650691, p = 0.05927956369816139
+Paired t-test for operation Suppress: t = 1.0778993386683027, p = 0.2970621317239719
+--------------------------------------------------
+Performing Unpaired t-tests for Item Weighted Data:
+Unpaired t-test for operation Replace: t = -1.85759183230415, p = 0.0636948652389226
+Unpaired t-test for operation Maintain: t = -0.6006587712649791, p = 0.5482839935920555
+Unpaired t-test for operation Suppress: t = 0.5842211103400722, p = 0.5592813561095777
+--------------------------------------------------
+Performing Unpaired t-tests for Category Weighted Data:
+Unpaired t-test for operation Replace: t = -1.460916636470017, p = 0.14453844705812724
+Unpaired t-test for operation Maintain: t = -0.35559044957711006, p = 0.7222667032804104
+Unpaired t-test for operation Suppress: t = 0.5955237090656319, p = 0.5517080003816388
+--------------------------------------------------
+
+Parietal (IPS):
+
+Performing Paired t-tests for Item Weighted Data:
+Paired t-test for operation Maintain: t = 1.8196005944855704, p = 0.08883408855054382
+Paired t-test for operation Replace: t = -1.803566101553668, p = 0.09141839141366498
+Paired t-test for operation Suppress: t = 0.987376055043115, p = 0.33911862211060617
+--------------------------------------------------
+Performing Paired t-tests for Category Weighted Data:
+Paired t-test for operation Maintain: t = 1.8793550279588405, p = 0.07853545271708129
+Paired t-test for operation Replace: t = -1.4707373513217088, p = 0.16075459871046252
+Paired t-test for operation Suppress: t = 0.8415740306211489, p = 0.41242863162247856
+--------------------------------------------------
+Performing Unpaired t-tests for Item Weighted Data:
+Unpaired t-test for operation Replace: t = -0.8599798717554122, p = 0.390144766556228
+Unpaired t-test for operation Maintain: t = 0.5607527647928221, p = 0.5751761268338076
+Unpaired t-test for operation Suppress: t = -0.057951197069893816, p = 0.9538068609799979
+--------------------------------------------------
+Performing Unpaired t-tests for Category Weighted Data:
+Unpaired t-test for operation Replace: t = -0.6024785651136221, p = 0.5470731039438032
+Unpaired t-test for operation Maintain: t = 1.261884049853347, p = 0.20745897430456842
+Unpaired t-test for operation Suppress: t = 0.621824988212845, p = 0.5342826246581609
+--------------------------------------------------
+
+
+Subject 06 is missing the following operations: ['Maintain']
+Subject 07 is missing the following operations: ['Replace', 'Maintain']
+Subject 14 is missing the following operations: ['Replace']
+Subject 23 is missing the following operations: ['Suppress']
+--------------------------------------------------
+STATS FOR Prefrontal_ROI
+Performing Paired t-tests for Item Weighted Data:
+Paired t-test for operation Maintain: t = -0.26360520244351787, p = 0.7952528057177155, BF10 = 0.251, DoF = 17, Bootstrap 95% CI = (-1.924304890203443, 2.2909230768972764)
+Paired t-test for operation Replace: t = -1.4807759314864917, p = 0.1569621738555422, BF10 = 0.615, DoF = 17, Bootstrap 95% CI = (-3.40233328335402, 0.35524429184045697)
+Paired t-test for operation Suppress: t = 1.1508080677025425, p = 0.2657415943062742, BF10 = 0.431, DoF = 17, Bootstrap 95% CI = (-0.9475345480574967, 3.1947578793027747)
+--------------------------------------------------
+Performing Paired t-tests for Category Weighted Data:
+Paired t-test for operation Maintain: t = -0.30357368574815824, p = 0.7651366300337006, BF10 = 0.253, DoF = 17, Bootstrap 95% CI = (-2.0046522339714232, 2.1987252406993387)
+Paired t-test for operation Replace: t = -2.086716321690583, p = 0.05228559823514324, BF10 = 1.393, DoF = 17, Bootstrap 95% CI = (-3.5699635445110274, -0.1332679186769407)
+Paired t-test for operation Suppress: t = 0.9531769326742244, p = 0.35385795670867404, BF10 = 0.362, DoF = 17, Bootstrap 95% CI = (-0.8240289762333162, 2.9889498564275923)
+--------------------------------------------------
+Performing Unpaired t-tests for Item Weighted Data:
+Unpaired t-test for operation Replace: t = -1.7203507489437047, p = 0.08583886077294955, BF10 = 0.401, DoF = 658, Bootstrap 95% CI = (-3.721612756738322, 0.3636605175386403)
+Unpaired t-test for operation Suppress: t = 0.3324609451873657, p = 0.7396471101603294, BF10 = 0.108, DoF = 658, Bootstrap 95% CI = (-1.8927545330226856, 2.345717298736902)
+Unpaired t-test for operation Maintain: t = -1.1461763293254608, p = 0.25213884785753243, BF10 = 0.202, DoF = 658, Bootstrap 95% CI = (-3.109453887647756, 0.7727072792686384)
+--------------------------------------------------
+Performing Unpaired t-tests for Category Weighted Data:
+Unpaired t-test for operation Replace: t = -1.6562408368400248, p = 0.09814980976130165, BF10 = 0.366, DoF = 658, Bootstrap 95% CI = (-3.593664934760995, 0.2530540620658831)
+Unpaired t-test for operation Suppress: t = 0.44728953182946746, p = 0.6548132239517335, BF10 = 0.112, DoF = 658, Bootstrap 95% CI = (-1.6682418720687993, 2.592397813224544)
+Unpaired t-test for operation Maintain: t = -0.9459174990507623, p = 0.34453789018920433, BF10 = 0.154, DoF = 658, Bootstrap 95% CI = (-3.0914917901038153, 1.0970373410119179)
+--------------------------------------------------
+Subject 06 is missing the following operations: ['Maintain']
+Subject 07 is missing the following operations: ['Replace', 'Maintain']
+Subject 14 is missing the following operations: ['Replace']
+Subject 23 is missing the following operations: ['Suppress']
+--------------------------------------------------
+STATS FOR Higher_Order_Visual_ROI
+Performing Paired t-tests for Item Weighted Data:
+Paired t-test for operation Maintain: t = 1.9526612694012053, p = 0.06752613158170057, BF10 = 1.144, DoF = 17, Bootstrap 95% CI = (-0.3194188778269511, 3.7868652853916998)
+Paired t-test for operation Replace: t = -1.6714763887357076, p = 0.11293194695767723, BF10 = 0.779, DoF = 17, Bootstrap 95% CI = (-3.102430588171045, 0.758518445792771)
+Paired t-test for operation Suppress: t = 1.3103345917669824, p = 0.2075115302757467, BF10 = 0.507, DoF = 17, Bootstrap 95% CI = (-1.0666993178954174, 3.284201396272274)
+--------------------------------------------------
+Performing Paired t-tests for Category Weighted Data:
+Paired t-test for operation Maintain: t = 1.968576766973545, p = 0.06552814039117837, BF10 = 1.171, DoF = 17, Bootstrap 95% CI = (-0.6429429357521969, 3.422836150549647)
+Paired t-test for operation Replace: t = -1.307234172106839, p = 0.208538942266515, BF10 = 0.506, DoF = 17, Bootstrap 95% CI = (-2.864337512546643, 1.1711446141456785)
+Paired t-test for operation Suppress: t = 0.6855903799180347, p = 0.5022144627401476, BF10 = 0.299, DoF = 17, Bootstrap 95% CI = (-1.5595170379949075, 2.7102782245642567)
+--------------------------------------------------
+Performing Unpaired t-tests for Item Weighted Data:
+Unpaired t-test for operation Replace: t = -0.30317791915195225, p = 0.7618501037061286, BF10 = 0.107, DoF = 658, Bootstrap 95% CI = (-2.4017816997551975, 1.7575806124939328)
+Unpaired t-test for operation Suppress: t = 0.5221204419506528, p = 0.6017621936509828, BF10 = 0.116, DoF = 658, Bootstrap 95% CI = (-1.454488509117169, 2.5365888353159134)
+Unpaired t-test for operation Maintain: t = 0.8100670566002265, p = 0.4181944940414921, BF10 = 0.146, DoF = 658, Bootstrap 95% CI = (-1.161439925953974, 2.699007537922592)
+--------------------------------------------------
+Performing Unpaired t-tests for Category Weighted Data:
+Unpaired t-test for operation Replace: t = -0.4856149064698771, p = 0.627401882098736, BF10 = 0.114, DoF = 658, Bootstrap 95% CI = (-2.698644147707732, 1.4566834585301867)
+Unpaired t-test for operation Suppress: t = 0.37592963451977207, p = 0.7070903768276031, BF10 = 0.109, DoF = 658, Bootstrap 95% CI = (-1.6205844863162802, 2.5995542044390616)
+Unpaired t-test for operation Maintain: t = 1.067137153286251, p = 0.2863012754275187, BF10 = 0.178, DoF = 658, Bootstrap 95% CI = (-0.9311516048647979, 3.2248044313662194)
+--------------------------------------------------
+Subject 06 is missing the following operations: ['Maintain']
+Subject 07 is missing the following operations: ['Replace', 'Maintain']
+Subject 14 is missing the following operations: ['Replace']
+Subject 23 is missing the following operations: ['Suppress']
+--------------------------------------------------
+STATS FOR hippocampus_ROI
+Performing Paired t-tests for Item Weighted Data:
+Paired t-test for operation Maintain: t = 0.2993328800676605, p = 0.7683147254696172, BF10 = 0.253, DoF = 17, Bootstrap 95% CI = (-1.5671790581018823, 2.7798571648030013)
+Paired t-test for operation Replace: t = -1.4455237972243045, p = 0.16649379129810607, BF10 = 0.59, DoF = 17, Bootstrap 95% CI = (-3.163665140103196, 0.18579110336173577)
+Paired t-test for operation Suppress: t = 0.4846276788413797, p = 0.6341256634160196, BF10 = 0.27, DoF = 17, Bootstrap 95% CI = (-1.7077197712090668, 2.224143276520348)
+--------------------------------------------------
+Performing Paired t-tests for Category Weighted Data:
+Paired t-test for operation Maintain: t = 0.15632063400532867, p = 0.8776216498820524, BF10 = 0.246, DoF = 17, Bootstrap 95% CI = (-1.8555687067109037, 2.510574443209337)
+Paired t-test for operation Replace: t = -0.5571687715530552, p = 0.5846740787836795, BF10 = 0.279, DoF = 17, Bootstrap 95% CI = (-2.3599081681313008, 1.7252183376542654)
+Paired t-test for operation Suppress: t = -1.0926117654322363, p = 0.2898066482316685, BF10 = 0.408, DoF = 17, Bootstrap 95% CI = (-3.172011192772737, 0.9113715945200578)
+--------------------------------------------------
+Performing Unpaired t-tests for Item Weighted Data:
+Unpaired t-test for operation Replace: t = -1.3080238346043151, p = 0.19132198918744417, BF10 = 0.254, DoF = 658, Bootstrap 95% CI = (-3.2661958570838916, 0.48109064266231794)
+Unpaired t-test for operation Suppress: t = -0.20012609682863083, p = 0.8414437983126944, BF10 = 0.105, DoF = 658, Bootstrap 95% CI = (-2.2220353151786765, 1.6970766788066365)
+Unpaired t-test for operation Maintain: t = 0.6372379164785784, p = 0.5241915339760481, BF10 = 0.133, DoF = 658, Bootstrap 95% CI = (-1.3129517361362617, 2.4492844591899035)
+--------------------------------------------------
+Performing Unpaired t-tests for Category Weighted Data:
+Unpaired t-test for operation Replace: t = -0.62740470275569, p = 0.5306116357485676, BF10 = 0.122, DoF = 658, Bootstrap 95% CI = (-2.7065420671639857, 1.5721894756887669)
+Unpaired t-test for operation Suppress: t = -0.19375108292746848, p = 0.8464305864700207, BF10 = 0.105, DoF = 658, Bootstrap 95% CI = (-2.1716632549242902, 1.5483610891182376)
+Unpaired t-test for operation Maintain: t = 0.6120407384390394, p = 0.5407222277799257, BF10 = 0.13, DoF = 658, Bootstrap 95% CI = (-1.2238185753311155, 2.578292968794273)
+--------------------------------------------------
+Subject 06 is missing the following operations: ['Maintain']
+Subject 07 is missing the following operations: ['Replace', 'Maintain']
+Subject 14 is missing the following operations: ['Replace']
+Subject 23 is missing the following operations: ['Suppress']
+--------------------------------------------------
+STATS FOR VTC_mask
+Performing Paired t-tests for Item Weighted Data:
+Paired t-test for operation Maintain: t = 1.4060692946835456, p = 0.17771863615064912, BF10 = 0.564, DoF = 17, Bootstrap 95% CI = (-0.9554396142466703, 3.395181188570861)
+Paired t-test for operation Replace: t = 0.45385243010960347, p = 0.6556755496705091, BF10 = 0.266, DoF = 17, Bootstrap 95% CI = (-1.691057315420022, 2.6161658912603167)
+Paired t-test for operation Suppress: t = 2.1513302394877822, p = 0.04612036445590488, BF10 = 1.536, DoF = 17, Bootstrap 95% CI = (0.42382597905730024, 4.632759674177576)
+--------------------------------------------------
+Performing Paired t-tests for Category Weighted Data:
+Paired t-test for operation Maintain: t = 1.663456027542643, p = 0.11454507540630703, BF10 = 0.771, DoF = 17, Bootstrap 95% CI = (-0.7079239866269466, 3.47694836079077)
+Paired t-test for operation Replace: t = -0.3222896621614992, p = 0.7511628800803761, BF10 = 0.255, DoF = 17, Bootstrap 95% CI = (-2.1850594885578256, 2.001947623245165)
+Paired t-test for operation Suppress: t = 2.0407060753119053, p = 0.057123773383059864, BF10 = 1.301, DoF = 17, Bootstrap 95% CI = (-0.7918907504039403, 3.8941940386025045)
+--------------------------------------------------
+Performing Unpaired t-tests for Item Weighted Data:
+Unpaired t-test for operation Replace: t = 0.5277342443323696, p = 0.5978617075917334, BF10 = 0.118, DoF = 658, Bootstrap 95% CI = (-1.4455373397146638, 2.5002628605458987)
+Unpaired t-test for operation Suppress: t = 2.376180244899069, p = 0.017778162498036033, BF10 = 1.431, DoF = 658, Bootstrap 95% CI = (0.36185456342417993, 4.349955239352373)
+Unpaired t-test for operation Maintain: t = 0.8222868648806487, p = 0.4112115190352744, BF10 = 0.15, DoF = 658, Bootstrap 95% CI = (-1.2844558345208208, 2.7909473852440163)
+--------------------------------------------------
+Performing Unpaired t-tests for Category Weighted Data:
+Unpaired t-test for operation Replace: t = -0.4073278701756481, p = 0.6838996734637489, BF10 = 0.11, DoF = 658, Bootstrap 95% CI = (-2.615735327554707, 1.8038177273239404)
+Unpaired t-test for operation Suppress: t = 0.8979981731404064, p = 0.36951498421267504, BF10 = 0.143, DoF = 658, Bootstrap 95% CI = (-1.1943492188853762, 3.114183386638396)
+Unpaired t-test for operation Maintain: t = 1.065213775237349, p = 0.2871699159168514, BF10 = 0.168, DoF = 658, Bootstrap 95% CI = (-1.0956439051632956, 3.3547401398050396)
+--------------------------------------------------

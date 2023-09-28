@@ -56,9 +56,20 @@ def perform_t_tests(agg_df1, agg_df2, roi, test_type="paired", n_iterations=1000
         if test_type == "paired":
             t_stat, p_val = stats.ttest_rel(data1, data2, nan_policy="omit")
             bayes_result = pg.ttest(data1, data2, paired=True)
+            # Calculate Cohen's d using mean difference method
+            mean_diff = np.mean(data1 - data2)
+            std_diff = np.std(data1 - data2, ddof=1)
+            cohen_d_mean_diff = mean_diff / std_diff
+            print(f"Cohen's d using mean difference: {cohen_d_mean_diff}")
         else:
             t_stat, p_val = stats.ttest_ind(data1, data2, nan_policy="omit")
             bayes_result = pg.ttest(data1, data2, paired=False)
+            # Calculate Cohen's d for independent t-test
+            mean1, mean2 = np.mean(data1), np.mean(data2)
+            sd1, sd2 = np.std(data1, ddof=1), np.std(data2, ddof=1)
+            pooled_sd = np.sqrt((sd1**2 + sd2**2) / 2)
+            cohen_d = (mean1 - mean2) / pooled_sd
+            print(f"Cohen's d for independent t-test: {cohen_d}")
 
         if bayes_result.shape[0] > 0:
             bayes_factor = bayes_result.iloc[0]["BF10"]
@@ -68,30 +79,32 @@ def perform_t_tests(agg_df1, agg_df2, roi, test_type="paired", n_iterations=1000
         print(
             f"{test_type.capitalize()} t-test for operation {op}: t = {t_stat}, p = {p_val}, BF10 = {bayes_factor}, DoF = {DoF}, Bootstrap 95% CI = ({lower}, {upper})"
         )
-        stats_results.append({
-            'Operation': op,
-            'TestType': test_type,
-            't_stat': t_stat,
-            'p_val': p_val,
-            'BF10': bayes_factor,
-            'DoF': DoF,
-            'Bootstrap_CI_lower': lower,
-            'Bootstrap_CI_upper': upper
-        })
+        stats_results.append(
+            {
+                "Operation": op,
+                "TestType": test_type,
+                "t_stat": t_stat,
+                "p_val": p_val,
+                "BF10": bayes_factor,
+                "DoF": DoF,
+                "Bootstrap_CI_lower": lower,
+                "Bootstrap_CI_upper": upper,
+            }
+        )
 
     # Save to text file
     stats_df = pd.DataFrame(stats_results)
 
     save_path = f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/ROI_{roi}_{test_type}_t_test_stats.txt"
     if os.path.exists(save_path):
-        write_mode = 'a'  # append if already exists
+        write_mode = "a"  # append if already exists
     else:
-        write_mode = 'w'  # make a new file if not
+        write_mode = "w"  # make a new file if not
 
     with open(save_path, write_mode) as file:
         # Write the statistics to the file
-        file.write(stats_df.to_csv(index=False, sep='\t'))
-        
+        file.write(stats_df.to_csv(index=False, sep="\t"))
+
         # Add a separator for readability
         file.write("--------------------------------------------------\n")
 
@@ -149,7 +162,10 @@ def check_missing_operations(df, expected_operations):
 
 
 def save_statistics_to_file(roi, stats_list):
-    with open(f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/{roi}_statistics.txt", "a") as file:
+    with open(
+        f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/{roi}_statistics.txt",
+        "a",
+    ) as file:
         for stat in stats_list:
             file.write(f"{stat}\n")
         file.write("--------------------------------------------------\n")
@@ -321,6 +337,8 @@ def main(roi):
         index=False,
     )
 
+    print("--------------------------------------------------")
+    print(f"STATS FOR {roi}")
     # Perform t-tests for paired data
     print("Performing Paired t-tests for Item Weighted Data:")
     perform_t_tests(
@@ -336,11 +354,15 @@ def main(roi):
 
     # Perform t-tests for unpaired data
     print("Performing Unpaired t-tests for Item Weighted Data:")
-    perform_t_tests(unpaired_all_remembered_item, unpaired_all_forgot_item, roi, "unpaired")
+    perform_t_tests(
+        unpaired_all_remembered_item, unpaired_all_forgot_item, roi, "unpaired"
+    )
     print("--------------------------------------------------")
 
     print("Performing Unpaired t-tests for Category Weighted Data:")
-    perform_t_tests(unpaired_all_remembered_cate, unpaired_all_forgot_cate, roi, "unpaired")
+    perform_t_tests(
+        unpaired_all_remembered_cate, unpaired_all_forgot_cate, roi, "unpaired"
+    )
     print("--------------------------------------------------")
 
     # Generate and save plots for paired data
