@@ -146,7 +146,7 @@ def load_and_mask_bold_data(
         f"sub-0{subID}",
         f"item_representations_MNI",  # to load timecourses
     )
-    bolds_arr_2 = []
+    masked_bolds_arr_2 = {}
     for cateID in sub_cates.keys():
         cate_bolds_fnames_2 = glob.glob(f"{bold_dir_2}/*study*timecourse*{cateID}*")
         cate_bolds_fnames_2.sort(key=lambda fname: int(fname.split("_")[-2][5:]))
@@ -314,3 +314,29 @@ for subID in subs:
 
         # Append to the collective DataFrame
         all_subjects_data = pd.concat([all_subjects_data, temp_df], ignore_index=True)
+
+# After the loop
+all_subjects_data.to_csv(
+    os.path.join(container_path, "grouplevel_RSAstudy_timecourse_fisherz.csv"),
+    index=False,
+)
+
+# Ensure the data types are correct
+all_subjects_data["TR"] = all_subjects_data["TR"].astype(int)
+all_subjects_data["RSA_Value"] = all_subjects_data["RSA_Value"].astype(float)
+
+# Basic Line Plot
+plt.figure(figsize=(10, 6))
+sns.lineplot(
+    data=all_subjects_data,
+    x="TR",
+    y="RSA_Value",
+    hue="Condition",
+    palette={"maintain": "green", "replace": "blue", "suppress": "red"},
+    ci="sd",
+)  # ci='sd' will plot standard deviation as the confidence interval
+plt.title("Group Level Timecourse by Condition")
+plt.xlabel("Timepoint (TR)")
+plt.ylabel("RSA Value")
+plt.legend(title="Condition")
+plt.tight_layout()
