@@ -38,7 +38,7 @@ subs = [
     "26",
 ]
 # new_rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
-new_rois = ["hippocampus_ROI", "VTC_mask"]  # new ROI for final analyses
+new_rois = ["VTC_mask"]  # new ROI for final analyses
 container_path = "/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep"
 
 
@@ -260,7 +260,7 @@ def second_level_analysis(subs, rois, contrasts, container_path):
 
             # Threshold the map and save
             thresholded_map, _ = threshold_stats_img(
-                t_map, alpha=0.05, height_control=None, cluster_threshold=0
+                t_map, alpha=0.05, height_control=None, cluster_threshold=10
             )
             nib.save(
                 thresholded_map,
@@ -274,7 +274,7 @@ def second_level_analysis(subs, rois, contrasts, container_path):
                 contrasts="intercept",
                 alpha=0.05,
                 height_control=None,
-                cluster_threshold=0,
+                cluster_threshold=10,
             )
             file_data.save_as_html(
                 os.path.join(out_dir, f"group+{contrast}_{roi}_report.html")

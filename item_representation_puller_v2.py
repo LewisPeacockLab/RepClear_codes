@@ -87,18 +87,41 @@ def load_and_preprocess_bold_data(subID, brain_flag, phase, roi_name):
         "/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep"
     )
     bold_path = os.path.join(container_path, sub, "func/")
-    # os.chdir(bold_path)
+    # Check if the concatenated fMRI file exists
+    concatenated_file_path = os.path.join(
+        bold_path, f"sub-0{subID}_{brain_flag}_{phase}_{roi_name}.nii.gz"
+    )
 
-    localizer_files = find(f"*{phase}*bold*.nii.gz", bold_path)
+    if os.path.exists(concatenated_file_path):
+        print(
+            f"Concatenated fMRI file exists. Loading from {concatenated_file_path}..."
+        )
+        img = nib.load(concatenated_file_path)
+    else:
+        print(
+            "Concatenated fMRI file does not exist. Proceeding with localizer files..."
+        )
+        localizer_files = find(f"*{phase}*bold*.nii.gz", bold_path)
 
-    if brain_flag == "MNI":
-        pattern2 = "*MNI152NLin2009cAsym*preproc*"
-        localizer_files = fnmatch.filter(localizer_files, pattern2)
-    elif brain_flag == "T1w":
-        pattern2 = "*T1w*preproc*"
-        localizer_files = fnmatch.filter(localizer_files, pattern2)
+        if brain_flag == "MNI":
+            pattern2 = "*MNI152NLin2009cAsym*preproc*"
+            localizer_files = fnmatch.filter(localizer_files, pattern2)
+        elif brain_flag == "T1w":
+            pattern2 = "*T1w*preproc*"
+            localizer_files = fnmatch.filter(localizer_files, pattern2)
 
-    localizer_files.sort()
+        localizer_files.sort()
+
+        processed_file_name = f"sub-0{subID}_{brain_flag}_{phase}_{roi_name}.nii"
+        processed_file_path = os.path.join(bold_path, processed_file_name)
+
+        if False:  # os.path.exists(processed_file_path):
+            img = nib.load(processed_file_path)
+            print(f"{brain_flag} Concatenated Localizer BOLD Loaded...")
+        else:
+            img = nib.concat_images(localizer_files, axis=3)
+            nib.save(img, processed_file_path)
+            print(f"{brain_flag} Concatenated Localizer BOLD...saved")
 
     if brain_flag == "T1w":
         mask_path = os.path.join(
@@ -108,20 +131,11 @@ def load_and_preprocess_bold_data(subID, brain_flag, phase, roi_name):
             f"{roi_name}_{phase}_{brain_flag}_mask.nii.gz",
         )
     else:
-        mask_path = os.path.join(container_path, f"group_MNI_{roi_name}.nii.gz")
+        mask_path = os.path.join(
+            container_path, f"group_{brain_flag}_{roi_name}.nii.gz"
+        )
 
     mask = nib.load(mask_path)
-
-    processed_file_name = f"sub-0{subID}_{brain_flag}_{phase}_{roi_name}.nii"
-    processed_file_path = os.path.join(bold_path, processed_file_name)
-
-    if False:  # os.path.exists(processed_file_path):
-        img = nib.load(processed_file_path)
-        print(f"{brain_flag} Concatenated Localizer BOLD Loaded...")
-    else:
-        img = nib.concat_images(localizer_files, axis=3)
-        nib.save(img, processed_file_path)
-        print(f"{brain_flag} Concatenated Localizer BOLD...saved")
 
     return img, mask, bold_path
 
@@ -135,17 +149,24 @@ def process_and_clean_bold_data(
         print(f"Invalid phase: {phase}")
         return
 
-    # Load confounds
-    localizer_confounds = [
-        find(f"*{phase}*{i+1}*confounds*.tsv", bold_path)[0] for i in range(num_runs)
-    ]
-    confound_dfs = [
-        pd.read_csv(confound_file, sep="\t") for confound_file in localizer_confounds
-    ]
-    cleaned_confound_dfs = [confound_cleaner(df) for df in confound_dfs]
-
-    # Concatenate all the cleaned confounds
-    localizer_confounds = pd.concat(cleaned_confound_dfs, ignore_index=False)
+    # Attempt to Load confounds
+    try:
+        localizer_confounds = [
+            find(f"*{phase}*{i+1}*confounds*.tsv", bold_path)[0]
+            for i in range(num_runs)
+        ]
+        confound_dfs = [
+            pd.read_csv(confound_file, sep="\t")
+            for confound_file in localizer_confounds
+        ]
+        cleaned_confound_dfs = [confound_cleaner(df) for df in confound_dfs]
+        # Concatenate all the cleaned confounds
+        localizer_confounds = pd.concat(cleaned_confound_dfs, ignore_index=False)
+    except IndexError:
+        print(
+            "Confound files not found. Proceeding without formal confound regressors."
+        )
+        localizer_confounds = None
 
     # Calculate run lengths and create run list based on the dynamically determined number of runs
     run_lengths = [int(img.get_fdata().shape[3] / num_runs) for _ in range(num_runs)]
@@ -182,14 +203,26 @@ def process_and_clean_bold_data(
     return img_clean
 
 
-def relabel_events(events):
+def relabel_events(events, phase):
     temp_events = events.copy()
-    face_index = [i for i, n in enumerate(temp_events["trial_type"]) if n == "face"]
-    scene_index = [i for i, n in enumerate(temp_events["trial_type"]) if n == "scene"]
+    if phase == "study":
+        # During study, only scenes are used, and they are labeled as 'stim'
+        scene_index = [
+            i for i, n in enumerate(temp_events["trial_type"]) if n == "stim"
+        ]
+        face_index = []  # no faces during study
+    else:
+        face_index = [i for i, n in enumerate(temp_events["trial_type"]) if n == "face"]
+        scene_index = [
+            i for i, n in enumerate(temp_events["trial_type"]) if n == "scene"
+        ]
+
     for trial in range(len(face_index)):
         temp_events.loc[face_index[trial], "trial_type"] = f"face_trial{trial + 1}"
+
     for trial in range(len(scene_index)):
         temp_events.loc[scene_index[trial], "trial_type"] = f"scene_trial{trial + 1}"
+
     return temp_events, face_index, scene_index
 
 
@@ -266,7 +299,7 @@ def item_representation(subID, phase, roi_name):
         # Step 3: Load and relabel events
         events_path = f"/scratch/06873/zbretton/repclear_dataset/BIDS/task-{phase}_events.tsv"  # Adjust this path
         events = pd.read_csv(events_path, sep="\t")
-        relabeled_events, face_index, scene_index = relabel_events(events)
+        relabeled_events, face_index, scene_index = relabel_events(events, phase)
 
         # Step 4: Process and save trials
         process_and_save_trials(
@@ -283,13 +316,10 @@ def item_representation(subID, phase, roi_name):
 
 # Run the function for each subject and each ROI
 rois = [
-    "Prefrontal_ROI",
-    "Higher_Order_Visual_ROI",
-    "hippocampus_ROI",
     "VTC_mask",
 ]  # VTC
-phases = ["preremoval", "postremoval"]
-
+# phases = ["preremoval", "postremoval"]
+phases = ["preremoval", "study"]
 for roi in rois:
     for phase in phases:
         Parallel(n_jobs=2)(delayed(item_representation)(i, phase, roi) for i in subs)

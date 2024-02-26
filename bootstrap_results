@@ -302,3 +302,27 @@ Unpaired t-test for operation Replace: t = -0.4073278701756481, p = 0.6838996734
 Unpaired t-test for operation Suppress: t = 0.8979981731404064, p = 0.36951498421267504, BF10 = 0.143, DoF = 658, Bootstrap 95% CI = (-1.1943492188853762, 3.114183386638396)
 Unpaired t-test for operation Maintain: t = 1.065213775237349, p = 0.2871699159168514, BF10 = 0.168, DoF = 658, Bootstrap 95% CI = (-1.0956439051632956, 3.3547401398050396)
 --------------------------------------------------
+
+
+
+
+
+
+
+
+stats pulled from paper:
+
+(0.33) at the category level (averaged across categories: M = 0.745, SEM = 0.012, one-sample T-test against 0.33: T(21) = 35.088, p = 3.953e-20, d = 7.657).
+
+category classifier 
+
+
+RSA SECTION PULLED:
+
+"In the first step, category-specific voxels were selected using univariate analysis with a general linear model (GLM). The category-level GLM model included two categories (face and scene) in the localizer data, utilizing a canonical hemodynamic response function and motion parameters as a nuisance variable. A scene vs. face contrast (t-contrast, voxel-wise threshold: p < .05, cluster correction: voxel extent = 10) was computed on the beta estimates to identify voxels selective for each category within the VVS ROI (e.g., face-specific voxels: face > scene). 
+The second round of feature weighting involved weighting the voxels with either category or item-level beta contrast to emphasize level-specific voxels for each stimulus. The pattern from the selected voxels for each item was averaged across 2 TRs during its presentation on-screen (one trial in the pre-localizer). For a category-level template, the item patterns were weighted with category-level GLM beta contrasts (e.g., a template of the scene depicting the Golden Gate Bridge: the patterns from the scene-specific voxels during the Golden Gate Bridge being presented, weighting with the t-map from scenes > faces contrast). To apply the same weighting method for the item-level templates, item-level GLMs were applied by specifying a unique regressor for each item in a single model . Then, each item-specific weighting value was computed by contrasting the beta estimate between each item vs. the 89 other items (e.g., t-contrast: item 1 vs. {items 2…89}). These weighted item template patterns served as the reference for quantifying changes in the neural representations captured during the main study and the post-study memory test via RSA. "
+
+
+RESULTS ON FIGURE 2:
+
+"The results collectively demonstrate the consistent and distinct patterns of activity associated with the maintain, replace, and suppress operations across trials, participants, and even different experiments. Within-participant analyses revealed that the neural patterns of activity remained relatively stable across trials, indicating robustness within individuals. The successful between-participant decoding implies consistent implementation of these control operations at the group level. The successful decoding across experimental datasets further bolsters the stability of these operations. Therefore, these results confirm that the neural processes underlying maintain, replace, and suppress operations are distinct and consistent."

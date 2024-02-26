@@ -30,7 +30,7 @@ subs = [
     "25",
     "26",
 ]
-brain_flag = "MNI"
+brain_flag = "T1w"  # MNI
 stim_labels = {0: "Rest", 1: "Scenes", 2: "Faces"}
 sub_cates = {"scene": ["manmade", "natural"]}  # 120
 rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI", "hippocampus_ROI", "VTC_mask"]
@@ -134,15 +134,22 @@ def load_pre_post_localizer_data(
 
     # Determine the mask path based on the brain_flag and roi
     if brain_flag == "MNI":
-        mask_path = f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_MNI_{roi}.nii.gz"
+        mask_path = f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/group_{brain_flag}_{roi}.nii.gz"
+    elif brain_flag == "T1w":
+        mask_path = f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/t1w_vtc_masks/sub-0{subID}_{roi}_{brain_flag}.nii.gz"
 
     # Load the mask
     mask = nib.load(mask_path)
 
     # Logic for loading prelocalizer BOLDs
-    bold_dir_1 = os.path.join(
-        container_path, f"sub-0{subID}", f"item_representations_{roi}_{brain_flag}"
-    )
+    if brain_flag == "MNI":
+        bold_dir_1 = os.path.join(
+            container_path, f"sub-0{subID}", f"item_representations_{roi}_{brain_flag}"
+        )
+    elif brain_flag == "T1w":
+        bold_dir_1 = os.path.join(
+            container_path, f"sub-0{subID}", f"item_representations_{brain_flag}"
+        )
     print(f"Loading preprocessed BOLDs for pre-localizer...")
     all_bolds_1 = {}  # {cateID: {trialID: bold}}
     bolds_arr_1 = []  # sample x vox
@@ -518,7 +525,7 @@ def segregate_by_memory_outcome(
     return itemw_remembered_df, itemw_forgot_df, catew_remembered_df, catew_forgot_df
 
 
-def rsa_pipeline_for_new_ROIs(subID, roi, brain_flag="MNI"):
+def rsa_pipeline_for_new_ROIs(subID, roi="VTC_mask", brain_flag="MNI"):
     # Initial configurations
     container_path = (
         "/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep"
@@ -611,7 +618,7 @@ def rsa_pipeline_for_new_ROIs(subID, roi, brain_flag="MNI"):
 
 # Parallel execution
 Parallel(n_jobs=-1, verbose=1)(
-    delayed(rsa_pipeline_for_new_ROIs)(sub_num, roi, brain_flag="MNI")
+    delayed(rsa_pipeline_for_new_ROIs)(sub_num, roi="VTC_mask", brain_flag="MNI")
     for sub_num in subs
     for roi in rois
 )

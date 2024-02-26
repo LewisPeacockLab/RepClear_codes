@@ -75,7 +75,8 @@ phases = ["rest", "preremoval", "study", "postremoval"]
 runs = np.arange(6) + 1
 spaces = {"T1w": "T1w", "MNI": "MNI152NLin2009cAsym"}
 descs = ["brain_mask", "preproc_bold"]
-ROIs = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
+# ROIs = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
+ROIs = ["Parahippocampal", "Fusiform"]
 shift_sizes_TR = [5]
 
 save = 1
@@ -194,7 +195,7 @@ def load_process_data(
     ]
 
     # Generate mask names (specific to the new ROIs)
-    mask_fnames = [f"{ROI}_{task}_{space}.nii.gz" for ROI in mask_ROIS]
+    mask_fnames = [f"{ROI}_{task}_{space}_mask.nii.gz" for ROI in mask_ROIS]
     mask_paths = [
         os.path.join(data_dir, f"sub-{subID}", "new_mask", fname)
         for fname in mask_fnames
@@ -561,7 +562,7 @@ def classification(subID):
     task = "preremoval"
     task2 = "study"
     space = "T1w"
-    ROIs = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
+    ROIs = ["Parahippocampal", "Fusiform"]
     n_iters = 1
     shift_size_TR = shift_sizes_TR[0]
     rest_tag = 0
@@ -653,135 +654,304 @@ def classification(subID):
         evidence_df.to_csv(os.path.join(sub_dir, out_fname_template))
 
 
-# now I need to create a function to take each subject's evidence DF, and then sort, organize and then visualize:
-# def organize_evidence(subID, save=True):
-#     task = "preremoval"
-#     task2 = "study"
-#     space = "T1w"
-#     ROIs = ["Prefrontal_ROI", "Higher_Order_Visual_ROI"]
+def organize_evidence(subID, save=True):
+    task = "preremoval"
+    task2 = "study"
+    space = "T1w"
+    ROIs = ["Parahippocampal", "Fusiform"]
 
-#     print("\n *** loading evidence values from subject dataframe ***")
+    for roi in ROIs:
+        print("\n *** loading evidence values from subject dataframe ***")
 
-#     sub_dir = os.path.join(data_dir, f"sub-{subID}")
-#     in_fname_template = (
-#         f"sub-{subID}_{space}_trained-{task}_tested-{task2}_{roi}_evidence.csv"
-#     )
+        sub_dir = os.path.join(data_dir, f"sub-{subID}")
+        in_fname_template = (
+            f"sub-{subID}_{space}_trained-{task}_tested-{task2}_{roi}_evidence.csv"
+        )
 
-#     sub_df = pd.read_csv(os.path.join(sub_dir, in_fname_template))
-#     sub_df.drop(
-#         columns=sub_df.columns[0], axis=1, inplace=True
-#     )  # now drop the extra index column
+        sub_df = pd.read_csv(os.path.join(sub_dir, in_fname_template))
+        sub_df.drop(
+            columns=sub_df.columns[0], axis=1, inplace=True
+        )  # now drop the extra index column
 
-#     sub_images, sub_index = np.unique(
-#         sub_df["image_id"], return_index=True
-#     )  # this searches through the dataframe to find each occurance of the image_id. This allows me to find the start of each trial, and linked to the image_ID #
+        sub_images, sub_index = np.unique(
+            sub_df["image_id"], return_index=True
+        )  # this searches through the dataframe to find each occurance of the image_id. This allows me to find the start of each trial, and linked to the image_ID #
 
-#     # now to sort the trials, we need to figure out what the operation performed is:
-#     sub_condition_list = sub_df["condition"][sub_index].values.astype(
-#         int
-#     )  # so using the above indices, we will now grab what the condition is of each image
+        # now to sort the trials, we need to figure out what the operation performed is:
+        sub_condition_list = sub_df["condition"][sub_index].values.astype(
+            int
+        )  # so using the above indices, we will now grab what the condition is of each image
 
-#     counter = 0
-#     maintain_trials = {}
-#     replace_trials = {}
-#     suppress_trials = {}
+        counter = 0
+        maintain_trials = {}
+        replace_trials = {}
+        suppress_trials = {}
 
-#     for i in sub_condition_list:
-#         if (
-#             i == 0
-#         ):  # this is the first rest period (because we had to shift of hemodynamics. So this "0" condition is nothing)
-#             print("i==0")
-#             counter += 1
-#             continue
-#         elif i == 1:
-#             temp_image = sub_images[counter]
-#             maintain_trials[temp_image] = sub_df[["rest_evi", "scene_evi", "face_evi"]][
-#                 sub_index[counter] - 5 : sub_index[counter] + 9
-#             ].values
-#             counter += 1
+        for i in sub_condition_list:
+            if (
+                i == 0
+            ):  # this is the first rest period (because we had to shift of hemodynamics. So this "0" condition is nothing)
+                print("i==0")
+                counter += 1
+                continue
+            elif i == 1:
+                temp_image = sub_images[counter]
+                maintain_trials[temp_image] = sub_df[
+                    ["rest_evi", "scene_evi", "face_evi"]
+                ][sub_index[counter] - 5 : sub_index[counter] + 9].values
+                counter += 1
 
-#         elif i == 2:
-#             temp_image = sub_images[counter]
-#             replace_trials[temp_image] = sub_df[["rest_evi", "scene_evi", "face_evi"]][
-#                 sub_index[counter] - 5 : sub_index[counter] + 9
-#             ].values
-#             counter += 1
+            elif i == 2:
+                temp_image = sub_images[counter]
+                replace_trials[temp_image] = sub_df[
+                    ["rest_evi", "scene_evi", "face_evi"]
+                ][sub_index[counter] - 5 : sub_index[counter] + 9].values
+                counter += 1
 
-#         elif i == 3:
-#             temp_image = sub_images[counter]
-#             suppress_trials[temp_image] = sub_df[["rest_evi", "scene_evi", "face_evi"]][
-#                 sub_index[counter] - 5 : sub_index[counter] + 9
-#             ].values
-#             counter += 1
+            elif i == 3:
+                temp_image = sub_images[counter]
+                suppress_trials[temp_image] = sub_df[
+                    ["rest_evi", "scene_evi", "face_evi"]
+                ][sub_index[counter] - 5 : sub_index[counter] + 9].values
+                counter += 1
 
-#     # now that the trials are sorted, we need to get the subject average for each condition:
-#     avg_maintain = pd.DataFrame(data=np.dstack(maintain_trials.values()).mean(axis=2))
-#     avg_replace = pd.DataFrame(data=np.dstack(replace_trials.values()).mean(axis=2))
-#     avg_suppress = pd.DataFrame(data=np.dstack(suppress_trials.values()).mean(axis=2))
+        # now that the trials are sorted, we need to get the subject average for each condition:
+        avg_maintain = pd.DataFrame(
+            data=np.dstack(maintain_trials.values()).mean(axis=2)
+        )
+        avg_replace = pd.DataFrame(data=np.dstack(replace_trials.values()).mean(axis=2))
+        avg_suppress = pd.DataFrame(
+            data=np.dstack(suppress_trials.values()).mean(axis=2)
+        )
 
-#     # now I will have to change the structure to be able to plot in seaborn:
-#     avg_maintain = (
-#         avg_maintain.T.melt()
-#     )  # now you get 2 columns: variable (TR) and value (evidence)
-#     avg_maintain["sub"] = np.repeat(
-#         subID, len(avg_maintain)
-#     )  # input the subject so I can stack melted dfs
-#     avg_maintain["evidence_class"] = np.tile(
-#         ["rest", "scenes", "faces"], 14
-#     )  # add in the labels so we know what each data point is refering to
-#     avg_maintain.rename(
-#         columns={"variable": "TR", "value": "evidence"}, inplace=True
-#     )  # renamed the melted column names
-#     avg_maintain[
-#         "condition"
-#     ] = "maintain"  # now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+        # now I will have to change the structure to be able to plot in seaborn:
+        avg_maintain = (
+            avg_maintain.T.melt()
+        )  # now you get 2 columns: variable (TR) and value (evidence)
+        avg_maintain["sub"] = np.repeat(
+            subID, len(avg_maintain)
+        )  # input the subject so I can stack melted dfs
+        avg_maintain["evidence_class"] = np.tile(
+            ["rest", "scenes", "faces"], 14
+        )  # add in the labels so we know what each data point is refering to
+        avg_maintain.rename(
+            columns={"variable": "TR", "value": "evidence"}, inplace=True
+        )  # renamed the melted column names
+        avg_maintain[
+            "condition"
+        ] = "maintain"  # now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
 
-#     avg_replace = (
-#         avg_replace.T.melt()
-#     )  # now you get 2 columns: variable (TR) and value (evidence)
-#     avg_replace["sub"] = np.repeat(
-#         subID, len(avg_replace)
-#     )  # input the subject so I can stack melted dfs
-#     avg_replace["evidence_class"] = np.tile(
-#         ["rest", "scenes", "faces"], 14
-#     )  # add in the labels so we know what each data point is refering to
-#     avg_replace.rename(
-#         columns={"variable": "TR", "value": "evidence"}, inplace=True
-#     )  # renamed the melted column names
-#     avg_replace[
-#         "condition"
-#     ] = "replace"  # now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+        avg_replace = (
+            avg_replace.T.melt()
+        )  # now you get 2 columns: variable (TR) and value (evidence)
+        avg_replace["sub"] = np.repeat(
+            subID, len(avg_replace)
+        )  # input the subject so I can stack melted dfs
+        avg_replace["evidence_class"] = np.tile(
+            ["rest", "scenes", "faces"], 14
+        )  # add in the labels so we know what each data point is refering to
+        avg_replace.rename(
+            columns={"variable": "TR", "value": "evidence"}, inplace=True
+        )  # renamed the melted column names
+        avg_replace[
+            "condition"
+        ] = "replace"  # now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
 
-#     avg_suppress = (
-#         avg_suppress.T.melt()
-#     )  # now you get 2 columns: variable (TR) and value (evidence)
-#     avg_suppress["sub"] = np.repeat(
-#         subID, len(avg_suppress)
-#     )  # input the subject so I can stack melted dfs
-#     avg_suppress["evidence_class"] = np.tile(
-#         ["rest", "scenes", "faces"], 14
-#     )  # add in the labels so we know what each data point is refering to
-#     avg_suppress.rename(
-#         columns={"variable": "TR", "value": "evidence"}, inplace=True
-#     )  # renamed the melted column names
-#     avg_suppress[
-#         "condition"
-#     ] = "suppress"  # now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
+        avg_suppress = (
+            avg_suppress.T.melt()
+        )  # now you get 2 columns: variable (TR) and value (evidence)
+        avg_suppress["sub"] = np.repeat(
+            subID, len(avg_suppress)
+        )  # input the subject so I can stack melted dfs
+        avg_suppress["evidence_class"] = np.tile(
+            ["rest", "scenes", "faces"], 14
+        )  # add in the labels so we know what each data point is refering to
+        avg_suppress.rename(
+            columns={"variable": "TR", "value": "evidence"}, inplace=True
+        )  # renamed the melted column names
+        avg_suppress[
+            "condition"
+        ] = "suppress"  # now I want to add in a condition label, since I can then stack all 3 conditions into 1 array per subject
 
-#     avg_subject_df = pd.concat(
-#         [avg_maintain, avg_replace, avg_suppress], ignore_index=True, sort=False
-#     )
+        avg_subject_df = pd.concat(
+            [avg_maintain, avg_replace, avg_suppress], ignore_index=True, sort=False
+        )
 
-#     # save for future use
-#     if save:
-#         sub_dir = os.path.join(data_dir, f"sub-{subID}")
-#         out_fname_template = f"sub-{subID}_{space}_{task2}_evidence_dataframe.csv"
-#         print(
-#             f"\n Saving the sorted evidence dataframe for {subID} - phase: {task2} - as {out_fname_template}"
-#         )
-#         avg_subject_df.to_csv(os.path.join(sub_dir, out_fname_template))
-#     return avg_subject_df
+        # save for future use
+        if save:
+            sub_dir = os.path.join(data_dir, f"sub-{subID}")
+            out_fname_template = (
+                f"sub-{subID}_{space}_{task2}_{roi}_evidence_dataframe.csv"
+            )
+            print(
+                f"\n Saving the sorted {roi} evidence dataframe for {subID} - phase: {task2} - as {out_fname_template}"
+            )
+            avg_subject_df.to_csv(os.path.join(sub_dir, out_fname_template))
 
 
 for sub in subIDs:
     classification(sub)
+
+for sub in subIDs:
+    organize_evidence(sub)
+
+
+####### analysis and visualize #######
+subIDs = [
+    "002",
+    "003",
+    "004",
+    "005",
+    "006",
+    "007",
+    "008",
+    "009",
+    "010",
+    "011",
+    "012",
+    "013",
+    "014",
+    "015",
+    "016",
+    "017",
+    "018",
+    "020",
+    "023",
+    "024",
+    "025",
+    "026",
+]
+task = "study"
+space = "T1w"
+rois = ["Parahippocampal", "Fusiform"]
+data_dir = "/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/"
+
+
+def aggregate_data(subIDs, task, space, rois, data_dir):
+    group_data = pd.DataFrame()
+    for subID in subIDs:
+        for roi in rois:
+            file_path = os.path.join(
+                data_dir,
+                f"sub-{subID}",
+                f"sub-{subID}_{space}_{task}_{roi}_evidence_dataframe.csv",
+            )
+            sub_df = pd.read_csv(file_path)
+            sub_df["subID"] = subID  # Add subject ID column
+            sub_df["ROI"] = roi  # Add ROI column
+            group_data = pd.concat([group_data, sub_df], ignore_index=True)
+    return group_data
+
+
+def normalize_evidence(group_data, baseline_condition="maintain", baseline_TRs=(0, 1)):
+    # Calculate baseline (mean evidence of the first two TRs in maintain condition)
+    baseline = (
+        group_data[
+            (group_data["condition"] == baseline_condition)
+            & (group_data["TR"].isin(baseline_TRs))
+        ]
+        .groupby(["subID", "ROI", "evidence_class"])["evidence"]
+        .mean()
+        .reset_index()
+    )
+
+    # Normalize evidence by subtracting the baseline
+    normalized_data = pd.merge(
+        group_data,
+        baseline,
+        how="left",
+        left_on=["subID", "ROI", "evidence_class"],
+        right_on=["subID", "ROI", "evidence_class"],
+    )
+    normalized_data["normalized_evidence"] = (
+        normalized_data["evidence_x"] - normalized_data["evidence_y"]
+    )
+    return normalized_data
+
+
+def visualize_normalized_evidence(updated_data, rois):
+    for roi in rois:
+        roi_data = updated_data[
+            (updated_data["ROI"] == roi) & (updated_data["evidence_class"] != "rest")
+        ]
+
+        # Setting up the plot
+        plt.figure(figsize=(10, 6))
+
+        # Plotting scene evidence for all conditions
+        sns.lineplot(
+            data=roi_data[roi_data["evidence_class"] == "scenes"],
+            x="TR",
+            y="normalized_evidence",
+            hue="condition",
+            ci="sd",
+            palette={"maintain": "green", "replace": "blue", "suppress": "red"},
+        )
+
+        # Plotting face evidence only for replace trials
+        replace_face_data = roi_data[
+            (roi_data["condition"] == "replace")
+            & (roi_data["evidence_class"] == "faces")
+        ]
+        sns.lineplot(
+            data=replace_face_data,
+            x="TR",
+            y="normalized_evidence",
+            color="black",
+            linestyle="--",
+            label="replace (face evidence)",
+        )
+
+        plt.title(f"Normalized Evidence Trajectory in {roi}")
+        plt.xlabel("Time (TR)")
+        plt.ylabel("Normalized Evidence")
+        plt.legend(
+            title="Condition & Evidence Class",
+            bbox_to_anchor=(1.05, 1),
+            loc="upper left",
+        )
+        plt.tight_layout()
+        plt.savefig(f"normalized_evidence_trajectory_{roi}.png", dpi=300)
+        plt.show()
+
+
+def visualize_evidence(group_data, rois):
+    for roi in rois:
+        # Filter data for the current ROI and exclude 'rest' class
+        roi_data = group_data[
+            (group_data["ROI"] == roi) & (group_data["evidence_class"] == "scenes")
+        ]
+
+        # Setting up the plot
+        plt.figure(figsize=(10, 6))
+
+        # Plotting scene evidence for all conditions
+        sns.lineplot(
+            data=roi_data,
+            x="TR",
+            y="evidence",
+            hue="condition",
+            ci="sd",
+            palette={"maintain": "green", "replace": "blue", "suppress": "red"},
+        )
+
+        plt.title(f"Evidence Trajectory in {roi}")
+        plt.xlabel("Time (TR)")
+        plt.ylabel("Evidence")
+        plt.legend(title="Condition", bbox_to_anchor=(1.05, 1), loc="upper left")
+        plt.tight_layout()
+        plt.savefig(f"evidence_trajectory_{roi}.png", dpi=300)
+        plt.show()
+
+
+# Call the function with the group_data DataFrame and the list of ROIs you're interested in
+
+group_data = aggregate_data(subIDs, task, space, rois, data_dir)
+
+# Normalize evidence
+normalized_data = normalize_evidence(group_data)
+
+# Visualize normalized evidence trajectories
+visualize_normalized_evidence(normalized_data, rois)
+
+visualize_evidence(group_data, ["Parahippocampal", "Fusiform"])

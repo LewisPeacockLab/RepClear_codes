@@ -7,6 +7,10 @@ import pingouin as pg
 from matplotlib.legend_handler import HandlerTuple
 from sklearn.utils import resample
 import numpy as np
+from scipy.stats import f_oneway
+from statsmodels.stats.multitest import multipletests
+import statsmodels.api as sm
+from statsmodels.formula.api import ols, mixedlm, smf
 
 rois = ["Prefrontal_ROI", "Higher_Order_Visual_ROI", "hippocampus_ROI", "VTC_mask"]
 
@@ -29,67 +33,68 @@ def aggregate_data(df, memory_status):
     return agg_df
 
 
-def perform_t_tests(agg_df1, agg_df2, roi, test_type="paired", n_iterations=1000):
+def perform_t_tests(agg_df1, agg_df2, roi, test_type="paired", n_iterations=10000):
     operations = agg_df1["Operation"].unique()
     stats_results = []
+    p_values = []
+    empirical_p_values = []
+
     for op in operations:
-        data1 = agg_df1.loc[agg_df1["Operation"] == op, "Fidelity"]
-        data2 = agg_df2.loc[agg_df2["Operation"] == op, "Fidelity"]
-        DoF = len(data1) - 1 if test_type == "paired" else len(data1) + len(data2) - 2
+        data1 = agg_df1.loc[agg_df1["Operation"] == op, "Fidelity"].to_numpy()
+        data2 = agg_df2.loc[agg_df2["Operation"] == op, "Fidelity"].to_numpy()
 
-        # Bootstrap
-        bootstrap_t_stats = []
-        for i in range(n_iterations):
-            sample1 = resample(data1, replace=True)
-            sample2 = resample(data2, replace=True)
-            if test_type == "paired":
-                t_stat, _ = stats.ttest_rel(sample1, sample2, nan_policy="omit")
-            else:
-                t_stat, _ = stats.ttest_ind(sample1, sample2, nan_policy="omit")
-            bootstrap_t_stats.append(t_stat)
+        # Perform the bootstrap
+        bootstrap_differences, empirical_p, observed_difference = perform_bootstrap(
+            data1, data2, paired=test_type == "paired", n_iterations=n_iterations
+        )
 
-        # Calculate 95% CI for t-statistic
-        lower = np.percentile(bootstrap_t_stats, 2.5)
-        upper = np.percentile(bootstrap_t_stats, 97.5)
+        # Calculate 95% CI for difference
+        lower = np.percentile(bootstrap_differences, 2.5)
+        upper = np.percentile(bootstrap_differences, 97.5)
 
-        # Existing t-test and Bayes Factor calculation
+        # Perform the appropriate t-test based on test_type
         if test_type == "paired":
             t_stat, p_val = stats.ttest_rel(data1, data2, nan_policy="omit")
-            bayes_result = pg.ttest(data1, data2, paired=True)
-            # Calculate Cohen's d using mean difference method
-            mean_diff = np.mean(data1 - data2)
-            std_diff = np.std(data1 - data2, ddof=1)
-            cohen_d_mean_diff = mean_diff / std_diff
-            print(f"Cohen's d using mean difference: {cohen_d_mean_diff}")
         else:
             t_stat, p_val = stats.ttest_ind(data1, data2, nan_policy="omit")
-            bayes_result = pg.ttest(data1, data2, paired=False)
-            # Calculate Cohen's d for independent t-test
-            mean1, mean2 = np.mean(data1), np.mean(data2)
-            sd1, sd2 = np.std(data1, ddof=1), np.std(data2, ddof=1)
-            pooled_sd = np.sqrt((sd1**2 + sd2**2) / 2)
-            cohen_d = (mean1 - mean2) / pooled_sd
-            print(f"Cohen's d for independent t-test: {cohen_d}")
 
-        if bayes_result.shape[0] > 0:
-            bayes_factor = bayes_result.iloc[0]["BF10"]
-        else:
-            bayes_factor = "DataFrame is empty"
+        # Calculate degrees of freedom
+        DoF = len(data1) - 1 if test_type == "paired" else len(data1) + len(data2) - 2
 
+        # Store p-values for correction
+        p_values.append(p_val)
+        empirical_p_values.append(empirical_p)
+
+        # Prepare the results for this operation
+        result = {
+            "Operation": op,
+            "TestType": test_type,
+            "ObservedDifference": observed_difference,
+            "EmpiricalP": empirical_p,
+            "CI95_Lower": lower,
+            "CI95_Upper": upper,
+            "t_stat": t_stat,
+            "p_val": p_val,
+            "DoF": DoF,
+        }
+        stats_results.append(result)
         print(
-            f"{test_type.capitalize()} t-test for operation {op}: t = {t_stat}, p = {p_val}, BF10 = {bayes_factor}, DoF = {DoF}, Bootstrap 95% CI = ({lower}, {upper})"
+            f"{test_type.capitalize()} t-test for operation {op}: t = {t_stat}, p = {p_val}, "
+            f"DoF = {DoF}, Empirical p = {empirical_p}, "
+            f"Bootstrap 95% CI for difference = ({lower}, {upper})"
         )
-        stats_results.append(
-            {
-                "Operation": op,
-                "TestType": test_type,
-                "t_stat": t_stat,
-                "p_val": p_val,
-                "BF10": bayes_factor,
-                "DoF": DoF,
-                "Bootstrap_CI_lower": lower,
-                "Bootstrap_CI_upper": upper,
-            }
+
+    # After applying correction
+    corrected_p_values = multipletests(p_values, alpha=0.05, method="fdr_bh")[1]
+    corrected_empirical_p_values = multipletests(
+        empirical_p_values, alpha=0.05, method="fdr_bh"
+    )[1]
+
+    for idx, op in enumerate(operations):
+        stats_results[idx]["CorrectedP"] = corrected_p_values[idx]
+        stats_results[idx]["CorrectedEmpiricalP"] = corrected_empirical_p_values[idx]
+        print(
+            f"Operation {op} has a corrected p-value of: {corrected_p_values[idx]} and a corrected empirical p-value of: {corrected_empirical_p_values[idx]}"
         )
 
     # Save to text file
@@ -107,6 +112,30 @@ def perform_t_tests(agg_df1, agg_df2, roi, test_type="paired", n_iterations=1000
 
         # Add a separator for readability
         file.write("--------------------------------------------------\n")
+
+
+def perform_bootstrap_t_test(data1, data2, n_iterations=10000):
+    # Original test statistic
+    original_t_stat, _ = ttest_rel(data1, data2)
+
+    # Store the test statistics from the bootstrap samples
+    bootstrap_t_statistics = []
+
+    for i in range(n_iterations):
+        # Sample with replacement from the paired differences
+        indices = np.arange(len(data1))
+        resampled_indices = np.random.choice(indices, size=len(indices), replace=True)
+        resampled_data1 = data1[resampled_indices]
+        resampled_data2 = data2[resampled_indices]
+
+        # Compute the test statistic for the resampled data
+        t_stat, _ = ttest_rel(resampled_data1, resampled_data2)
+        bootstrap_t_statistics.append(t_stat)
+
+    # Empirical p-value: proportion of resampled t-stats as extreme as the original
+    empirical_p = np.mean(np.abs(bootstrap_t_statistics) >= np.abs(original_t_stat))
+
+    return bootstrap_t_statistics, empirical_p
 
 
 def plot_data(combined_df, plot_title, save_path):
@@ -169,6 +198,42 @@ def save_statistics_to_file(roi, stats_list):
         for stat in stats_list:
             file.write(f"{stat}\n")
         file.write("--------------------------------------------------\n")
+
+
+def perform_anova(*args):
+    f_stat, p_val = f_oneway(*args)
+    print(f"ANOVA results: F = {f_stat}, p = {p_val}")
+    return f_stat, p_val
+
+
+def perform_mixed_effects_model(df):
+    """
+    This function fits a mixed-effects model to the provided dataframe, which should
+    contain the combined data for all subjects and conditions.
+
+    Parameters:
+    df (DataFrame): A pandas DataFrame with the following columns:
+                    'Subject', 'Memory', 'Fidelity_Type', 'Fidelity'
+
+    Returns:
+    Summary: A summary of the mixed-effects model results.
+    """
+    # Ensure the subject column is treated as a categorical variable for the model
+    df["Subject"] = df["Subject"].astype("category")
+
+    # Define the model formula
+    model_formula = "Fidelity ~ C(Memory) * C(Fidelity_Type)"
+
+    # Fit the mixed-effects model
+    mixed_effects_model = smf.mixedlm(
+        model_formula, df, groups=df["Subject"], re_formula="~Memory"
+    )
+    mixed_effects_model_fit = mixed_effects_model.fit(
+        method="nm", maxiter=200, full_output=True
+    )
+
+    # Return the summary of the model
+    return mixed_effects_model_fit.summary()
 
 
 expected_operations = ["Replace", "Maintain", "Suppress"]
@@ -281,6 +346,73 @@ def main(roi):
         paired_agg_all_forgot_cate = pd.concat(
             [paired_agg_all_forgot_cate, agg_forgot_cate]
         )
+
+    # Combine the remembered and forgotten item data into one DataFrame
+    combined_paired_item_data = pd.concat(
+        [paired_agg_all_remembered_item, paired_agg_all_forgot_item]
+    )
+
+    # Combine the remembered and forgotten category data into one DataFrame
+    combined_paired_cate_data = pd.concat(
+        [paired_agg_all_remembered_cate, paired_agg_all_forgot_cate]
+    )
+
+    # Combine the remembered and forgotten item data into one DataFrame
+    combined_unpaired_item_data = pd.concat(
+        [unpaired_all_remembered_item, unpaired_all_forgot_item]
+    )
+
+    # Combine the remembered and forgotten category data into one DataFrame
+    combined_unpaired_cate_data = pd.concat(
+        [unpaired_all_remembered_cate, unpaired_all_forgot_cate]
+    )
+
+    # Performing mixed-effects model analysis on the combined paired item data
+    mixed_model_item, summary_item = perform_mixed_effects_analysis(
+        combined_paired_item_data,
+        dependent_var="Fidelity",
+        fixed_effects=["Operation", "Memory"],
+        group_var="Subject",
+    )
+    print("Mixed-effects model analysis for Paired Item Data:")
+    print(summary_item)
+
+    # Performing mixed-effects model analysis on the combined paired category data
+    mixed_model_cate, summary_cate = perform_mixed_effects_analysis(
+        combined_paired_cate_data,
+        dependent_var="Fidelity",
+        fixed_effects=["Operation", "Memory"],
+        group_var="Subject",
+    )
+    print("Mixed-effects model analysis for Paired Category Data:")
+    print(summary_cate)
+
+    def perform_two_way_anova(dataframe, dependent_var, factor1, factor2):
+        model = ols(
+            f"{dependent_var} ~ C({factor1}) * C({factor2})", data=dataframe
+        ).fit()
+        anova_table = sm.stats.anova_lm(model, typ=2)
+        print(anova_table)
+
+    # Perform the 3x2 ANOVA for item weighted data
+    print("3x2 ANOVA for Item Weighted Data - Paired:")
+    perform_two_way_anova(combined_paired_item_data, "Fidelity", "Operation", "Memory")
+
+    # Perform the 3x2 ANOVA for category weighted data
+    print("3x2 ANOVA for Category Weighted Data - Paired:")
+    perform_two_way_anova(combined_paired_cate_data, "Fidelity", "Operation", "Memory")
+
+    # Perform the 3x2 ANOVA for item weighted data
+    print("3x2 ANOVA for Item Weighted Data - Unpaired:")
+    perform_two_way_anova(
+        combined_unpaired_item_data, "Fidelity", "Operation", "Memory"
+    )
+
+    # Perform the 3x2 ANOVA for category weighted data
+    print("3x2 ANOVA for Category Weighted Data - Unpaired:")
+    perform_two_way_anova(
+        combined_unpaired_cate_data, "Fidelity", "Operation", "Memory"
+    )
 
     # Path to save group-level CSVs
     group_save_path = f"/scratch/06873/zbretton/repclear_dataset/BIDS/derivatives/fmriprep/{roi}_group_level_data"
