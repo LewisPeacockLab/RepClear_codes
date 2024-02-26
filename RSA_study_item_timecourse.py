@@ -188,6 +188,10 @@ def compute_fidelity(
         container_path (str): Container path for fMRI data
     """
 
+    mask_path = os.path.join(f"{container_path}/group_MNI_{roi}.nii.gz")
+    mask = nib.load(mask_path)
+    mask_data = mask.get_fdata()
+
     # Load weights
     item_weights_dir = os.path.join(
         container_path, f"sub-0{subID}", f"preremoval_item_level_MNI_{roi}"
