@@ -7,6 +7,10 @@ from scipy.stats import pearsonr
 from joblib import Parallel, delayed
 import glob
 import re
+import seaborn as sns
+import matplotlib.pyplot as plt
+from scipy.stats import ttest_rel
+
 
 subs = [
     "02",
@@ -344,3 +348,26 @@ plt.xlabel("Timepoint (TR)")
 plt.ylabel("RSA Value")
 plt.legend(title="Condition")
 plt.tight_layout()
+
+
+###### stats?
+
+
+# Statistical Comparison
+p_values = []
+for tr in range(1, 12):  # Assuming 11 TRs
+    for comp in [("suppress", "maintain"), ("replace", "maintain")]:
+        data1 = all_subjects_data[
+            (all_subjects_data["Condition"] == comp[0])
+            & (all_subjects_data["TR"] == tr)
+        ]["RSA_Value"]
+        data2 = all_subjects_data[
+            (all_subjects_data["Condition"] == comp[1])
+            & (all_subjects_data["TR"] == tr)
+        ]["RSA_Value"]
+        _, p = ttest_rel(data1, data2)
+        p_values.append(
+            {"TR": tr, "Comparison": f"{comp[0]} vs. {comp[1]}", "p-value": p}
+        )
+
+p_values_df = pd.DataFrame(p_values)
