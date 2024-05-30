@@ -922,8 +922,45 @@ def visualize_evidence(group_data, rois):
             (group_data["ROI"] == roi) & (group_data["evidence_class"] == "scenes")
         ]
 
+        # Calculate mean rest evidence across conditions for the current ROI
+        mean_rest_evidence = (
+            group_data[
+                (group_data["ROI"] == roi) & (group_data["evidence_class"] == "rest")
+            ]
+            .groupby(["TR", "subID"])["evidence"]
+            .mean()
+            .reset_index()
+        )
+
         # Setting up the plot
         plt.figure(figsize=(10, 6))
+
+        sns.lineplot(
+            data=mean_rest_evidence,
+            x="TR",
+            y="evidence",
+            color="gray",
+            linestyle="--",
+            ci=95,
+            label="rest",
+        )
+
+        # Plotting face evidence only for replace trials
+        replace_face_data = group_data[
+            (group_data["ROI"] == roi)
+            & (group_data["condition"] == "replace")
+            & (group_data["evidence_class"] == "faces")
+        ]
+
+        sns.lineplot(
+            data=replace_face_data,
+            x="TR",
+            y="evidence",
+            color="black",
+            linestyle="--",
+            ci=95,
+            label="replace (face evidence)",
+        )
 
         # Plotting scene evidence for all conditions
         sns.lineplot(
@@ -931,7 +968,7 @@ def visualize_evidence(group_data, rois):
             x="TR",
             y="evidence",
             hue="condition",
-            ci="sd",
+            ci=95,
             palette={"maintain": "green", "replace": "blue", "suppress": "red"},
         )
 

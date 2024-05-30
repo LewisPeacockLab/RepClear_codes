@@ -1,0 +1,51 @@
+updated repclear fmri_v2 README:
+parameters_fmri.mat:
+images:
+    1. old_repeat - 90
+    2. old_nonrepeat - 30
+    3. novel (scenes) - 60
+    4. faces - 30
+    5. novel (faces) - 30
+    total - 240 
+Condition:
+    1. maintain
+    2. replace_category
+    3. suppress
+Designation:
+    1. pre-post(scene)
+    2. pre-only(scene)
+    3. novel(scene)
+    4. faces(replace)
+    5. novel_faces(replace)
+Phase:
+    1. pre_exposure / naming
+    2. pre_localizer
+    3. study
+    4. post_localizer
+    5. familiarity
+old_novel: 
+    1. old(for ltm)
+    2. novel (for ltm)
+    3. pre-exposed (old both)
+operation:
+    1. Maintain
+    2. Switch
+    3. Suppress
+category:
+    1. scene
+    2. face
+subcategory1:
+    1. manmade
+    2. natural
+subcategory2:
+    1. female
+    2. male
+
+Memory Task Responses:
+    1. Sure New
+    2. Unsure New
+    3. Unsure Old
+    4. Sure Old 
+
+TR: 1s
+n_condition: 3
